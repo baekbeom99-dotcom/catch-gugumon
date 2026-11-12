@@ -28,11 +28,13 @@ describe('필드 모험 운영 수치', () => {
       SKILL_EFFECT_DELAY_MS: 250,
       WILD_END_MS: 1500,
       CAPSULE_SHAKES: 3,
-      CAPSULE_SHAKE_MS: 450,
-      CAPSULE_THROW_MS: 550,
-      CAPSULE_ABSORB_MS: 450,
-      CAPSULE_BOUNCE_MS: 450,
-      CAPSULE_RESULT_MS: 200,
+      CAPSULE_SHAKE_MS: 400,
+      CAPSULE_THROW_MS: 500,
+      CAPSULE_HIT_MS: 150,
+      CAPSULE_ABSORB_MS: 400,
+      CAPSULE_FALL_MS: 300,
+      CAPSULE_BOUNCE_MS: 300,
+      CAPSULE_RESULT_MS: 150,
       CAPSULE_POP_AT: { healed: 1, escaped: 2, angry: 2 },
       MIN_LOADING_MS: 600,
       WATER_FRAME_MS: 500,
@@ -87,7 +89,15 @@ describe('필드 모험 운영 수치', () => {
 
 describe('캡슐 던지기 연출 시간', () => {
   it('잡힘은 던짐부터 결과까지 약 3초', () => {
-    const total = T.CAPSULE_THROW_MS + T.CAPSULE_ABSORB_MS + T.CAPSULE_BOUNCE_MS + T.CAPSULE_SHAKES * T.CAPSULE_SHAKE_MS + T.CAPSULE_RESULT_MS;
+    // 던짐 → 맞음 → 빨려듦 → 낙하 → 통통 → 흔들림 3번 → 결과
+    const total =
+      T.CAPSULE_THROW_MS +
+      T.CAPSULE_HIT_MS +
+      T.CAPSULE_ABSORB_MS +
+      T.CAPSULE_FALL_MS +
+      T.CAPSULE_BOUNCE_MS +
+      T.CAPSULE_SHAKES * T.CAPSULE_SHAKE_MS +
+      T.CAPSULE_RESULT_MS;
     expect(total).toBe(3000);
   });
 

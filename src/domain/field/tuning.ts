@@ -55,16 +55,21 @@ export const SKILL_EFFECT_DELAY_MS = 250;
 /** 도망갔다·잡았다 글을 보여 주고 필드로 돌아가기까지 */
 export const WILD_END_MS = 1500;
 /**
- * 캡슐 던지기 연출 (잡힘 기준 모두 더해 3초): 던짐 → 빨려듦 → 통통 → 흔들림 3번 → 결과.
+ * 캡슐 던지기 연출 (잡힘 기준 모두 더해 3초): 던짐 → 머리에 맞음 → 빨려듦 → 바닥으로 낙하 → 통통 → 흔들림 3번 → 결과.
  * 결과는 던지는 순간 이미 정해져 있고, 연출만 거기에 맞춘다.
  */
 export const CAPSULE_SHAKES = 3;
-export const CAPSULE_SHAKE_MS = 450;
-export const CAPSULE_THROW_MS = 550;
-export const CAPSULE_ABSORB_MS = 450;
-export const CAPSULE_BOUNCE_MS = 450;
+export const CAPSULE_SHAKE_MS = 400;
+export const CAPSULE_THROW_MS = 500;
+/** 캡슐이 구구몬 머리에 닿는 순간 */
+export const CAPSULE_HIT_MS = 150;
+export const CAPSULE_ABSORB_MS = 400;
+/** 머리 높이에서 바닥까지 떨어지는 시간 */
+export const CAPSULE_FALL_MS = 300;
+/** 바닥에서 한 번 통통 */
+export const CAPSULE_BOUNCE_MS = 300;
 /** 결과(찰칵·열림)를 보여 주는 시간 */
-export const CAPSULE_RESULT_MS = 200;
+export const CAPSULE_RESULT_MS = 150;
 /** 실패하면 몇 번째 흔들림 끝에서 캡슐이 열리나 (잡힘은 세 번 다 흔든다) */
 export const CAPSULE_POP_AT = { healed: 1, escaped: 2, angry: 2 } as const;
 /** 필드 불러오기 화면을 적어도 이만큼은 보여준다 */

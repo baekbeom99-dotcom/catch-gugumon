@@ -20,6 +20,8 @@ import type { Encounter } from '../../domain/field/encounter';
 import {
   CAPSULE_ABSORB_MS,
   CAPSULE_BOUNCE_MS,
+  CAPSULE_FALL_MS,
+  CAPSULE_HIT_MS,
   CAPSULE_POP_AT,
   CAPSULE_RESULT_MS,
   CAPSULE_SHAKE_MS,
@@ -107,8 +109,10 @@ interface Burst {
 const copyRng = (forced: boolean | null): Rng => (forced === true ? () => 0 : forced === false ? () => 1 : rng);
 const COMPANION_COLOR = DAN_COLORS[5];
 
-/** 캡슐 던지기 연출 단계: 던짐 → 빨려듦 → 통통 → 흔들림 → 결과 (E2E는 data-capsule-stage로 읽는다) */
-type CapsuleStage = 'throw' | 'absorb' | 'bounce' | 'shake' | 'result';
+/** 캡슐 던지기 연출 단계: 던짐 → 머리에 맞음 → 빨려듦 → 바닥으로 낙하 → 통통 → 흔들림 → 결과 (E2E는 data-capsule-stage로 읽는다) */
+type CapsuleStage = 'throw' | 'hit' | 'absorb' | 'fall' | 'bounce' | 'shake' | 'result';
+/** 캡슐이 바닥에 있는 단계 (바닥 그림자가 보인다) */
+const CAPSULE_ON_FLOOR: readonly CapsuleStage[] = ['fall', 'bounce', 'shake'];
 interface CapsuleShow {
   stage: CapsuleStage;
   outcome: ThrowOutcome;
@@ -121,8 +125,12 @@ function capsuleBallStyle(stage: CapsuleStage | null, shakes: number): CSSProper
   switch (stage) {
     case 'throw':
       return { animationDuration: `${CAPSULE_THROW_MS}ms` };
+    case 'hit':
+      return { animationDuration: `${CAPSULE_HIT_MS}ms` };
     case 'absorb':
       return { animationDuration: `${CAPSULE_ABSORB_MS}ms` };
+    case 'fall':
+      return { animationDuration: `${CAPSULE_FALL_MS}ms` };
     case 'bounce':
       return { animationDuration: `${CAPSULE_BOUNCE_MS}ms` };
     case 'shake':
@@ -660,11 +668,17 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     show('throw');
     playSfx('throw');
     t += CAPSULE_THROW_MS;
+    // 머리에 닿는 순간: 작은 번쩍 + 딸깍
     later(() => {
-      show('absorb');
+      show('hit');
       playSfx('capsuleOpen');
     }, t);
+    t += CAPSULE_HIT_MS;
+    later(() => show('absorb'), t);
     t += CAPSULE_ABSORB_MS;
+    later(() => show('fall'), t);
+    t += CAPSULE_FALL_MS;
+    // 바닥에 닿는 순간 통통 소리
     later(() => {
       show('bounce');
       playSfx('capsuleBounce');
@@ -746,7 +760,8 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const stage = capsule?.stage ?? null;
   const caughtShow = capsule?.outcome === 'caught' || (!capsule && wild.phase === 'caught');
   const ballShown = capsule ? stage !== 'result' || caughtShow : wild.phase === 'caught';
-  const foeHidden = ballShown && stage !== 'throw' && stage !== 'absorb';
+  const foeHidden = ballShown && stage !== 'throw' && stage !== 'hit' && stage !== 'absorb';
+  const shadowShown = stage ? CAPSULE_ON_FLOOR.includes(stage) || (stage === 'result' && caughtShow) : wild.phase === 'caught';
   const popped = stage === 'result' && !caughtShow;
 
   return (
@@ -796,6 +811,14 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
             >
               {creatureSprite(encounter.species, { view: 'front', mood: wildMood, color: DAN_COLORS[encounter.dan], size: 150 })}
             </div>
+            {shadowShown && (
+              <span
+                key={`s${stage ?? 'rest'}`}
+                className={`wild__capsule-shadow wild__capsule-shadow--${stage ?? 'rest'}`}
+                aria-hidden
+                style={capsuleBallStyle(stage, 0)}
+              />
+            )}
             {ballShown && (
               <div
                 key={stage ?? 'rest'}

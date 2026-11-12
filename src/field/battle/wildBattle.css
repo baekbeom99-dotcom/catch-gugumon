@@ -719,17 +719,44 @@
 }
 
 /*
- * 캡슐 던지기 (4-1): 포물선 던짐 → 붉은 빛으로 빨려듦 → 통통 → 흔들림 → 열림/찰칵.
+ * 캡슐 던지기 (4-1): 던짐 → 머리에 탁 맞음 → 붉은 빛으로 빨려듦 → 바닥으로 뚝 떨어짐 → 통통 → 기우뚱 흔들림 → 열림/찰칵.
+ * 공의 제자리는 "야생 구구몬 발 밑 바닥"이고, 머리 높이는 --capsule-head 만큼 위다.
  * 시간은 화면이 style로 넣는다(tuning.ts). 단계 이름은 stage의 data-capsule-stage와 같다.
  */
+.wild__stage {
+  --capsule-head: -86px;
+}
+
 .wild__capsule-ball {
   position: absolute;
-  top: 40px;
-  right: 56px;
+  top: 86px;
+  right: 43px;
   z-index: 2;
   line-height: 0;
+  transform-origin: 50% 90%;
   animation-timing-function: ease-in-out;
   animation-fill-mode: both;
+}
+
+/* 바닥 그림자 (낙하·통통·흔들림 동안 공 아래에) */
+.wild__capsule-shadow {
+  position: absolute;
+  top: 142px;
+  right: 51px;
+  width: 48px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.28);
+  animation-fill-mode: both;
+}
+
+.wild__capsule-shadow--fall {
+  animation-name: wild-capsule-shadow-fall;
+  animation-timing-function: ease-in;
+}
+
+.wild__capsule-shadow--bounce {
+  animation-name: wild-capsule-shadow-bounce;
 }
 
 .wild__capsule-ball--throw {
@@ -737,8 +764,27 @@
   animation-timing-function: ease-out;
 }
 
+/* 머리에 닿는 순간: 작게 번쩍 */
+.wild__capsule-ball--hit {
+  animation-name: wild-capsule-hit;
+}
+
+.wild__capsule-ball--hit::after {
+  content: '';
+  position: absolute;
+  inset: -14px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0%, rgba(255, 247, 176, 0.8) 35%, transparent 70%);
+  animation: wild-capsule-flash 0.15s ease-out both;
+}
+
 .wild__capsule-ball--absorb {
   animation-name: wild-capsule-absorb;
+}
+
+.wild__capsule-ball--fall {
+  animation-name: wild-capsule-fall;
+  animation-timing-function: ease-in;
 }
 
 .wild__capsule-ball--bounce {
@@ -759,39 +805,98 @@
     transform: translate(-200px, 150px) rotate(-540deg) scale(0.6);
   }
   55% {
-    transform: translate(-80px, -50px) rotate(-200deg) scale(0.9);
+    transform: translate(-80px, -40px) rotate(-200deg) scale(0.9);
   }
   100% {
-    transform: translate(0, 0) rotate(0) scale(1);
+    transform: translate(0, var(--capsule-head)) rotate(0) scale(1);
+  }
+}
+
+@keyframes wild-capsule-hit {
+  0%,
+  100% {
+    transform: translate(0, var(--capsule-head)) scale(1);
+  }
+  50% {
+    transform: translate(0, var(--capsule-head)) scale(1.2);
+  }
+}
+
+@keyframes wild-capsule-flash {
+  0% {
+    opacity: 1;
+    transform: scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.4);
   }
 }
 
 @keyframes wild-capsule-absorb {
   0%,
   100% {
+    transform: translate(0, var(--capsule-head));
     filter: drop-shadow(0 0 0 rgba(255, 60, 60, 0));
   }
   40%,
   80% {
+    transform: translate(0, var(--capsule-head));
     filter: drop-shadow(0 0 10px rgba(255, 60, 60, 1)) brightness(1.3);
   }
 }
 
-@keyframes wild-capsule-bounce {
-  0%,
-  45%,
-  80%,
+/* 머리 높이에서 바닥까지 가속하며 뚝 떨어진다 */
+@keyframes wild-capsule-fall {
+  0% {
+    transform: translate(0, var(--capsule-head)) rotate(0);
+  }
   100% {
-    transform: translateY(0);
-  }
-  25% {
-    transform: translateY(-26px);
-  }
-  62% {
-    transform: translateY(-11px);
+    transform: translate(0, 0) rotate(14deg);
   }
 }
 
+/* 바닥에 닿아 작게 한 번 통통 */
+@keyframes wild-capsule-bounce {
+  0% {
+    transform: translateY(0) rotate(14deg);
+  }
+  40% {
+    transform: translateY(-20px) rotate(4deg);
+  }
+  75% {
+    transform: translateY(0) rotate(-3deg);
+  }
+  100% {
+    transform: translateY(0) rotate(0);
+  }
+}
+
+@keyframes wild-capsule-shadow-fall {
+  0% {
+    opacity: 0.3;
+    transform: scaleX(0.4);
+  }
+  100% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+}
+
+@keyframes wild-capsule-shadow-bounce {
+  0%,
+  75%,
+  100% {
+    opacity: 1;
+    transform: scaleX(1);
+  }
+  40% {
+    opacity: 0.6;
+    transform: scaleX(0.7);
+  }
+}
+
+/* 바닥에 놓인 채 좌우로 기우뚱 (아래쪽을 중심으로) */
 @keyframes wild-capsule-shake {
   0%,
   100% {
@@ -823,7 +928,7 @@
 
 /* 붉은 빛이 되어 공 쪽으로 쪼그라든다 */
 .wild__foe--absorb {
-  transform-origin: 62% 30%;
+  transform-origin: 50% 25%; /* 머리 쪽으로 쪼그라든다 */
   animation: wild-foe-absorb ease-in both;
 }
 
@@ -836,7 +941,7 @@
     filter: brightness(2.2) sepia(1) saturate(6) hue-rotate(-30deg);
   }
   100% {
-    transform: translate(-6px, -4px) scale(0.05);
+    transform: scale(0.05);
     filter: brightness(2.2) sepia(1) saturate(6) hue-rotate(-30deg);
   }
 }
@@ -858,18 +963,30 @@
   }
 }
 
-/* 동작 줄이기: 날아가고 빨려들고 통통 튀는 움직임은 빼고 흔들림만 단순하게 */
+/* 동작 줄이기: 날아가고 빨려들고 떨어지고 통통 튀는 움직임은 빼고, 바로 바닥에 놓여 흔들림만 단순하게 */
 @media (prefers-reduced-motion: reduce) {
   /* 단계가 바뀌어도 번쩍이지 않고 색만 바뀐다 */
   .wild__timer--dropped .wild__timer-fill {
     animation: none;
   }
   .wild__capsule-ball--throw,
+  .wild__capsule-ball--hit,
   .wild__capsule-ball--absorb,
+  .wild__capsule-ball--fall,
   .wild__capsule-ball--bounce,
   .wild__capsule-ball--result,
+  .wild__capsule-shadow,
   .wild__foe--pop {
     animation: none;
+  }
+  /* 낙하 전에는 공이 안 보이고, 낙하 단계부터 바로 바닥에 놓인다 */
+  .wild__capsule-ball--throw,
+  .wild__capsule-ball--hit,
+  .wild__capsule-ball--absorb {
+    visibility: hidden;
+  }
+  .wild__capsule-ball--hit::after {
+    display: none;
   }
   .wild__foe--absorb {
     animation: none;
