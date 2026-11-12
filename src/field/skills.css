@@ -1,0 +1,220 @@
+/* 기술 카드·선택창·관리 화면 (375px 기준, 큰 글자) */
+.skill-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 10px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+  color: var(--ink);
+  text-align: left;
+}
+.skill-card--special {
+  background: #fff6c8;
+}
+.skill-card__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+.skill-card__name {
+  font-family: var(--font-display);
+  font-size: 20px;
+  word-break: keep-all;
+}
+.skill-card__tag {
+  padding: 1px 6px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: var(--pink);
+  font-size: 13px;
+  font-weight: 700;
+}
+.skill-card__tag--grass { background: #b8f25c; }
+.skill-card__tag--poison { background: #d9b6ff; }
+.skill-card__tag--light { background: #fff07a; }
+.skill-card__tag--water { background: #8fdcff; }
+.skill-card__tag--thunder { background: #ffe14d; }
+.skill-card__tag--earth { background: #e0b98a; }
+.skill-card__tag--fire { background: #ffa07a; }
+.skill-card__power {
+  margin-left: auto;
+  font-size: 16px;
+  letter-spacing: 1px;
+}
+.skill-card__line {
+  margin: 0;
+  font-size: 15px;
+  line-height: 1.35;
+  word-break: keep-all;
+}
+.skill-card__line--special {
+  font-weight: 800;
+}
+.skill-card__line--note {
+  color: #555;
+  font-size: 14px;
+}
+
+/* 선택창 */
+.skill-offer {
+  position: absolute;
+  inset: 0;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: calc(8px + env(safe-area-inset-top)) 10px calc(8px + env(safe-area-inset-bottom));
+  background: rgba(0, 0, 0, 0.55);
+  touch-action: auto;
+}
+.skill-offer__card {
+  width: min(100%, 380px);
+  max-height: 100%;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+  border: var(--border);
+  border-radius: 14px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  color: var(--ink);
+  user-select: none;
+  -webkit-user-select: none;
+}
+.skill-offer__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  text-align: center;
+}
+.skill-offer__who {
+  margin: 0;
+  text-align: center;
+  font-size: 15px;
+  font-weight: 700;
+}
+.skill-offer__hint {
+  margin: 0;
+  font-size: 15px;
+  text-align: center;
+  word-break: keep-all;
+}
+.skill-offer__grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+.skill-offer__pick {
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 76px;
+  padding: 6px 2px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  font: inherit;
+  color: var(--ink);
+  text-align: center;
+  cursor: pointer;
+}
+.skill-offer__pick:nth-child(n + 4) {
+  grid-column: span 3;
+}
+.skill-offer__pick:active {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+.skill-offer__pick-name {
+  font-family: var(--font-display);
+  font-size: 15px;
+  line-height: 1.15;
+  word-break: keep-all;
+}
+.skill-offer__pick-meta {
+  font-size: 12px;
+}
+.skill-offer__pick-do {
+  margin-top: auto;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--yellow);
+  font-size: 13px;
+  font-weight: 800;
+}
+.skill-offer__skip {
+  min-height: 52px;
+  font-size: 20px;
+}
+.skill-offer__note {
+  margin: 0;
+  font-size: 14px;
+  text-align: center;
+  color: #555;
+}
+
+/* 관리 화면 */
+.skill-manage {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+}
+.skill-manage__card {
+  width: min(100%, 420px);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: calc(10px + env(safe-area-inset-top)) 12px calc(14px + env(safe-area-inset-bottom));
+  background: var(--paper);
+  color: var(--ink);
+}
+.skill-manage__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.skill-manage__title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+}
+.skill-manage__sub {
+  margin: 6px 0 0;
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+.skill-manage__list,
+.skill-manage__replace {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.skill-manage__ask {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 800;
+  word-break: keep-all;
+}
+.skill-manage__btn {
+  min-height: 48px;
+  font-size: 18px;
+}
+.skill-manage__btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

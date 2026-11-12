@@ -21,6 +21,7 @@ import { speciesDef, type SpeciesId } from '../../domain/field/creatures';
 import { debugFlags } from '../debugFlags';
 import { useGameStore } from '../../store/useGameStore';
 import { ShopPopup } from '../shop/ShopPopup';
+import { SkillOfferDialog } from '../SkillOfferDialog';
 import { Joystick } from './Joystick';
 import { type Companion, drawField, viewScale } from './fieldRenderer';
 import { FieldLoading } from './FieldLoading';
@@ -207,6 +208,8 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
     noticeOpen: false,
     /** 상점 팝업이 떠 있으면 걷지 않는다 */
     shopOpen: false,
+    /** 기술 선택창이 떠 있으면 걷지 않는다 */
+    offerOpen: false,
     /** 마을에서 돌아다니는 구구몬 (마을이 아니면 비어 있다) */
     roamers: [] as Roamer[],
     /** 마지막으로 그린 카메라(화면 픽셀)·칸 크기 — 탭한 칸을 알아내는 데 쓴다 */
@@ -224,9 +227,11 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
   }
 
   const notice0 = useSessionStore((s) => s.pendingFieldNotices[0] ?? null);
-  /** 선택창을 기다리는 기술 제안 수 (선택창은 다음 작업 — 지금은 E2E가 읽는 표시만) */
+  /** 선택창을 기다리는 기술 제안 수 (알림이 다 닫히고 상점이 닫혀 있을 때 선택창이 뜬다) */
   const offerCount = useSessionStore((s) => s.skillOffers.length);
+  const offerOpen = offerCount > 0 && notice0 === null && !shopOpen;
   st.current.noticeOpen = notice0 !== null;
+  st.current.offerOpen = offerOpen;
   const noticeStage = useGameStore((s) => (notice0 ? s.field.species[notice0.species]?.stage ?? 1 : 1));
   const replacedId = notice0?.kind === 'fainted' ? notice0.replacedBy : undefined;
   const replacedStage = useGameStore((s) => (replacedId ? s.field.species[replacedId]?.stage ?? 1 : 1));
@@ -451,7 +456,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
       if (!s.move) {
         // 부딪힘은 방향을 떼거나 바꿔야 다시 반응한다
         if (s.lastBump && held() !== s.lastBump.dir) s.lastBump = null;
-        const h = s.signOpen || s.frozen || s.noticeOpen || s.shopOpen ? null : held();
+        const h = s.signOpen || s.frozen || s.noticeOpen || s.shopOpen || s.offerOpen ? null : held();
         if (h !== s.lastHeld) {
           s.lastHeld = h;
           s.heldSince = now;
@@ -643,6 +648,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
           </div>
         )}
         {shopOpen && <ShopPopup onClose={closeShop} />}
+        {offerOpen && <SkillOfferDialog />}
         {signText && (
           <div className="fieldmode__text" role="dialog" aria-label="표지판" onClick={() => onTap()}>
             {signText}

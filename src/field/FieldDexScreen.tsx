@@ -7,6 +7,7 @@ import { displayName } from '../domain/field/growth';
 import { isFainted } from '../domain/field/wounds';
 import { useGameStore } from '../store/useGameStore';
 import { HpBar } from './HpBar';
+import { SkillManager } from './SkillManager';
 import { creatureSprite, speciesColor } from './art/creatureSprite';
 import './fieldDex.css';
 
@@ -22,6 +23,7 @@ export function FieldDexScreen() {
   const navigate = useNavigate();
   const field = useGameStore((s) => s.field);
   const [picked, setPicked] = useState<SpeciesId | null>(null);
+  const [managing, setManaging] = useState(false);
   const caughtCount = SPECIES.filter((s) => field.species[s.id]).length;
 
   return (
@@ -107,12 +109,16 @@ export function FieldDexScreen() {
               함께 다니기
             </button>
           )}
+          <button type="button" className="btn btn--ghost fdex__sheet-btn" onClick={() => setManaging(true)}>
+            기술 보기·바꾸기
+          </button>
           {isFainted(field.species[picked]!) && <p className="fdex__sheet-note fdex__sheet-note--down">상점에서 회복시켜요</p>}
           <button type="button" className="btn btn--ghost" onClick={() => setPicked(null)}>
             닫기
           </button>
         </div>
       )}
+      {managing && picked && field.species[picked] && <SkillManager species={picked} onClose={() => setManaging(false)} />}
     </section>
   );
 }
