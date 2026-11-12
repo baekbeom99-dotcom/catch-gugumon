@@ -496,7 +496,8 @@ export const useGameStore = create<GameStore>()(
           const newSpecies = caught && !known;
           let species = s.field.species;
           if (newSpecies) {
-            species = { ...species, [r.species]: newSpeciesEntry(r.species, r.level, r.now) };
+            // 야생 레벨과 상관없이 Lv1로 수록 (r.level은 기술 복사 후보에만 쓴다)
+            species = { ...species, [r.species]: newSpeciesEntry(r.species, 1, r.now) };
           } else if (caught && known) {
             species = { ...species, [r.species]: { ...known, caught: known.caught + 1 } };
           }

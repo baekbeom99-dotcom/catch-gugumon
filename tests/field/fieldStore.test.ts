@@ -43,18 +43,27 @@ describe('필드 스토어 액션', () => {
     expect(r.notices).toEqual([]);
     expect(r.affection).toBe(3);
     const s = useGameStore.getState();
-    expect(s.field.species.horn).toEqual({ level: 4, exp: 0, stage: 1, caught: 1, firstCaughtAt: NOW, hp: 100, wounds: [], skills: ['horn-1', 'horn-2'] });
+    // 야생이 Lv4여도 도감에는 Lv1·기술 1개로 들어간다
+    expect(s.field.species.horn).toEqual({ level: 1, exp: 0, stage: 1, caught: 1, firstCaughtAt: NOW, hp: 100, wounds: [], skills: ['horn-1'] });
     expect(s.field.stats).toEqual({ battles: 1, catches: 1, fled: 0 });
     expect(s.pet.affection).toBe(3);
   });
 
-  it('같은 종을 또 잡으면 잡은 횟수만 오른다', () => {
+  it('야생이 Lv15여도 처음 잡으면 Lv1·경험치 0·기술 1개 (황금 레전드도)', () => {
+    useGameStore.getState().finishWildBattle(batch({ level: 15, tier: 'mighty' }));
+    expect(useGameStore.getState().field.species.horn).toMatchObject({ level: 1, exp: 0, skills: ['horn-1'] });
+    useGameStore.getState().finishWildBattle(batch({ species: 'jelly', level: 15 }));
+    expect(useGameStore.getState().field.species.jelly).toMatchObject({ level: 1, exp: 0, skills: ['jelly-1'] });
+  });
+
+  it('같은 종을 또 잡으면 잡은 횟수만 오른다 (레벨은 그대로)', () => {
     useGameStore.getState().finishWildBattle(batch());
     const r = useGameStore.getState().finishWildBattle(batch({ level: 6 }));
     expect(r.newSpecies).toBe(false);
     const e = useGameStore.getState().field.species.horn!;
     expect(e.caught).toBe(2);
-    expect(e.level).toBe(4);
+    // 야생 레벨(6)로 바뀌지 않는다. 중복 경험치로만 오른다
+    expect(e.level).toBe(2);
     expect(useGameStore.getState().field.stats.catches).toBe(2);
   });
 
@@ -118,7 +127,9 @@ describe('필드 경험치·알림', () => {
     useGameStore.getState().finishWildBattle(batch());
     expect(useGameStore.getState().field.species.horn!.exp).toBe(0);
     useGameStore.getState().finishWildBattle(batch({ correct: 0 }));
-    expect(useGameStore.getState().field.species.horn!.exp).toBe(40);
+    // Lv1에서 +40: 레벨이 한 번 오르고 남은 경험치 (expToNext(1) = 30)
+    const e = useGameStore.getState().field.species.horn!;
+    expect([e.level, e.exp]).toEqual([2, 10]);
   });
 
   it('동행과 같은 종을 또 잡으면 중복 + 참여 경험치가 같은 칸에 들어간다', () => {

@@ -658,12 +658,15 @@ test('처음 필드는 첫 구구몬 고르기로 가고, 젤리몬을 골라 �
   }
   await page.getByRole('button', { name: '캡슐 던지기' }).click();
   await expect(page.getByText(/잡았다!/)).toBeVisible({ timeout: 5000 });
+  await expect(page.getByText(/Lv1로 도감에 들어갔어요/)).toBeVisible();
   await expect(page).toHaveURL(/#\/field$/, { timeout: 5000 });
 
   await page.getByRole('button', { name: '메뉴' }).click();
   await page.getByRole('button', { name: '구구몬 도감' }).click();
   await expect(page).toHaveURL(/#\/field\/dex$/);
   await expect(page.getByLabel(`${wildName} 잡음`)).toBeVisible();
+  // 야생 레벨과 상관없이 Lv1로 수록
+  await expect(page.getByLabel(`${wildName} 잡음`)).toContainText('Lv1');
   await expect(page.getByLabel('젤리몬 잡음')).toBeVisible();
   await expect(page.locator('.fdex__cell--caught')).toHaveCount(2);
   await expect(page.locator('.fdex__cell--unknown')).toHaveCount(9);

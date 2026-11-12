@@ -110,7 +110,7 @@ export const battleText = {
   /** 힌트의 빛나는 답을 누른 뒤 (다른 문제로 넘어감, 틀린 문제는 몇 문제 뒤에 다시) */
   retry: '좋아, 다음 문제!',
   throwCapsule: '캡슐을 던졌다!',
-  caught: (name: string, newSpecies = false) => `${josa(name, '을', '를')} 잡았다!${newSpecies ? ' 새로 만났어!' : ''}`,
+  caught: (name: string, newSpecies = false) => `${josa(name, '을', '를')} 잡았다!${newSpecies ? ' 새로 만났어! Lv1로 도감에 들어갔어요!' : ''}`,
   /** 캡슐에서 빠져나옴: 체력을 조금 되찾고 다시 싸운다 */
   healed: '앗! 캡슐에서 빠져나왔어요! 힘을 조금 되찾았어요!',
   escaped: (name: string) => `${josa(name, '이', '가')} 도망갔다…`,
