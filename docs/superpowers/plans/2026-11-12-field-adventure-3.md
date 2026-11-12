@@ -416,3 +416,19 @@
 - [ ] **Step 1: 실패하는 테스트** — `shopQuiz.test.ts`(지역 단에서만 출제·가중 유지·무작위라 `rng` 고정 테스트·단 선택 없음), 지급량 상수 고정표(5), 틀린 문제가 N장 뒤 다시 나옴·힌트 뒤 다음 카드, E2E: 캡슐 탭에서 단 선택 화면 없이 바로 문제, 완료 시 캡슐 +5, 틀린 문제 재출제.
 - [ ] **Step 2: 실패 확인** → **Step 3: 구현** → **Step 4:** `npx tsc --noEmit -p .`, `npx vitest run`, `E2E_PORT=5191 npx playwright test e2e/field.spec.ts e2e/skills.spec.ts e2e/title.spec.ts`(혼자), 375px 상점 스크린샷.
 - [ ] **Step 5: Commit** — `git commit -m "상점: 캡슐은 단 선택 없이 랜덤 출제, 1회 5개, 틀린 문제는 잠시 뒤 다시"`
+
+---
+
+### Task 18: 포획하면 Lv1로 도감에 수록 (Sonnet)
+
+**담당:** Sonnet, 이후 Sonnet 검토 (저장 정산 한 줄 변경이라 작지만 `finishWildBattle`이 저장 정산이므로 최종 Opus 재검토에서 함께 본다). **Task 17 뒤에 한다.** 설계서 0-2절 "포획하면 Lv1".
+
+**Files:** `src/store/useGameStore.ts`(`finishWildBattle`의 `newSpeciesEntry(r.species, r.level, r.now)` 호출), `src/field/battle/battleText.ts`(잡았다 글에 "Lv1로 도감에 들어갔어요" 같은 한 줄이 필요하면), `src/field/FieldDexScreen.tsx`(확인만), 관련 테스트(`tests/field/fieldStore.test.ts`·`growth.test.ts`), `e2e/field.spec.ts`(잡은 뒤 도감 레벨을 단정하는 곳), `MVP_DESIGN.md`(v1.49 한 줄), `CLAUDE.md`(필요 시)
+
+**Interfaces:**
+- 처음 잡는 종은 **Lv1·경험치 0·기술 슬롯 1 하나**(`newSpeciesEntry(종, 1, now)`)로 도감에 수록(황금 포함). 이미 있는 종은 레벨 그대로 경험치만(기존). 야생의 레벨(`r.level`)은 경험치 계산(`addExp`)에는 계속 쓰이는 값이면 그대로 쓰고 수록 레벨에만 쓰지 않는다 — 코드를 읽고 구분해서 고친다.
+- 잡았다 알림 글에 "Lv1로 도감에 들어갔어요!" 한 줄(어린이가 읽기 쉽게, 이미 가진 종이면 기존 글).
+
+- [ ] **Step 1: 실패하는 테스트** — 처음 잡는 종(일반·황금)이 Lv1·exp 0·`skills`가 `[종-1]`로 수록됨(야생 레벨이 15여도), 이미 가진 종은 레벨 불변·경험치만, 이후 레벨업 때 슬롯 2 자동 습득(Lv3), 도감 `FieldDexScreen`·동행 선택에서 Lv1 구구몬이 정상 표시·선택 가능(쓰러진 구구몬 규칙 불변), E2E 잡은 뒤 도감에서 "Lv1".
+- [ ] **Step 2: 실패 확인** → **Step 3: 구현** → **Step 4:** `npx tsc --noEmit -p .`, `npx vitest run`, `E2E_PORT=5191 npx playwright test e2e/field.spec.ts e2e/skills.spec.ts e2e/title.spec.ts`(혼자).
+- [ ] **Step 5: Commit** — `git commit -m "구구몬을 잡으면 Lv1로 도감에 수록"`
