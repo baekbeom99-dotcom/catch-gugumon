@@ -16,7 +16,7 @@ import { CAPSULE_NAMES, CAPSULE_TYPES } from '../domain/field/capsules';
 import { HERO_DIRS, HERO_SPRITES } from './art/hero';
 import { PixelSprite } from './art/PixelSprite';
 import { debugFlags, setDebugFlag } from './debugFlags';
-import { ELEMENT_FX, ELEMENT_NAMES, type Element } from '../domain/field/elements';
+import { ELEMENT_FX, ELEMENT_NAMES, SPECIAL_FX, STRONG_FX, type Element } from '../domain/field/elements';
 import { EFFECTS, type FxName } from './fx/effects';
 import { playFx } from './fx/playFx';
 
@@ -82,9 +82,26 @@ function EffectButtons() {
       {(Object.keys(ELEMENT_FX) as Element[]).map((el) => (
         <div key={el} style={{ marginTop: 4 }}>
           <strong>{ELEMENT_NAMES[el]}</strong>
-          <div style={row}>{ELEMENT_FX[el].map(button)}</div>
+          <div style={row}>
+            <small>평소 (주 1·2·3, 부)</small>
+            {ELEMENT_FX[el].map(button)}
+          </div>
+          <div style={row}>
+            <small>강력 (주 1·2·3, 부)</small>
+            {STRONG_FX[el].map(button)}
+          </div>
         </div>
       ))}
+      <div style={{ marginTop: 4 }}>
+        <strong>특수 기술</strong>
+        <div style={row}>
+          {(Object.entries(SPECIAL_FX) as [string, FxName][]).map(([kind, n]) => (
+            <button key={kind} type="button" className="btn btn--ghost" onClick={() => play(n)} title={`${kind}: ${EFFECTS[n].note}`}>
+              {kind} · {n}
+            </button>
+          ))}
+        </div>
+      </div>
       <div style={{ ...box, position: 'relative', width: 320, height: 180, marginTop: 8, background: '#7cc06b' }}>
         <canvas ref={canvasRef} style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', imageRendering: 'pixelated' }} />
       </div>

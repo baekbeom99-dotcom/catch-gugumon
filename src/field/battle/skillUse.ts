@@ -3,7 +3,7 @@
  * 규칙 자체는 domain/field/wildBattle.ts(resolveAnswer)와 skills.ts. 여기서는 화면 쪽 값(스위치·효과 이름)을 맞춘다.
  */
 import type { SpeciesId } from '../../domain/field/creatures';
-import { ELEMENT_FX, MAIN_ELEMENT, matchup, type Element } from '../../domain/field/elements';
+import { ELEMENT_FX, MAIN_ELEMENT, SPECIAL_FX, STRONG_FX, matchup, type Element } from '../../domain/field/elements';
 import { defaultSkills, learnedAt, skillDef, type SkillDef, type SkillId } from '../../domain/field/skills';
 import { TIER_RULES } from '../../domain/field/tuning';
 import { resolveAnswer, type AnswerResult, type WildState } from '../../domain/field/wildBattle';
@@ -63,14 +63,14 @@ export function skillMatchup(def: SkillDef, wildMain: Element): -1 | 0 | 1 | nul
 }
 
 /**
- * 기술 효과 이름. Task 8 전 임시: ELEMENT_FX의 fxIndex 칸. 부속성(3번 칸)은 아직 4번째 효과가 없어 2번 칸으로,
- * 특수 기술은 그 종 주속성 첫 효과로, 강력 효과(STRONG_FX)도 아직 없어 strong이어도 평소 효과 — Task 8이 이 함수를 바꾼다.
+ * 기술 효과 이름. 특수 기술은 종류별 효과(SPECIAL_FX), 속성 기술은 그 속성의 fxIndex 칸 —
+ * 강력(빨리 풀어 강하게 나감)이면 강력 효과 표(STRONG_FX)에서 같은 칸을 쓴다.
  */
 export function skillFxName(def: SkillDef, strong: boolean): FxName {
-  void strong;
+  if (def.special) return SPECIAL_FX[def.special];
   const element = def.element ?? MAIN_ELEMENT[def.species];
-  const index = def.fxIndex === undefined ? 0 : Math.min(2, Math.max(0, def.fxIndex));
-  return ELEMENT_FX[element][index];
+  const index = Math.min(3, Math.max(0, def.fxIndex ?? 0));
+  return (strong ? STRONG_FX : ELEMENT_FX)[element][index];
 }
 
 /** 적의 기술: 그 종이 그 레벨에서 익힌 속성 기술 중 무작위 (특수 제외, 황금은 황금 기술). 적어도 1번 기술 */

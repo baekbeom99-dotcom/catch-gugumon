@@ -197,8 +197,12 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const fxRef = useRef<HTMLCanvasElement>(null);
   const wildElement = elementOf(encounter.species);
   useEffect(() => {
-    // 내 기술 효과 + 야생 구구몬의 속성 기술 효과(주·부속성)를 미리 불러 둔다
-    const names = [...held.map((d) => skillFxName(d, false)), ...ELEMENT_FX[wildElement], ...ELEMENT_FX[subElementOf(encounter.species)]];
+    // 내 기술 효과(평소·강력) + 야생 구구몬의 속성 기술 효과(주·부속성 4칸)를 미리 불러 둔다
+    const names = [
+      ...held.flatMap((d) => [skillFxName(d, false), skillFxName(d, true)]),
+      ...ELEMENT_FX[wildElement],
+      ...ELEMENT_FX[subElementOf(encounter.species)],
+    ];
     preloadFx('hit', 'catch', ...new Set(names));
   }, [held, wildElement, encounter.species]);
   /** 두 구구몬(.wild__foe 야생·.wild__ally 내 구구몬) 중 `side` 쪽 그림(이름 상자 말고 그림)의 한가운데 (캔버스 안 CSS px) — 효과 중심을 놓을 자리 */
@@ -219,7 +223,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   }, [fxPoint, encounter.species]);
   /**
    * 기술 효과: 나간 기술(`def`, skillDef 기준)의 효과를 맞는 쪽 구구몬 그림 한가운데에 효과 중심이 오게 튼다 (강력이면 강력 효과).
-   * 내 공격(왼→오)은 야생 위에 효과 기본 방향, 적 공격(오→왼)은 내 구구몬 위에 뒤집어서. 내 공격이 효과를 못 틀면(불러오기 실패) 불꽃으로 대신한다.
+   * 내 공격(왼→오)은 야생 위에 효과 기본 방향, 적 공격(오→왼)은 내 구구몬 위에 뒤집어서, 특수 기술은 쓴 구구몬 위에 그대로. 내 공격이 효과를 못 틀면(불러오기 실패) 불꽃으로 대신한다.
    */
   const moveFx = useCallback(
     (attacker: 'ally' | 'foe', def: SkillDef, strong: boolean) => {
@@ -227,11 +231,13 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       if (!canvas) return;
       const ally = attacker === 'ally';
       const name = skillFxName(def, strong);
-      const at = fxPoint(ally ? 'foe' : 'ally');
+      // 특수 기술(회복·방어·힌트·여유·충전)은 쓴 구구몬 자신 위에서, 방향 없이
+      const onSelf = !!def.special;
+      const at = fxPoint(onSelf === ally ? 'ally' : 'foe');
       if (!at) return;
       const gold = speciesDef(ally ? companion : encounter.species).legend;
-      void playFx(canvas, name, at, { mirror: !ally, gold }).then((ok) => {
-        if (ok || !ally) return;
+      void playFx(canvas, name, at, { mirror: !ally && !onSelf, gold }).then((ok) => {
+        if (ok || !ally || onSelf) return;
         const hitAt = fxPoint('foe');
         if (hitAt) void playFx(canvas, 'hit', hitAt);
       });

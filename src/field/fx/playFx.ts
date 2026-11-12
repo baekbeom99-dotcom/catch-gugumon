@@ -72,12 +72,13 @@ export async function playFx(
     const img = new ImageData(w, h);
     const baseFlip = !!spec.options?.flip;
     const palette = opts.gold ? goldPalette(paletteLength(mod)) : undefined;
-    const cx = (spec.center?.dx ?? 0) * (opts.mirror ? -1 : 1);
+    const mirror = !!opts.mirror && !spec.noMirror;
+    const cx = (spec.center?.dx ?? 0) * (mirror ? -1 : 1);
     const cy = spec.center?.dy ?? 0;
     const fx = core.createFx(mod, {
       ...spec.options,
       ...(palette ? { palette } : {}),
-      flip: opts.mirror ? !baseFlip : baseFlip,
+      flip: mirror ? !baseFlip : baseFlip,
       x: spec.screen ? 0 : Math.round(at.x / FX_PIXEL - cx),
       y: spec.screen ? 0 : Math.round(at.y / FX_PIXEL - cy),
     });

@@ -71,7 +71,7 @@ describe('픽셀 그림', () => {
     expect(MONSTER_FILL).toBe(1.45);
   });
 
-  it('효과 이름: 전투 들어가기·명중·잡기 + 속성별 기술 21개', () => {
+  it('효과 이름: 전투 들어가기·명중·잡기 + 속성별 기술 21개 + 부속성·강력·특수 40개', () => {
     expect(FX_NAMES).toEqual([
       'enter', 'hit', 'catch',
       'vine-whip', 'thorns', 'leaf-storm',
@@ -81,6 +81,15 @@ describe('픽셀 그림', () => {
       'zap-hit', 'chain-lightning', 'lightning-strike',
       'earth-spike', 'boulder', 'quake',
       'fireball', 'fire-breath', 'flame-pillar',
+      'frog', 'slime', 'halo', 'water-orb', 'ball-lightning', 'heavy-landing', 'campfire',
+      'butterfly', 'healing-bloom', 'root-snare', 'tornado',
+      'toxic-puddle', 'shadow-tendrils', 'grasping-hands', 'void-orb',
+      'blessing', 'star-fall', 'holy-pillar', 'crit-hit',
+      'bubbles', 'waterfall', 'whirlpool', 'geyser',
+      'plasma-ball', 'tesla-coil', 'storm-cloud', 'thunderclap',
+      'smoke-bomb', 'dirt-explosion', 'ground-slam', 'cartoon-pow',
+      'flamethrower', 'fire-ring', 'fire-tornado', 'meteor',
+      'heal-aoe', 'divine-shield', 'rune-circle', 'time-stop', 'power-star',
     ]);
   });
 });

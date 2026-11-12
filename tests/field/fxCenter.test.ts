@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { ELEMENT_FX } from '../../src/domain/field/elements';
+import { ELEMENT_FX, SPECIAL_FX, STRONG_FX } from '../../src/domain/field/elements';
 import { EFFECTS, type FxSpec } from '../../src/field/fx/effects';
 import { measureCenter } from './fxMeasure';
 
-const ELEMENT_EFFECTS = Object.values(ELEMENT_FX).flat();
+const ELEMENT_EFFECTS = [...Object.values(ELEMENT_FX).flat(), ...Object.values(STRONG_FX).flat(), ...Object.values(SPECIAL_FX)];
 const TOLERANCE = 1.5; // 효과 화소
 
 describe('속성 효과 중심', () => {

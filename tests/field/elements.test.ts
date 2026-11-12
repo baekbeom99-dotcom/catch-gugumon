@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import * as core from 'pixelfx';
-import { ELEMENT_FX, ELEMENT_NAMES, elementOf } from '../../src/domain/field/elements';
+import { ELEMENT_FX, ELEMENT_NAMES, SPECIAL_FX, STRONG_FX, elementOf } from '../../src/domain/field/elements';
+import { SKILLS } from '../../src/domain/field/skills';
+import { skillFxName } from '../../src/field/battle/skillUse';
 import { SPECIES } from '../../src/domain/field/creatures';
 import { EFFECTS, FX_NAMES, goldPalette, paletteLength, type FxSpec } from '../../src/field/fx/effects';
 import { WILD_HIT_ANIM_MS } from '../../src/domain/field/tuning';
@@ -21,16 +23,19 @@ describe('속성 표', () => {
     expect(Object.values(ELEMENT_NAMES)).toEqual(['풀', '독', '빛', '물', '번개', '땅', '불']);
   });
 
-  it('속성마다 효과 3개, 모두 EFFECTS에 있다', () => {
-    for (const fx of Object.values(ELEMENT_FX)) {
-      expect(fx).toHaveLength(3);
-      for (const n of fx) expect(FX_NAMES).toContain(n);
+  it('속성마다 평소 효과 4칸(주 3 + 부 1)과 강력 효과 4칸, 모두 EFFECTS에 있다', () => {
+    for (const table of [ELEMENT_FX, STRONG_FX]) {
+      for (const fx of Object.values(table)) {
+        expect(fx).toHaveLength(4);
+        for (const n of fx) expect(FX_NAMES).toContain(n);
+      }
     }
-    expect(ELEMENT_FX.fire).toEqual(['fireball', 'fire-breath', 'flame-pillar']);
+    expect(ELEMENT_FX.fire.slice(0, 3)).toEqual(['fireball', 'fire-breath', 'flame-pillar']);
   });
 
-  it('설계서 11절 표 그대로', () => {
-    expect(ELEMENT_FX).toEqual({
+  it('주 3칸은 예전 효과 그대로', () => {
+    const main = Object.fromEntries(Object.entries(ELEMENT_FX).map(([k, v]) => [k, v.slice(0, 3)]));
+    expect(main).toEqual({
       grass: ['vine-whip', 'thorns', 'leaf-storm'],
       poison: ['acid-splash', 'spore-burst', 'poison-cloud'],
       light: ['feather-burst', 'smite', 'sunburst'],
@@ -40,15 +45,32 @@ describe('속성 표', () => {
       fire: ['fireball', 'fire-breath', 'flame-pillar'],
     });
   });
+
+  it('특수 기술 효과 5종이 모두 EFFECTS에 있다', () => {
+    expect(Object.keys(SPECIAL_FX).sort()).toEqual(['calm', 'charge', 'clue', 'guard', 'heal']);
+    for (const n of Object.values(SPECIAL_FX)) expect(FX_NAMES).toContain(n);
+  });
+
+  it('skillFxName: 55개 기술 × 강력 여부 모두 있는 효과를 돌려주고, 속성 기술은 칸 순서·특수는 SPECIAL_FX를 따른다', () => {
+    expect(SKILLS).toHaveLength(55);
+    for (const def of SKILLS) {
+      for (const strong of [false, true]) {
+        const name = skillFxName(def, strong);
+        expect(FX_NAMES).toContain(name);
+        if (def.special) expect(name).toBe(SPECIAL_FX[def.special]);
+        else expect(name).toBe((strong ? STRONG_FX : ELEMENT_FX)[def.element!][def.fxIndex!]);
+      }
+    }
+  });
 });
 
-const ELEMENT_EFFECTS = Object.values(ELEMENT_FX).flat();
+const ELEMENT_EFFECTS = [...Object.values(ELEMENT_FX).flat(), ...Object.values(STRONG_FX).flat(), ...Object.values(SPECIAL_FX)];
 
-describe('속성 효과 21개', () => {
-  it('21개 + 기존 3개, 겹치지 않는다', () => {
-    expect(ELEMENT_EFFECTS).toHaveLength(21);
-    expect(new Set(ELEMENT_EFFECTS).size).toBe(21);
-    expect(FX_NAMES).toHaveLength(24);
+describe('기술 효과 61개', () => {
+  it('평소 28 + 강력 28 + 특수 5 = 61개, 서로 겹치지 않고 기존 3개와 합쳐 64개', () => {
+    expect(ELEMENT_EFFECTS).toHaveLength(61);
+    expect(new Set(ELEMENT_EFFECTS).size).toBe(61);
+    expect(FX_NAMES).toHaveLength(64);
   });
 
   it.each(ELEMENT_EFFECTS)('%s: 실제 트는 시간이 명중 연출(0.6초) 안이다', async (name) => {
@@ -102,7 +124,10 @@ describe('황금 팔레트', () => {
   it.each(ELEMENT_EFFECTS)('%s: 금색 팔레트 길이가 효과의 기본 팔레트와 같다', async (name) => {
     const mod = await EFFECTS[name].load();
     const len = paletteLength(mod);
-    expect([6, 8, 9]).toContain(len);
+    expect(len).toBeGreaterThanOrEqual(6);
+    expect(len).toBeLessThanOrEqual(9);
+    // 팔레트 옵션이 실제로 있어야 황금 색이 입혀진다
+    expect(Array.isArray((mod.meta?.options as { palette?: unknown } | undefined)?.palette)).toBe(true);
     const gold = goldPalette(len);
     expect(gold).toHaveLength(len);
     // 어두운 금에서 흰빛으로, 색 값은 모두 #rrggbb

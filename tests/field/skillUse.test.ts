@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ELEMENT_FX } from '../../src/domain/field/elements';
+import { ELEMENT_FX, SPECIAL_FX, STRONG_FX } from '../../src/domain/field/elements';
 import { skillDef } from '../../src/domain/field/skills';
 import { TIER_RULES } from '../../src/domain/field/tuning';
 import { createWild, type WildState } from '../../src/domain/field/wildBattle';
@@ -72,15 +72,15 @@ describe('전투 기술: 상성·효과 이름·적의 기술', () => {
     expect(skillMatchup(k('cloud-1'), 'light')).toBe(0);
     expect(skillMatchup(k('cloud-3'), 'water')).toBeNull();
   });
-  it('효과 이름: 속성의 fxIndex 칸, 부속성(3번 칸)은 아직 없어 2번 칸 (Task 8 전 임시)', () => {
+  it('효과 이름: 속성 기술은 fxIndex 칸(부속성은 4번째), 강력이면 강력 효과, 특수는 특수 효과', () => {
     expect(skillFxName(k('cloud-1'), false)).toBe(ELEMENT_FX.grass[0]);
     expect(skillFxName(k('cloud-2'), false)).toBe(ELEMENT_FX.grass[1]);
     expect(skillFxName(k('cloud-5'), false)).toBe(ELEMENT_FX.grass[2]);
-    expect(skillFxName(k('cloud-4'), false)).toBe(ELEMENT_FX.light[2]);
-    // 강력 효과가 아직 없어 평소 효과
-    expect(skillFxName(k('cloud-1'), true)).toBe(ELEMENT_FX.grass[0]);
-    // 특수는 그 종 주속성 첫 효과
-    expect(skillFxName(k('cloud-3'), false)).toBe(ELEMENT_FX.grass[0]);
+    expect(skillFxName(k('cloud-4'), false)).toBe(ELEMENT_FX.light[3]);
+    expect(skillFxName(k('cloud-1'), true)).toBe(STRONG_FX.grass[0]);
+    expect(skillFxName(k('cloud-4'), true)).toBe(STRONG_FX.light[3]);
+    expect(skillFxName(k('cloud-3'), false)).toBe(SPECIAL_FX.heal);
+    expect(skillFxName(k('mushroom-3'), true)).toBe(SPECIAL_FX.guard);
   });
   it('적의 기술: 그 레벨에서 익힌 속성 기술 중 무작위 (특수 제외)', () => {
     expect(foeSkill('cloud', 2, () => 0.99).id).toBe('cloud-1');
