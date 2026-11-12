@@ -723,6 +723,7 @@
  * 공의 제자리는 "야생 구구몬 발 밑 바닥"이고, 머리 높이는 --capsule-head 만큼 위다.
  * 시간은 화면이 style로 넣는다(tuning.ts). 단계 이름은 stage의 data-capsule-stage와 같다.
  */
+/* 아래 캡슐·그림자의 top/right 픽셀 값은 야생 구구몬 그림이 150px(size: 150)일 때를 기준으로 맞춘 것이다. 그림 크기를 바꾸면 함께 고친다. */
 .wild__stage {
   --capsule-head: -86px;
 }

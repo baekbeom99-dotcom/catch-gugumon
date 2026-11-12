@@ -1302,6 +1302,17 @@ test('도망 확인창을 열어 둔 시간은 답하는 데 걸린 시간에 �
   expect(ms).toBeLessThan(1500);
 });
 
+test('정답 명중 연출 중에는 도망 버튼과 Esc가 막혀 확인창이 뜨지 않는다', async ({ page }) => {
+  await battleWithQuestion(page, '13x10', 'missingSecond');
+  const answer = await solveWild(page);
+  await moveButton(page, answer).click();
+  await expect(page.getByRole('button', { name: '도망치기' })).toBeDisabled({ timeout: 500 });
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog', { name: '도망치기' })).toHaveCount(0);
+  // 연출이 끝나면 다시 눌린다
+  await expect(page.getByRole('button', { name: '도망치기' })).toBeEnabled({ timeout: 3000 });
+});
+
 // ── 마을에서 돌아다니는 구구몬 ──
 
 /** 젤리몬을 잡았고 동행은 구름몬인 저장본. Math.random은 pin이 켜져 있는 동안 0을 돌려줘 처음 자리를 정한다 */

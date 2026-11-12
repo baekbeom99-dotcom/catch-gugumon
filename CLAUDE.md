@@ -16,7 +16,7 @@ React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/fiel
 | `src/store/saveData.ts` | `SaveData` 형식, `createInitialSave`, `mergeSave`(예전 저장 채우기), `SAVE_KEY` |
 | `src/store/useSessionStore.ts` | 저장 안 되는 화면 상태(진화·레벨업 알림 대기 등) |
 | `src/domain/field/` | 필드 모험 순수 로직: **`tuning`(운영 수치 전부)**, `skills`(기술 표·슬롯 패턴·특수·복사), `fields`(필드·단 구성), `movement`, `wildBattle`, `encounter`(만남), `creatures`(종·기술 이름), `fieldQuestions`, `growth`(경험치·레벨·진화), `strength`(만남 강함 단계), `capsules`(캡슐 4종·개수), `wounds`(체력·상처), `shopQuiz`(상점 연습), `roam`(마을 구구몬 배회), `answerTimer`(문제 시계), `elements`(속성 7가지·기술 효과 표) |
-| `src/field/shop/` | 마을 상점 팝업: `ShopPopup`, `CapsuleTab`(한 단 연습으로 캡슐), `PotionTab`·`HealPractice`(회복 연습), `DanPractice`·`PracticeCard`(연습 문제 카드), `shopText`(글) |
+| `src/field/shop/` | 마을 상점 팝업: `ShopPopup`, `CapsuleTab`(캡슐 탭), `CapsulePractice`(단 선택 없이 무작위 출제, 1회 5개), `PotionTab`·`HealPractice`(회복 연습), `PracticeCard`(연습 문제 카드), `shopText`(글), `shop.css` |
 | `src/field/world/` | 필드 걷기: `FieldScreen`, `fieldRenderer`(캔버스), `Joystick`, `FieldHud`(왼쪽 위 캡슐·도감·체력), `loadField`, `maps/`(필드마다 지도·타일 그림) |
 | `src/field/battle/` | 야생 전투: `WildBattleScreen`, `useQuestionFeed`(문제 받기), `BattleBars`(`HpBar`·`TimerBar` — 눈금·구간 색만, 글자 없음), `battleText`(화면 글), `SkillPicker`(기술 버튼 3개 한 줄·이름만, 특수만 설명 한 줄), `skillUse`(발동·글·`gaugeStops`/`gaugeZones`·`skillLines`/`buttonLines` 버튼 문구 — 선택창·관리 화면 카드도 같은 함수) |
 | `src/field/art/` | 그림: `creatureArt`(구구몬 그림 등록표), `creatureSprite`, `companionImage`, `hero`(주인공), `pixelArt`(픽셀 그림 틀·표지판), `CapsuleBall` |

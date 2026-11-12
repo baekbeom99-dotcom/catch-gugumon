@@ -730,7 +730,8 @@ describe('wildBattle: 2번 때릴 때마다 적이 한 번 공격 (주기 공격
   });
   it('어지러워지면(체력 0) 반격 없음', () => {
     const s = hitOnce(at(0, { attackCount: 1, cells: 6 }));
-    expect(s).toMatchObject({ phase: 'dizzy', attackCount: 2 });
+    // 어지러워지면 공격 횟수는 0으로 (캡슐에서 빠져나온 뒤 첫 정답에 바로 주기 공격이 오지 않게)
+    expect(s).toMatchObject({ phase: 'dizzy', attackCount: 0 });
     expect(counterDue(s)).toBe(false);
     expect(counterAttack(s, ok)).toBeNull();
   });

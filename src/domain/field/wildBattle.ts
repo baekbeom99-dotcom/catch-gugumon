@@ -199,7 +199,8 @@ function landHit(s: WildState, chip: number, extra: Partial<WildState> = {}): Wi
     ...extra,
     cells,
     correct: s.correct + 1,
-    attackCount: s.attackCount + 1,
+    // 어지러워지면 공격 횟수는 0으로 (캡슐에서 빠져나온 뒤 첫 정답 한 번에 주기 공격이 오지 않게)
+    attackCount: cells >= max ? 0 : s.attackCount + 1,
     phase: cells >= max ? 'dizzy' : 'hit',
   };
 }

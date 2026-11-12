@@ -528,7 +528,11 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   // B 버튼(키보드 X·Esc) → 도망칠지 묻기
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.code === 'KeyX' || e.key === 'Escape') setConfirmQuit((v) => v || !(ending || throwing));
+      if (e.code !== 'KeyX' && e.key !== 'Escape') return;
+      // 명중·주기 공격·피격 연출 중에는 도망 확인창을 열지 않는다 (연출 뒤에 걸어 둔 공격이 확인창 중에 체력을 깎지 않게)
+      const phase = wildRef.current?.phase;
+      const animating = phase === 'hit' || phase === 'counter' || phase === 'struck';
+      setConfirmQuit((v) => v || !(ending || throwing || animating));
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
@@ -771,7 +775,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
           type="button"
           className="btn btn--ghost wild__run"
           aria-label="도망치기"
-          disabled={!!ending || throwing}
+          disabled={!!ending || throwing || wild.phase === 'hit' || wild.phase === 'counter' || wild.phase === 'struck'}
           onClick={() => setConfirmQuit(true)}
         >
           🏃 도망
