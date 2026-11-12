@@ -432,3 +432,20 @@
 - [ ] **Step 1: 실패하는 테스트** — 처음 잡는 종(일반·황금)이 Lv1·exp 0·`skills`가 `[종-1]`로 수록됨(야생 레벨이 15여도), 이미 가진 종은 레벨 불변·경험치만, 이후 레벨업 때 슬롯 2 자동 습득(Lv3), 도감 `FieldDexScreen`·동행 선택에서 Lv1 구구몬이 정상 표시·선택 가능(쓰러진 구구몬 규칙 불변), E2E 잡은 뒤 도감에서 "Lv1".
 - [ ] **Step 2: 실패 확인** → **Step 3: 구현** → **Step 4:** `npx tsc --noEmit -p .`, `npx vitest run`, `E2E_PORT=5191 npx playwright test e2e/field.spec.ts e2e/skills.spec.ts e2e/title.spec.ts`(혼자).
 - [ ] **Step 5: Commit** — `git commit -m "구구몬을 잡으면 Lv1로 도감에 수록"`
+
+---
+
+### Task 20: 발사체 효과가 공격하는 쪽에서 맞는 쪽으로 날아간다 (Sonnet)
+
+**담당:** Sonnet, 이후 Sonnet 검토. 설계서 0-2절 "발사체 효과는 날아간다". 규칙·저장은 건드리지 않는 표시 작업.
+
+**Files:** `src/field/fx/effects.ts`(`FxSpec`에 `motion`·`travelMs`, 날아가는 효과 표시), `src/field/fx/playFx.ts`(이동 구간 + 도착 지점 터짐), `src/field/battle/WildBattleScreen.tsx`·`skillUse.ts`(`effectPlan`/`moveFx`가 출발·도착 좌표를 넘김), `src/field/DevFieldGallery.tsx`(날아가는 효과 미리보기), 테스트(`tests/field/fxPlay.test.ts`·`elements.test.ts`·`fxCenter.test.ts`·`skillUse.test.ts`), `e2e/field.spec.ts`(필요 시), `CLAUDE.md`("속성·기술 효과" 행에 `motion`·`travelMs` 한 줄)
+
+**Interfaces:**
+- `FxSpec`에 `motion?: 'travel' | 'burst'`(기본 `burst`)와 `travelMs?: number`(travel일 때 이동 시간, 약 200~300ms). 날아가는 효과 후보(구현자가 눈으로 확인해 확정, 표는 한 곳): `fireball`·`water-jet`·`chain-lightning`·`ball-lightning`·`boulder`·`vine-whip`·보관 중인 `plasma-ball`·`meteor` 등. 바닥에서 솟는 효과(`thorns`·`earth-spike`·`quake` 등)·특수 기술 효과·`enter`·`hit`·`catch`는 `burst` 그대로.
+- `playFx(canvas, name, at, opts)`: `opts.from?: {x,y}`(출발 지점, 화면 좌표)가 있고 효과가 `travel`이면 효과 그림(또는 투사체 대역)을 `from → at`으로 `travelMs` 동안 이동시킨 뒤 `at`에서 효과(터짐)를 재생한다. **이동+터짐 합 ≤ 0.6초**(`until ÷ speed + travelMs ≤ 600ms`, 효과 표 테스트가 검사), 터지는 구간의 `center`는 기존 측정 규칙대로 `at`에 맞춘다(이동 구간은 측정에서 제외). `mirror`·`gold`·동작 줄이기(이동 없이 `at`에서 바로)·같은 캔버스 새 효과가 이전 효과를 끊는 규칙·`playFx` 예외 처리(false)는 그대로.
+- 전투 화면: 내 공격 `from` = 내 구구몬 스프라이트 중심(발사 위치), `at` = 야생 스프라이트 중심(기존); 적 공격은 반대. 도착(= 터짐 시작) 순간에 맞춰 효과음(`skillSfxPlan`)·피해 글·흔들림이 나오게 **재생 시작이 아니라 도착 시점**으로 맞춘다(`travelMs`만큼 늦춤). 이동 중 입력 차단·정산·타이머 규칙은 기존 연출 시간 안에 들어가게(기존 명중 연출 시간을 넘기면 안 됨).
+
+- [ ] **Step 1: 실패하는 테스트** — `elements.test.ts`: 모든 `travel` 효과의 `travelMs` 존재·합계 ≤ 600ms·`burst`는 `travelMs` 없음; `fxPlay.test.ts`: `from`이 있고 `travel`이면 이동 구간이 있고 도착 뒤에 효과가 재생됨(가짜 rAF/시간 모의)·`from`이 없거나 `burst`면 지금처럼·동작 줄이기면 이동 없음·새 효과가 이전 이동을 끊음; `skillUse.test.ts`: 내 공격/적 공격의 `from`·`at` 좌표 쌍과 도착 시점 지연; `fxCenter.test.ts`: 터지는 구간 중심 측정 통과.
+- [ ] **Step 2: 실패 확인** → **Step 3: 구현** → **Step 4:** `npx tsc --noEmit -p .`, `npx vitest run`, `E2E_PORT=5191 npx playwright test e2e/field.spec.ts e2e/skills.spec.ts e2e/title.spec.ts`(혼자), 375px 스크린샷으로 날아가는 효과 후보 전부 "내 구구몬 → 야생"·"야생 → 내 구구몬" 이동 중·도착 순간을 각각 찍어(`playFx`를 실제 전투 캔버스에서 호출, 이동 중 0.1초·도착 0.3초) 보고서에 효과별 한 줄(날아가는지·도착 중심에 몬스터가 있는지)을 표로 적는다. 개발 서버가 오래된 모듈 오류를 내면 `npx vite --port 5199`를 따로 띄우고 끝나면 끈다.
+- [ ] **Step 5: Commit** — `git commit -m "발사체 기술 효과가 공격하는 구구몬에서 맞는 구구몬으로 날아가게 함"`
