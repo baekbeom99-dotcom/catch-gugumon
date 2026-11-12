@@ -58,6 +58,13 @@ describe('필드 모험 운영 수치', () => {
       DAN_PRACTICE_LAST: 9,
       HEAL_ROUNDS: 3,
       SHOP_ANSWER_GUARD_MS: 300,
+      MAX_SKILLS: 5,
+      COPY_CHANCE: 0.02,
+      CELLS_PER_HIT: 2,
+      FAST_BONUS_CELLS: 1,
+      MAX_CHIP_CELLS: 4,
+      SPECIAL_HEAL: 25,
+      CALM_BONUS_MS: 3000,
     });
   });
 });

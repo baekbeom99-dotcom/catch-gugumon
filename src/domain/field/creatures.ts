@@ -3,6 +3,7 @@ import { MONSTER_KINDS, type MonsterKind } from '../battle';
 import { MONSTER_NAMES } from '../monsterNames';
 import type { FieldId } from './fields';
 import { FIELDS } from './fields';
+import { speciesSkills } from './skills';
 
 export const LEGEND_SPECIES = ['legend-fluff', 'legend-horn', 'legend-ghost'] as const;
 export type SpeciesId = MonsterKind | (typeof LEGEND_SPECIES)[number];
@@ -12,6 +13,7 @@ export interface SpeciesDef {
   kind: MonsterKind;
   name: string;
   field: FieldId | 'legend';
+  /** 속성 기술 이름 3개(기술 표 슬롯 1·2·5) — 기술 이름은 skills.ts */
   moves: [string, string, string];
   legend: boolean;
 }
@@ -28,24 +30,6 @@ export {
   UNSEEN_WEIGHT,
 } from './tuning';
 
-/** 기술 이름 3개 (버튼 순서대로). 기술 이름을 바꿀 때는 여기만 */
-const MOVES: Record<MonsterKind, [string, string, string]> = {
-  cloud: ['잎사귀 톡', '새싹 휙', '꽃잎 바람'],
-  mushroom: ['방울 딸랑', '데굴데굴', '무 박치기'],
-  fluff: ['왕관 반짝', '꼬리 흔들기', '몸통 박치기'],
-  jelly: ['젤리 톡', '출렁 박치기', '거품 뿜기'],
-  antenna: ['안테나 찌릿', '신호 빔', '빙글 돌기'],
-  horn: ['뿔 콕', '돌진', '물결 치기'],
-  pebble: ['블록 쾅', '세눈 빔', '단단해지기'],
-  ghost: ['외뿔 찌르기', '꼬리 휘두르기', '공룡 함성'],
-};
-
-const LEGEND_MOVES: Record<(typeof LEGEND_SPECIES)[number], [string, string, string]> = {
-  'legend-fluff': ['황금 왕관 빛', '반짝 별가루', '금빛 박치기'],
-  'legend-horn': ['황금 뿔 콕', '금빛 돌진', '반짝 물결'],
-  'legend-ghost': ['황금 외뿔 찌르기', '금빛 꼬리치기', '황금 함성'],
-};
-
 const LEGEND_BASE: Record<(typeof LEGEND_SPECIES)[number], MonsterKind> = {
   'legend-fluff': 'fluff',
   'legend-horn': 'horn',
@@ -57,6 +41,11 @@ function fieldOf(kind: MonsterKind): FieldId {
   throw new Error(`필드 없는 종: ${kind}`);
 }
 
+function movesOf(id: SpeciesId): [string, string, string] {
+  const n = speciesSkills(id).map((k) => k.name);
+  return [n[0], n[1], n[4]];
+}
+
 export const SPECIES: readonly SpeciesDef[] = [
   ...MONSTER_KINDS.map(
     (kind): SpeciesDef => ({
@@ -64,7 +53,7 @@ export const SPECIES: readonly SpeciesDef[] = [
       kind,
       name: MONSTER_NAMES[kind],
       field: fieldOf(kind),
-      moves: MOVES[kind],
+      moves: movesOf(kind),
       legend: false,
     }),
   ),
@@ -74,7 +63,7 @@ export const SPECIES: readonly SpeciesDef[] = [
       kind: LEGEND_BASE[id],
       name: `황금 ${MONSTER_NAMES[LEGEND_BASE[id]]}`,
       field: 'legend',
-      moves: LEGEND_MOVES[id],
+      moves: movesOf(id),
       legend: true,
     }),
   ),

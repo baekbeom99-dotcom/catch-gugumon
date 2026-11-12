@@ -115,3 +115,18 @@ export const DAN_PRACTICE_LAST = 9;
 export const HEAL_ROUNDS = 3;
 /** 새 문제가 뜬 뒤 이 시간 동안은 보기가 눌리지 않는다 (연타로 다음 문제까지 답해 버리는 것을 막는다) */
 export const SHOP_ANSWER_GUARD_MS = 300;
+
+// ── 기술 (필드 모험 3차 설계서 2절) ──
+/** 구구몬 한 마리가 가질 수 있는 기술 수 */
+export const MAX_SKILLS = 5;
+/** 잡거나 보낸 뒤 그 야생 구구몬의 기술을 따라 배울 확률 */
+export const COPY_CHANCE = 0.02;
+/** 야생 체력 한 칸 단위: 정답 한 번(위력 2칸)이 예전의 "한 번 깎임" */
+export const CELLS_PER_HIT = 2;
+/** 빨리 풀어 강력이 되면 더 깎는 칸 */
+export const FAST_BONUS_CELLS = 1;
+/** 정답 한 번에 깎는 칸의 위쪽 한계 */
+export const MAX_CHIP_CELLS = 4;
+/** 특수 기술: 회복 체력 / 여유로 늘어나는 문제 시간 */
+export const SPECIAL_HEAL = 25;
+export const CALM_BONUS_MS = 3000;

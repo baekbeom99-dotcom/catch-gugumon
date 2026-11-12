@@ -115,3 +115,46 @@ describe('황금 팔레트', () => {
     fx.draw(frame);
   });
 });
+
+import { MAIN_ELEMENT, SUB_ELEMENT, STRONG_AGAINST, matchup, subElementOf, type Element } from '../../src/domain/field/elements';
+
+describe('주·부 속성과 상성', () => {
+  it('11종의 주·부 속성 (설계서 2-1 표)', () => {
+    expect(MAIN_ELEMENT).toEqual({
+      cloud: 'grass', mushroom: 'poison', fluff: 'light', jelly: 'water', horn: 'water', antenna: 'thunder',
+      pebble: 'earth', ghost: 'fire', 'legend-fluff': 'light', 'legend-horn': 'water', 'legend-ghost': 'fire',
+    });
+    expect(SUB_ELEMENT).toEqual({
+      cloud: 'light', mushroom: 'grass', fluff: 'earth', jelly: 'poison', horn: 'earth', antenna: 'water',
+      pebble: 'fire', ghost: 'thunder', 'legend-fluff': 'fire', 'legend-horn': 'thunder', 'legend-ghost': 'light',
+    });
+    for (const s of SPECIES) {
+      expect(elementOf(s.id)).toBe(MAIN_ELEMENT[s.id]);
+      expect(subElementOf(s.id)).toBe(SUB_ELEMENT[s.id]);
+      expect(subElementOf(s.id)).not.toBe(elementOf(s.id));
+    }
+  });
+
+  it('matchup 49쌍 전수', () => {
+    const els = Object.keys(ELEMENT_NAMES) as Element[];
+    for (const a of els) {
+      for (const d of els) {
+        const up = STRONG_AGAINST[a].includes(d);
+        const down = STRONG_AGAINST[d].includes(a);
+        expect(matchup(a, d)).toBe(up && !down ? 1 : down && !up ? -1 : 0);
+      }
+    }
+    expect(matchup('poison', 'light')).toBe(0);
+    expect(matchup('light', 'poison')).toBe(0);
+    expect(matchup('fire', 'fire')).toBe(0);
+    expect(matchup('fire', 'grass')).toBe(1);
+    expect(matchup('grass', 'fire')).toBe(-1);
+  });
+
+  it('상성표 고정', () => {
+    expect(STRONG_AGAINST).toEqual({
+      fire: ['grass', 'poison'], water: ['fire', 'earth'], grass: ['water', 'earth'], thunder: ['water', 'poison'],
+      earth: ['thunder', 'fire'], poison: ['grass', 'light'], light: ['poison', 'thunder'],
+    });
+  });
+});
