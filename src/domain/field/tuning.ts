@@ -130,3 +130,7 @@ export const MAX_CHIP_CELLS = 4;
 /** 특수 기술: 회복 체력 / 여유로 늘어나는 문제 시간 */
 export const SPECIAL_HEAL = 25;
 export const CALM_BONUS_MS = 3000;
+/** 특수 기술 충전: 다음 속성 기술에 더하는 칸 (겹쳐 쌓이지 않음) */
+export const CHARGE_BONUS_CELLS = 1;
+/** 캡슐에서 빠져나오면 최대 칸의 이만큼(올림)을 되찾는다 — 약함 3·보통 4·강함 4·강력 6칸 */
+export const CAPTURE_FAIL_HEAL_RATIO = 0.5;

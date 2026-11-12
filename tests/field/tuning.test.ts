@@ -65,6 +65,8 @@ describe('필드 모험 운영 수치', () => {
       MAX_CHIP_CELLS: 4,
       SPECIAL_HEAL: 25,
       CALM_BONUS_MS: 3000,
+      CHARGE_BONUS_CELLS: 1,
+      CAPTURE_FAIL_HEAL_RATIO: 0.5,
     });
   });
 });

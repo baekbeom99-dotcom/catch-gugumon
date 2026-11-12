@@ -1,26 +1,40 @@
 /**
- * 야생 구구몬과의 전투 규칙 — 설계서 6-2~6-6 (순수 로직: 시간·무작위는 인자로만 받는다)
- * 단계: question(문제) → 정답 hit / 오답·시간 초과 struck → hint → question … → dizzy(어지러움) → 던지기
+ * 야생 구구몬과의 전투 규칙 — 설계서 6-2~6-6, 필드 모험 3차 2-6·3절 (순수 로직: 시간·무작위는 인자로만 받는다)
+ * 단계: (pick 기술 고르기) → question(문제) → 정답 hit / 오답·시간 초과 struck → hint → question … → dizzy(어지러움) → 던지기
  * 끝: caught(잡힘) · escaped(도망감) · released(돌려보냄) · fainted(우리 구구몬이 쓰러짐)
+ * 야생 체력은 "칸": 최대 칸 = 어지러워지는 정답 수 × CELLS_PER_HIT. 정답 한 번에 기술 위력만큼 깎는다.
  */
 import type { Rng } from '../random';
+import { matchup, type Element } from './elements';
+import { fastSeconds, weakestSkill, type SkillDef, type SkillId, type SpecialKind } from './skills';
 import { rollTierLevel, throwOdds, type Tier } from './strength';
-import { TIER_RULES } from './tuning';
+import {
+  CALM_BONUS_MS,
+  CAPTURE_FAIL_HEAL_RATIO,
+  CELLS_PER_HIT,
+  CHARGE_BONUS_CELLS,
+  FAST_BONUS_CELLS,
+  MAX_CHIP_CELLS,
+  TIER_RULES,
+} from './tuning';
 import { applyDamage } from './wounds';
 
 /** 한 번에 흐르는 시간의 상한 (탭이 오래 멈췄다 돌아와도 한꺼번에 시간이 다 가지 않게). 운영 수치가 아니라 안전장치 */
 export const MAX_TICK_MS = 250;
 
-export type WildPhase = 'question' | 'hit' | 'struck' | 'hint' | 'dizzy' | 'caught' | 'escaped' | 'released' | 'fainted';
-export type ThrowOutcome = 'caught' | 'retry' | 'escaped' | 'angry';
+export type WildPhase = 'pick' | 'question' | 'hit' | 'struck' | 'hint' | 'dizzy' | 'caught' | 'escaped' | 'released' | 'fainted';
+/** healed: 캡슐에서 빠져나와 힘을 조금 되찾고 다시 싸운다 (예전 'retry') */
+export type ThrowOutcome = 'caught' | 'healed' | 'escaped' | 'angry';
 
 export interface WildState {
   tier: Tier;
   level: number;
-  /** 정답으로 깎은 수 */
-  hits: number;
+  /** 깎인 칸 (0 ~ maxCells) */
+  cells: number;
   /** 이 문제 남은 시간 */
   timeLeftMs: number;
+  /** 이 문제를 시작한 뒤 흐른 시간 ("빠르게 풀면 강력" 판정. 여유로 늘어난 시간과 상관없이 실제로 흐른 시간) */
+  elapsedMs: number;
   /** 우리 구구몬 체력 */
   allyHp: number;
   phase: WildPhase;
@@ -30,77 +44,203 @@ export interface WildState {
   timedOut: boolean;
   /** 적이 고른 기술 0~2 (피격 때) */
   lastMove: number | null;
+  /** 충전: 다음 속성 기술에 더할 칸 (쓰면 0) */
+  charge: number;
+  /** 방어: 다음 적 공격 피해를 절반(올림)으로 (맞으면 false) */
+  guard: boolean;
+  /** 여유: 다음 문제 시간에 더할 ms (문제 시계를 새로 시작할 때 더하고 0) */
+  calmMs: number;
+  /** 힌트: 다음 문제(맞힐 때까지)에서 틀린 보기 하나를 숨긴다. 어느 보기인지는 hiddenChoice */
+  hideChoice: boolean;
 }
 
-export function createWild(tier: Tier, level: number, allyHp: number): WildState {
+/** 이 단계 야생 구구몬의 체력 칸 수 (약함 6·보통 8·강함 8·강력 12·황금 8) */
+export function maxCells(tier: Tier): number {
+  return TIER_RULES[tier].hitsToDizzy * CELLS_PER_HIT;
+}
+
+/** 새 문제(또는 같은 문제 다시)의 시계: 시간을 처음부터, 여유가 있으면 더하고 써 버린다 */
+function freshClock(s: WildState): WildState {
+  return { ...s, timeLeftMs: TIER_RULES[s.tier].timeMs + s.calmMs, elapsedMs: 0, calmMs: 0 };
+}
+
+/** 가진 기술이 2개 이상이면 문제 전에 기술을 고른다 */
+function askPhase(heldCount: number): 'pick' | 'question' {
+  return heldCount >= 2 ? 'pick' : 'question';
+}
+
+export function createWild(tier: Tier, level: number, allyHp: number, heldCount = 1): WildState {
   const hp = applyDamage(allyHp, 0);
   return {
     tier,
     level,
-    hits: 0,
+    cells: 0,
     timeLeftMs: TIER_RULES[tier].timeMs,
+    elapsedMs: 0,
     allyHp: hp,
     // 쓰러진 구구몬으로는 싸우지 않는다 (만남이 막지만 한 번 더 지킨다)
-    phase: hp <= 0 ? 'fainted' : 'question',
+    phase: hp <= 0 ? 'fainted' : askPhase(heldCount),
     correct: 0,
     timedOut: false,
     lastMove: null,
+    charge: 0,
+    guard: false,
+    calmMs: 0,
+    hideChoice: false,
   };
 }
 
-/** 적의 공격: 체력이 0이 되면 힌트 없이 바로 끝 (R9) */
+/** 적의 공격: 방어가 있으면 절반(올림)으로 줄이고 방어는 사라진다. 체력이 0이 되면 힌트 없이 바로 끝 (R9) */
 function strike(s: WildState, rng: Rng, timedOut: boolean, timeLeftMs: number): WildState {
-  const allyHp = applyDamage(s.allyHp, TIER_RULES[s.tier].damage);
+  const allyHp = applyDamage(s.allyHp, damageOf(s));
   const lastMove = Math.min(2, Math.max(0, Math.floor(rng() * 3)));
-  return { ...s, allyHp, timeLeftMs, timedOut, lastMove, phase: allyHp <= 0 ? 'fainted' : 'struck' };
+  return { ...s, allyHp, timeLeftMs, timedOut, lastMove, guard: false, phase: allyHp <= 0 ? 'fainted' : 'struck' };
 }
 
-/** 문제가 떠 있는 동안에만 시간이 준다. 이상한 dt(NaN·음수·무한)는 0으로 본다 */
+/** 문제가 떠 있는 동안에만 시간이 준다(기술 고르는 동안은 멈춤). 이상한 dt(NaN·음수·무한)는 0으로 본다 */
 export function tick(s: WildState, dtMs: number, rng: Rng): WildState {
   if (s.phase !== 'question') return s;
   const dt = Number.isFinite(dtMs) ? Math.min(Math.max(dtMs, 0), MAX_TICK_MS) : 0;
   if (dt === 0) return s;
   const timeLeftMs = Math.max(0, s.timeLeftMs - dt);
-  if (timeLeftMs === 0) return strike(s, rng, true, 0);
-  return { ...s, timeLeftMs };
+  const elapsedMs = s.elapsedMs + dt;
+  if (timeLeftMs === 0) return strike({ ...s, elapsedMs }, rng, true, 0);
+  return { ...s, timeLeftMs, elapsedMs };
 }
 
-/** 답하기: 정답이면 한 번 깎고(다 깎으면 어지러움), 오답이면 적이 공격한다. 연타는 무시 */
+/** tick의 다른 이름 (설계서 이름) */
+export const tickWild = tick;
+
+/** 기술을 골랐다: 고르기 → 문제, 시계 시작 (시간은 고르기에 들어갈 때 이미 새로 맞춰 두었다) */
+export function pickSkill(s: WildState): WildState {
+  if (s.phase !== 'pick') return s;
+  return { ...s, phase: 'question', elapsedMs: 0 };
+}
+
+/** 정답 한 번에 깎는 칸 = 위력 + 강력 + 충전 + 상성, 1~MAX_CHIP_CELLS */
+export function chipCells(skill: SkillDef, fast: boolean, m: -1 | 0 | 1, charge: number): number {
+  const raw = skill.basePower + (fast ? FAST_BONUS_CELLS : 0) + charge + m;
+  return Math.min(MAX_CHIP_CELLS, Math.max(1, raw));
+}
+
+/** 정답 피해를 넣는다: 칸은 최대에서 멈추고, 다 깎이면 어지러움. 이 문제의 숨긴 보기는 여기서 끝 */
+function landHit(s: WildState, chip: number, extra: Partial<WildState> = {}): WildState {
+  const max = maxCells(s.tier);
+  const cells = Math.min(max, s.cells + chip);
+  return { ...s, hideChoice: false, ...extra, cells, correct: s.correct + 1, phase: cells >= max ? 'dizzy' : 'hit' };
+}
+
+/** 특수 기술이 성공했을 때 남는 상태 (회복은 내 구구몬 체력이라 여기서 안 바꾼다 — 호출하는 쪽 몫) */
+function specialEffect(kind: SpecialKind): Partial<WildState> {
+  switch (kind) {
+    case 'charge':
+      return { charge: CHARGE_BONUS_CELLS };
+    case 'guard':
+      return { guard: true };
+    case 'calm':
+      return { calmMs: CALM_BONUS_MS };
+    case 'clue':
+      return { hideChoice: true };
+    case 'heal':
+      return {};
+  }
+}
+
+export interface AnswerResult {
+  state: WildState;
+  /** 실제로 나간 기술 (특수 기술이 늦으면 가장 약한 속성 기술) */
+  fired: SkillDef;
+  /** 빠르게 풀었나 (속성 기술은 강력, 특수는 발동 조건) */
+  fast: boolean;
+  /** 특수 기술이 늦어서 다른 기술이 대신 나갔나 */
+  usedFallback: boolean;
+  /** 성공한 특수 기술 (heal이면 호출하는 쪽이 내 구구몬 체력을 채운다) */
+  special?: SpecialKind;
+}
+
+/**
+ * 정답 하나를 판정한다 (정답 한 번당 한 번). question이 아니면 상태를 그대로(같은 객체) 돌려준다(연타).
+ * timeMs는 이 단계 문제 제한 시간(여유로 늘어난 시간은 넣지 않는다) — "빠르게"의 기준.
+ */
+export function resolveAnswer(
+  s: WildState,
+  picked: SkillDef,
+  held: SkillId[],
+  wildMainElement: Element,
+  timeMs: number,
+): AnswerResult {
+  if (s.phase !== 'question') return { state: s, fired: picked, fast: false, usedFallback: false };
+  const fast = s.elapsedMs <= fastSeconds(picked, timeMs) * 1000;
+
+  if (picked.kind === 'special' && picked.special) {
+    if (fast) {
+      // 위력 그대로, 상성·강력·충전 없음. 충전은 다음 속성 기술을 위해 남겨 둔다
+      const state = landHit(s, chipCells(picked, false, 0, 0), specialEffect(picked.special));
+      return { state, fired: picked, fast: true, usedFallback: false, special: picked.special };
+    }
+    const weak = weakestSkill(held);
+    if (!weak) {
+      // 가진 속성 기술이 없으면 위력 1 기본 타격
+      return { state: landHit(s, 1), fired: picked, fast: false, usedFallback: true };
+    }
+    const m = weak.element ? matchup(weak.element, wildMainElement) : 0;
+    const state = landHit(s, chipCells(weak, false, m, s.charge), { charge: 0 });
+    return { state, fired: weak, fast: false, usedFallback: true };
+  }
+
+  const m = picked.element ? matchup(picked.element, wildMainElement) : 0;
+  const state = landHit(s, chipCells(picked, fast, m, s.charge), { charge: 0 });
+  return { state, fired: picked, fast, usedFallback: false };
+}
+
+/**
+ * 답하기: 오답이면 적이 공격한다. 정답이면 위력 2·상성 보통·강력 아님으로 깎는다(기술을 모르는 옛 호출용 — 기술은 resolveAnswer).
+ * question이 아니면 그대로(연타)
+ */
 export function answerWild(s: WildState, correct: boolean, rng: Rng): WildState {
   if (s.phase !== 'question') return s;
   if (!correct) return strike(s, rng, false, s.timeLeftMs);
-  const hits = s.hits + 1;
-  return { ...s, hits, correct: s.correct + 1, phase: hits >= TIER_RULES[s.tier].hitsToDizzy ? 'dizzy' : 'hit' };
+  return landHit(s, Math.min(MAX_CHIP_CELLS, Math.max(1, CELLS_PER_HIT + s.charge)), { charge: 0 });
 }
 
-/** 연출이 끝나면 다음으로: 명중 → 새 문제, 피격 → 힌트, 힌트 → 같은 문제. 새 문제는 시간이 처음부터 */
-export function resumeWild(s: WildState): WildState {
+/**
+ * 연출이 끝나면 다음으로: 명중 → 새 문제(기술이 2개 이상이면 고르기부터), 피격 → 힌트,
+ * 힌트 → 같은 문제(고르지 않고 같은 기술로). 새로 시작하는 문제는 시간이 처음부터
+ */
+export function resumeWild(s: WildState, heldCount = 1): WildState {
   if (s.phase === 'struck') return { ...s, phase: 'hint' };
-  if (s.phase === 'hit' || s.phase === 'hint') return { ...s, phase: 'question', timeLeftMs: TIER_RULES[s.tier].timeMs };
+  if (s.phase === 'hit') return { ...freshClock(s), phase: askPhase(heldCount) };
+  if (s.phase === 'hint') return { ...freshClock(s), phase: 'question' };
   return s;
 }
 
 /**
  * 캡슐 던지기 (어지러울 때만, 아니면 null). 난수 하나로 결과를 정한다(R11):
- * 잡힘 → 재도전 → 도망 → 화남 순으로 칸을 쌓아, 0은 언제나 잡힘이고 0.999는 화남.
+ * 잡힘 → 빠져나옴 → 도망 → 화남 순으로 칸을 쌓아, 0은 언제나 잡힘이고 0.999는 화남.
  */
 export function throwCapsule(
   s: WildState,
   rng: Rng,
   companionLevel: number,
+  heldCount = 1,
 ): { state: WildState; outcome: ThrowOutcome } | null {
   if (s.phase !== 'dizzy') return null;
   const odds = throwOdds(s.tier);
   const r = rng();
   if (r < odds.caught) return { state: { ...s, phase: 'caught' }, outcome: 'caught' };
-  if (r < odds.caught + odds.retry) return { state: s, outcome: 'retry' };
+  if (r < odds.caught + odds.retry) {
+    // 빠져나옴: 어지러움이 풀리고 깎인 칸에서 절반(올림)을 되찾아 다시 싸운다
+    const heal = Math.ceil(maxCells(s.tier) * CAPTURE_FAIL_HEAL_RATIO);
+    const cells = Math.max(0, s.cells - heal);
+    return { state: { ...freshClock(s), cells, phase: askPhase(heldCount) }, outcome: 'healed' };
+  }
   if (r < 1 - odds.angry) return { state: { ...s, phase: 'escaped' }, outcome: 'escaped' };
   // 화남: 강력이 되어(이미 강력·황금이면 그대로) 체력을 다 채우고 다시 싸운다
   const stays = s.tier === 'mighty' || s.tier === 'legend';
   const tier: Tier = stays ? s.tier : 'mighty';
   const level = stays ? s.level : rollTierLevel(rng, 'mighty', companionLevel);
   return {
-    state: { ...s, tier, level, hits: 0, phase: 'question', timeLeftMs: TIER_RULES[tier].timeMs },
+    state: { ...freshClock({ ...s, tier }), level, cells: 0, phase: 'question' },
     outcome: 'angry',
   };
 }
@@ -110,12 +250,20 @@ export function releaseWild(s: WildState): WildState {
   return s.phase === 'dizzy' ? { ...s, phase: 'released' } : s;
 }
 
-/** 야생 체력 막대 (1이 가득, 0이 어지러움) */
+/** 야생 체력 막대 (1이 가득, 0이 어지러움) — 칸 기준 */
 export function wildHpRatio(s: WildState): number {
-  return Math.min(1, Math.max(0, 1 - s.hits / TIER_RULES[s.tier].hitsToDizzy));
+  return Math.min(1, Math.max(0, 1 - s.cells / maxCells(s.tier)));
 }
 
-/** 이 단계 적이 한 번에 주는 피해 */
+/** 이 단계 적이 한 번에 주는 피해 (방어 중이면 절반 올림) */
 export function damageOf(s: WildState): number {
-  return TIER_RULES[s.tier].damage;
+  const base = TIER_RULES[s.tier].damage;
+  return s.guard ? Math.ceil(base / 2) : base;
+}
+
+/** 힌트 특수: 숨길 틀린 보기의 자리 (틀린 보기가 없으면 null). 화면이 문제를 낼 때 한 번 뽑는다 */
+export function hiddenChoice(choices: readonly number[], answer: number, rng: Rng): number | null {
+  const wrong = choices.flatMap((c, i) => (c === answer ? [] : [i]));
+  if (wrong.length === 0) return null;
+  return wrong[Math.min(wrong.length - 1, Math.floor(rng() * wrong.length))];
 }

@@ -411,9 +411,11 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
           setWild(after);
           catchFx();
           break;
-        case 'retry':
-          setMessage(battleText.retryThrow);
-          onDizzy(wildRef.current!);
+        case 'healed':
+          // 빠져나와 힘을 조금 되찾고 문제로 돌아간다 (화남과 같이 다음 문제는 이미 넘겨 두었다). 연출은 Task 7
+          setWild(after);
+          setHitCount((n) => n + 1);
+          setMessage(battleText.healed);
           break;
         case 'escaped':
           setWild(after);

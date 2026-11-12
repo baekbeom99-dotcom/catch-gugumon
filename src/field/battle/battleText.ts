@@ -18,7 +18,8 @@ export const battleText = {
   retry: '좋아, 다시 해 보자!',
   throwCapsule: '캡슐을 던졌다!',
   caught: (name: string, newSpecies = false) => `${josa(name, '을', '를')} 잡았다!${newSpecies ? ' 새로 만났어!' : ''}`,
-  retryThrow: '아직 어지러워해! 한 번 더!',
+  /** 캡슐에서 빠져나옴: 체력을 조금 되찾고 다시 싸운다 */
+  healed: '앗! 캡슐에서 빠져나왔어요! 힘을 조금 되찾았어요!',
   escaped: (name: string) => `${josa(name, '이', '가')} 도망갔다…`,
   angry: (name: string) => `${josa(name, '이', '가')} 화가 났다! 강력해졌다!`,
   /** 던지기 버튼: 맞는 캡슐의 남은 수 */
