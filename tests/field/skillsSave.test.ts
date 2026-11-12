@@ -105,10 +105,12 @@ describe('normalizeSkills: 이상한 값 거르기', () => {
     expect(normalizeSkills('jelly', 8, ['nope', 'jelly-4'])).toEqual(defaultSkills('jelly', 8));
   });
 
-  it('배열이 아니면(null·문자열·숫자·객체) defaultSkills', () => {
+  it('배열이 아니면(null·문자열·숫자·객체): normalizeSkills는 defaultSkills, 불러오기는 옛 저장처럼 이월 ∪ 익힌 기술', () => {
     for (const bad of [null, 'cloud-1', 3, { 0: 'cloud-1' }]) {
       expect(normalizeSkills('cloud', 14, bad)).toEqual(defaultSkills('cloud', 14));
-      expect(merged('cloud', { ...oldEntry(14), skills: bad })!.skills).toEqual(defaultSkills('cloud', 14));
+      expect(merged('cloud', { ...oldEntry(14), skills: bad })!.skills).toEqual(legacyCarrySkills('cloud', 14));
+      // Lv8~19도 슬롯 5(옛 이월)를 잃지 않는다
+      expect(merged('cloud', { ...oldEntry(8), skills: bad })!.skills).toEqual(['cloud-1', 'cloud-2', 'cloud-3', 'cloud-5']);
     }
   });
 

@@ -36,7 +36,7 @@ import {
 import {
   answerWild,
   createWild,
-  damageOf,
+  strikeDamage,
   healAlly,
   hiddenChoice,
   pickSkill,
@@ -297,11 +297,13 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
    * 체력·상처는 이 순간 저장되고(쓰러지면 자리도 마을로), 연출 뒤 힌트로 간다. 쓰러졌으면 힌트 없이 끝(R9).
    */
   const onStruck = useCallback(
-    (s: WildState) => {
+    (before: WildState, s: WildState) => {
       const it = itemRef.current;
-      useGameStore.getState().damageCompanion(companion, damageOf(s), { factId: it.factId, type: it.type });
+      // 저장할 피해는 화면(도메인)과 같은 값: 공격 전 상태로 계산한다 (스턴이면 0이라 저장도 상처도 그대로)
+      const dmg = strikeDamage(before);
+      if (dmg > 0) useGameStore.getState().damageCompanion(companion, dmg, { factId: it.factId, type: it.type });
       setStruckCount((n) => n + 1);
-      // 적의 기술: 그 레벨에서 익힌 속성 기술 중 무작위 (피해는 단계 값 그대로, 방어만 damageOf가 반영)
+      // 적의 기술: 그 레벨에서 익힌 속성 기술 중 무작위 (피해는 단계 값, 방어·스턴은 strikeDamage가 반영)
       const foe = foeSkill(encounter.species, s.level, rng);
       moveFx('foe', foe, false);
       setMessage(battleText.foeAttack(battleText.tierName(wildDef.name, s.tier), foe.name));
@@ -344,7 +346,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
         // 시간 초과: 오답처럼 기록하고(R8) 적이 공격한다
         setWildState(t);
         record(false, TIER_RULES[t.tier].timeMs, prev.missed);
-        onStruckRef.current(t);
+        onStruckRef.current(prev, t);
         return;
       }
       // 매 프레임 다시 그리지 않는다: 초가 바뀌거나 빨개질 때만
@@ -468,7 +470,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       const after = answerWild(w, false, rng);
       setWild(after);
       record(false, ms, w.missed);
-      onStruck(after);
+      onStruck(w, after);
       return;
     }
     const r = answerWithSkill(w, buttonRef.current, heldIds, wildElement, debugFlags().fast);

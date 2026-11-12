@@ -1569,6 +1569,29 @@ test('틀리면 힌트 뒤 같은 버튼으로 같은 문제를 다시 풀고(�
   await expect(skillPicker(page)).toBeVisible();
 });
 
+test('주② 스턴으로 막은 적 공격은 저장 체력도 그대로, 그다음 공격은 화면과 저장이 같이 준다', async ({ page }) => {
+  await fixBattle(page, true); // 늘 빠르게 → 주속성 버튼에서 새싹 휙(주②, 스턴)
+  // 보통(7초·피해 25)
+  await standBesideGrass(page, { tier: 'normal', cloud: { hp: 100, skills: ['cloud-1', 'cloud-2'] } });
+  await stepIntoGrass(page);
+  await page.getByRole('button', { name: '싸우자!' }).click();
+  await expect(page.locator('.wild__bubble .question')).toBeVisible();
+  await moveButton(page, 56).click();
+  await expect(page.getByRole('status')).toContainText('새싹 휙!');
+  // 다음 문제에서 틀린다: 스턴이 막아 피해 0
+  await expect(page.locator('.wild__bubble .question')).toBeVisible();
+  await wrongMoveButton(page, 56).click();
+  await expect(page.locator('.wild-move--glow')).toHaveCount(1);
+  await expect(page.getByLabel('내 체력 100')).toBeVisible();
+  expect((await savedCloud(page)).hp).toBe(100);
+  // 힌트 뒤 같은 문제에서 또 틀리면 이번엔 맞는다 (화면 75 = 저장 75)
+  await page.locator('.wild-move--glow').click();
+  await expect(page.locator('.wild__bubble .question')).toBeVisible();
+  await wrongMoveButton(page, 56).click();
+  await expect(page.getByLabel('내 체력 75')).toBeVisible();
+  expect((await savedCloud(page)).hp).toBe(75);
+});
+
 // ── 캡슐 던지기 연출과 효과음 (필드 모험 3차 4-1·4-2) ──
 
 type ThrowResult = 'caught' | 'healed' | 'escaped' | 'angry';

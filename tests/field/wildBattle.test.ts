@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  answerWild, chipCells, createWild, damageOf, healAlly, hiddenChoice, MAX_TICK_MS, maxCells, pickSkill, releaseWild, resolveAnswer,
+  answerWild, chipCells, strikeDamage, createWild, damageOf, healAlly, hiddenChoice, MAX_TICK_MS, maxCells, pickSkill, releaseWild, resolveAnswer,
   resumeWild, throwCapsule, tick, tickWild, wildHpRatio,
   type WildState,
 } from '../../src/domain/field/wildBattle';
@@ -471,6 +471,46 @@ describe('wildBattle: 스턴 (다음 적 공격 1회 무효)', () => {
     expect(throwCapsule(d, seq(0.5), 5)!.state.stun).toBe(true);
     expect(throwCapsule(d, seq(0.999, 0), 10)!.state.stun).toBe(true);
     expect(createWild('normal', 5, 100).stun).toBe(false);
+  });
+});
+
+describe('wildBattle: strikeDamage — 저장할 피해 = 화면에서 실제로 줄어든 체력', () => {
+  /** 공격 전 상태로 계산한 피해를 저장에 적용한 체력이 공격 뒤 화면 체력과 같다 */
+  const same = (before: WildState, after: WildState) => {
+    expect(after.phase === 'struck' || after.phase === 'fainted').toBe(true);
+    expect(Math.max(0, before.allyHp - strikeDamage(before))).toBe(after.allyHp);
+  };
+  const q = (over: Partial<WildState> = {}): WildState => ({ ...at(500), ...over });
+  it.each([
+    ['보통', {}, 25],
+    ['방어', { guard: true }, 13],
+    ['스턴', { stun: true }, 0],
+    ['스턴 + 방어', { stun: true, guard: true }, 0],
+  ] as const)('%s: 오답 공격', (_n, over, dmg) => {
+    const before = q(over);
+    expect(strikeDamage(before)).toBe(dmg);
+    same(before, answerWild(before, false, r0));
+  });
+  it.each([
+    ['보통', {}, 25],
+    ['방어', { guard: true }, 13],
+    ['스턴', { stun: true }, 0],
+  ] as const)('%s: 시간 초과 공격', (_n, over, dmg) => {
+    const before = q({ timeLeftMs: 100, ...over });
+    expect(strikeDamage(before)).toBe(dmg);
+    same(before, tick(before, 250, r0));
+  });
+  it('공격 뒤 상태로 부르면 다르다 (그래서 화면은 공격 전 상태로 부른다)', () => {
+    const before = q({ stun: true });
+    const after = answerWild(before, false, r0);
+    expect(strikeDamage(before)).toBe(0);
+    expect(strikeDamage(after)).toBe(25);
+  });
+  it('체력보다 큰 피해면 0에서 멈추고 쓰러짐', () => {
+    const before = q({ allyHp: 10 });
+    const after = answerWild(before, false, r0);
+    expect(after).toMatchObject({ phase: 'fainted', allyHp: 0 });
+    same(before, after);
   });
 });
 

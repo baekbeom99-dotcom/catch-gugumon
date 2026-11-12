@@ -35,7 +35,7 @@ export interface WildState {
   timeLeftMs: number;
   /** 이 문제의 시간 한도 (여유로 늘어난 시간 포함) — 시간 막대의 기준 */
   limitMs: number;
-  /** 이 문제를 시작한 뒤 흐른 시간 ("빠르게 풀면 강력" 판정. 여유로 늘어난 시간과 상관없이 실제로 흐른 시간) */
+  /** 이 문제를 시작한 뒤 흐른 시간 (주속성 단계·부속성·특수 발동 판정. 여유로 늘어난 시간과 상관없이 실제로 흐른 시간) */
   elapsedMs: number;
   /** 우리 구구몬 체력 */
   allyHp: number;
@@ -63,7 +63,7 @@ export function maxCells(tier: Tier): number {
   return TIER_RULES[tier].hitsToDizzy * CELLS_PER_HIT;
 }
 
-/** 새 문제(또는 같은 문제 다시)의 시계: 시간을 처음부터, 여유가 있으면 더하고 써 버린다. 틀린 표시(missed)는 건드리지 않는다 */
+/** 새 문제(또는 같은 문제 다시)의 시계: 시간을 처음부터, 여유가 있으면 더하고 써 버린다. 틀린 표시(missed, 학습 기록용)는 건드리지 않는다 */
 function freshClock(s: WildState): WildState {
   const limitMs = TIER_RULES[s.tier].timeMs + s.calmMs;
   return { ...s, timeLeftMs: limitMs, limitMs, elapsedMs: 0, calmMs: 0 };
@@ -103,7 +103,7 @@ export function createWild(tier: Tier, level: number, allyHp: number, heldCount 
 }
 
 /**
- * 적의 공격: 방어가 있으면 절반(올림)으로 줄이고 방어는 사라진다. 이 문제는 틀린 것으로 표시한다.
+ * 적의 공격: 스턴이면 막고(피해 0, 스턴만 사라짐), 아니면 strikeDamage만큼(방어가 있으면 절반 올림, 방어는 사라짐). 이 문제는 틀린 것으로 표시한다.
  * 체력이 0이 되면 힌트 없이 바로 끝 (R9). 적이 쓰는 기술 이름은 화면이 고른다(난수를 쓰지 않음)
  */
 function strike(s: WildState, timedOut: boolean, timeLeftMs: number): WildState {
@@ -111,7 +111,7 @@ function strike(s: WildState, timedOut: boolean, timeLeftMs: number): WildState 
     // 적이 기절해서 못 움직인다: 피해 0, 스턴만 쓴다 (방어는 다음 공격을 위해 남긴다). 틀린 표시는 그대로 켠다
     return { ...s, timeLeftMs, timedOut, missed: true, stun: false, phase: 'struck' };
   }
-  const allyHp = applyDamage(s.allyHp, damageOf(s));
+  const allyHp = applyDamage(s.allyHp, strikeDamage(s));
   return { ...s, allyHp, timeLeftMs, timedOut, missed: true, guard: false, phase: allyHp <= 0 ? 'fainted' : 'struck' };
 }
 
@@ -184,7 +184,7 @@ export interface AnswerResult {
 
 /**
  * 정답 하나를 판정한다 (정답 한 번당 한 번). question이 아니면 상태를 그대로(같은 객체) 돌려준다(연타).
- * 어떤 기술이 나가는지는 pickFired(버튼·경과 시간·틀린 표시)가 정한다 — 설계서 0-1절.
+ * 어떤 기술이 나가는지는 pickFired(버튼·경과 시간)가 정한다 — 설계서 0-1절.
  * timeMs는 이 단계 문제 제한 시간(여유로 늘어난 시간은 넣지 않는다) — 단계 조건의 기준.
  */
 export function resolveAnswer(
@@ -215,7 +215,7 @@ export function resolveAnswer(
 }
 
 /**
- * 답하기: 오답이면 적이 공격한다. 정답이면 위력 2·상성 보통·강력 아님으로 깎는다(기술을 모르는 옛 호출용 — 기술은 resolveAnswer).
+ * 답하기: 오답이면 적이 공격한다. 정답이면 위력 2·상성 보통으로 깎는다(기술을 모르는 옛 호출용 — 기술은 resolveAnswer).
  * question이 아니면 그대로(연타)
  */
 export function answerWild(s: WildState, correct: boolean, _rng: Rng): WildState {
@@ -231,7 +231,7 @@ export function answerWild(s: WildState, correct: boolean, _rng: Rng): WildState
 export function resumeWild(s: WildState, heldCount = 1): WildState {
   if (s.phase === 'struck') return { ...s, phase: 'hint' };
   if (s.phase === 'hit') return { ...newQuestion(s), phase: askPhase(heldCount) };
-  // 힌트 뒤 같은 문제: 시계만 새로, 틀린 표시는 그대로 (강력·특수 발동 없음)
+  // 힌트 뒤 같은 문제: 시계만 새로(다시 빨리 풀면 윗단계·특수 발동 가능), 틀린 표시는 학습 기록용으로 그대로
   if (s.phase === 'hint') return { ...freshClock(s), phase: 'question' };
   return s;
 }
@@ -285,7 +285,15 @@ export function wildHpRatio(s: WildState): number {
   return Math.min(1, Math.max(0, 1 - s.cells / maxCells(s.tier)));
 }
 
-/** 이 단계 적이 한 번에 주는 피해 (방어 중이면 절반 올림) */
+/**
+ * 지금 적이 공격하면 실제로 들어가는 피해 — **공격 전 상태**로 부른다 (스턴이면 0, 방어면 절반 올림, 아니면 단계 피해).
+ * strike(도메인)와 저장(화면의 damageCompanion)이 이 한 값을 같이 쓴다: 공격 뒤 상태로 부르면 스턴·방어가 이미 사라져 있다
+ */
+export function strikeDamage(before: WildState): number {
+  return before.stun ? 0 : damageOf(before);
+}
+
+/** 이 단계 적이 한 번에 주는 피해 (방어 중이면 절반 올림, 스턴은 보지 않음 — 실제 피해는 strikeDamage) */
 export function damageOf(s: WildState): number {
   const base = TIER_RULES[s.tier].damage;
   return s.guard ? Math.ceil(base / 2) : base;

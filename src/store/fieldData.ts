@@ -189,8 +189,9 @@ function mergeEntry(species: SpeciesId, raw: unknown): SpeciesEntry | null {
   const hp = isNum(e.hp) && Number.isInteger(e.hp) && e.hp >= 0 && e.hp <= COMPANION_MAX_HP ? e.hp : COMPANION_MAX_HP;
   let wounds: Wound[] = [];
   if (Array.isArray(e.wounds)) for (const w of e.wounds) if (isWound(w)) wounds = addWound(wounds, w);
-  // 옛 저장(기술 칸 없음)은 예전에 쓰던 기술 + 그 레벨에서 익힌 기술 전부 (기술이 줄지 않게). 칸이 있으면 규칙대로 다듬는다
-  const skills = e.skills === undefined ? legacyCarrySkills(species, e.level) : normalizeSkills(species, e.level, e.skills);
+  // 옛 저장(기술 칸 없음)이나 깨진 칸(배열이 아님)은 예전에 쓰던 기술 + 그 레벨에서 익힌 기술 전부 (기술이 줄지 않게).
+  // 배열이면 규칙대로 다듬는다
+  const skills = Array.isArray(e.skills) ? normalizeSkills(species, e.level, e.skills) : legacyCarrySkills(species, e.level);
   return { level: e.level, exp: e.exp, stage: e.stage, caught: e.caught, firstCaughtAt: e.firstCaughtAt, hp, wounds, skills };
 }
 
