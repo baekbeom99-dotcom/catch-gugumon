@@ -161,6 +161,8 @@
 
 1. 던짐: 포물선, 공이 돈다 — `throw`. 2. 닿으면 붉은 빛과 함께 야생이 공으로 빨려 들어감 — `capsuleOpen`. 3. 땅에서 한 번 통통 — `capsuleBounce`. 4. 좌우 3번 흔들림, 매번 `capsuleShake`. 5. 잡힘: 3번 뒤 `capsuleClick` + 별가루(`collect-burst`, 황금은 금빛) + `capture`. 실패: 1~2번째에서 `capsulePop`으로 열려 튀어나옴 후 결과별 연출(회복은 §3). 결과는 이미 정해진 난수에 연출만 맞춘다. 길이 약 3초, 단계마다 `data-capsule-stage`(E2E 표식), 동작 줄이기면 캔버스 효과 없이 흔들림만.
 
+**개정 3 보완(사용자 지시 2026-11-12): 캡슐이 바닥에 떨어지는 느낌.** 던진 캡슐은 야생 구구몬의 **머리**에 맞는다(맞는 순간 작은 번쩍). 맞은 뒤 야생 구구몬이 붉은 빛으로 줄어들어 캡슐 속으로 빨려 들어가고, **캡슐은 머리 높이에서 야생 구구몬이 서 있던 바닥 자리까지 약간 아래로 떨어진다**(위에서 아래로 포물선으로 떨어지는 움직임, 중력이 느껴지게 점점 빨라짐). 바닥에 닿으면 **작게 한 번 통통** 튀고(그림자가 따라 움직임), **그 다음에 흔들림(3번)이 시작**된다(흔들림은 바닥에 놓인 캡슐이 좌우로 기우뚱). 단계 순서는 `throw → hit(머리에 맞음) → absorb(빨려듦) → fall(떨어짐) → bounce(통통) → shake → result`로 늘린다(`data-capsule-stage`). 기존 효과음 `capsuleBounce`는 바닥에 닿는 순간에 맞추고, 머리에 맞는 순간에는 기존 `capsuleOpen`(슈웅)을 쓴다(소리 새로 만들지 않음, 필요하면 맞는 소리 `capsuleHit` 하나만 추가 가능). 총 길이는 약 3초를 크게 넘지 않게 단계 시간을 다시 나눈다(`tuning.ts`의 `CAPSULE_*_MS`, 고정표 테스트 갱신).
+
 ### 4-2. 캡슐 효과음 (`src/audio/sfx.ts`, Web Audio 합성)
 
 `throw`·`capsuleOpen`·`capsuleBounce`·`capsuleShake`·`capsuleClick`·`capsulePop` + 기존 `capture`. 소리 끄기·첫 터치 뒤 재생 규칙 그대로.

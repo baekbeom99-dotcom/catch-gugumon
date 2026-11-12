@@ -343,3 +343,21 @@
 - [ ] **Step 2: 실패 확인** → **Step 3: 구현** → **Step 4:** `npx tsc --noEmit -p .`, `npx vitest run`, `E2E_PORT=5191 npx playwright test e2e/field.spec.ts e2e/skills.spec.ts e2e/title.spec.ts`(혼자), 375px 스크린샷.
 - [ ] **Step 5: Commit** — `git commit -m "기술 선택창·관리 화면을 버튼 3개 체계에 맞춤"`
 - 이후 지휘자: 전체 확인(`tsc`·`vitest`·`build`·E2E 전체 혼자)·375px 직접 확인·Opus 전체 재검토(저장 허용 규칙·발동 판정·정산)·사용자 보고.
+
+---
+
+### Task 14: 캡슐 연출 보완 — 머리에 맞고 바닥으로 떨어진 뒤 흔들림 (Sonnet)
+
+**담당:** Sonnet, 이후 Sonnet 검토 (Task 13 뒤에 한다 — 같은 전투 화면 파일을 만지므로 Task 12·13과 동시에 하지 않는다)
+
+**Files:**
+- Modify: `src/field/battle/WildBattleScreen.tsx`(던지기 시퀀스), 전투 CSS(`wildBattle.css`의 `wild__capsule-ball` 키프레임), `src/domain/field/tuning.ts`(`CAPSULE_*_MS` 재분배), `src/audio/sfx.ts`(필요 시 `capsuleHit` 하나), `tests/field/tuning.test.ts`, `tests/audio/sfx.test.ts`, `e2e/field.spec.ts`
+
+**Interfaces (설계서 4-1절 "개정 3 보완"):**
+- 단계 순서 `throw → hit → absorb → fall → bounce → shake → result`(`data-capsule-stage`): `hit` = 캡슐이 야생 구구몬 **머리** 높이에 닿는 순간(작은 번쩍 + 소리 `capsuleOpen`), `absorb` = 구구몬이 붉은 빛으로 줄어들어 캡슐 속으로, `fall` = 캡슐이 머리 높이에서 바닥 자리까지 약간 아래로 떨어짐(가속하는 낙하), `bounce` = 바닥에 닿아 작게 한 번 통통(소리 `capsuleBounce`, 바닥 그림자 따라 움직임), 이후 `shake` 3번(바닥에 놓인 채 좌우로 기우뚱, 소리 `capsuleShake`), `result`는 기존과 같음(잡힘 딸깍·별가루 / 실패 열림).
+- 캡슐 위치 좌표: 던짐 끝점 = 야생 스프라이트의 머리(위쪽 1/4 지점), 낙하 끝점 = 스프라이트의 발 밑(바닥) — 기존 `fxPoint`/스프라이트 요소 위치 계산을 재사용하고 375px에서 잘리지 않게. 단계 시간 `CAPSULE_THROW_MS`·`CAPSULE_HIT_MS`·`CAPSULE_ABSORB_MS`·`CAPSULE_FALL_MS`·`CAPSULE_BOUNCE_MS`·`CAPSULE_SHAKE_MS`·`CAPSULE_RESULT_MS`를 `tuning.ts`에 두고 합계는 약 3000ms(고정표 테스트, 잡힘 기준)를 크게 넘지 않게(예: 550·150·450·300·300(통통 포함)·450×3·200 → 합이 달라지면 던짐·흔들림 시간을 줄여 맞춤).
+- 결과 규칙·확률·난수·입력 차단(`throwingRef`)·실패 시 열림 흔들림 번째(`CAPSULE_POP_AT`)·`__GUGU_E2E_THROW__` 동작은 **그대로**. 동작 줄이기면 낙하·통통은 단순 위치 이동 없이 바로 바닥에 놓이고 흔들림만.
+
+- [ ] **Step 1: 실패하는 테스트** — `tuning.test.ts` 단계 시간 고정표(합 ≈3000ms), E2E: 단계 속성이 `throw→hit→absorb→fall→bounce→shake→result` 순서로 나타남(MutationObserver 기록, 고정 sleep 금지), `bounce`는 `fall` 뒤에만, `capsuleBounce` 소리가 `fall` 끝(바닥에 닿는 순간)에, 잡힘·`healed`·`escaped`·`angry` 모두 기존 결과 유지.
+- [ ] **Step 2: 실패 확인** → **Step 3: 구현** → **Step 4:** `npx tsc --noEmit -p .`, `npx vitest run`, `E2E_PORT=5191 npx playwright test e2e/field.spec.ts e2e/skills.spec.ts e2e/title.spec.ts`(혼자), 375px에서 단계별 스크린샷(맞음·빨려듦·낙하·바닥·흔들림·잡힘)을 `.superpowers/sdd/2026-11-12-field-adventure-3/task-14-shots/`에 저장하고 "머리에 맞고 바닥으로 떨어지는 느낌"이 나는지 한 줄씩 보고서에 적는다.
+- [ ] **Step 5: Commit** — `git commit -m "캡슐이 머리에 맞고 바닥으로 떨어진 뒤 흔들리는 연출"`
