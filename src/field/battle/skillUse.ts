@@ -63,12 +63,12 @@ export function stageEffect(r: Pick<AnswerResult, 'fired' | 'special'>) {
  * 정답 글: 나간 기술 한 줄(윗단계면 "빠르다! N번 기술이 나갔어요") + 주②의 효과 한 줄 + 상성 한 줄(보통이면 없음).
  * healed는 회복(특수 버튼·주②)으로 실제로 늘어난 체력 (가득이었으면 0). from은 고른 버튼 종류(부속성이면 "부속성 기술").
  */
-export function hitMessage(r: AnswerResult, wildMain: Element, healed: number, from: SkillButton['kind'] = 'main'): string {
+export function hitMessage(r: AnswerResult, wildMain: Element, healed: number, _from: SkillButton['kind'] = 'main'): string {
   const name = r.fired.name;
   const lines: string[] = [];
   if (r.usedFallback) lines.push(battleText.fallback(name));
   else if (specialFired(r)) lines.push(r.special === 'heal' ? battleText.healSkill(name, healed) : battleText.special(name, r.special!));
-  else if (r.upper) lines.push(battleText.upper(name, from === 'sub' ? null : r.tier));
+  else if (r.upper) lines.push(battleText.upper(name));
   else lines.push(battleText.hit(name));
   const effect = stageEffect(r);
   if (effect) lines.push(battleText.stageEffect(effect, healed));
@@ -230,6 +230,21 @@ export function buttonPower(button: SkillButton): string {
   if (button.kind !== 'main') return battleText.power(button.skill.basePower);
   const powers = button.chain.map((d) => d.basePower);
   return battleText.powerRange(Math.min(...powers), Math.max(...powers));
+}
+
+/** 전투 화면 버튼에 보이는 짧은 이름: 주속성은 가진 단계와 무관하게 1번 기술, 부속성·특수는 그 기술 (이름 길이는 7글자 이하 — 테스트) */
+export function buttonShortName(button: SkillButton): string {
+  return button.kind === 'main' ? button.chain[0].name : button.skill.name;
+}
+
+/** 특수 버튼에만 보이는 짧은 설명 한 줄 ("체력 회복" 등). 속성 버튼은 null */
+export function buttonBrief(button: SkillButton): string | null {
+  return button.kind === 'special' && button.skill.special ? battleText.specialBrief[button.skill.special] : null;
+}
+
+/** 화면에서는 숨기고 읽기 도구(aria-label·sr-only)에만 두는 글: 단계별 시간 조건 + 위력. 선택창·관리 화면은 skillLines를 그대로 쓴다 */
+export function buttonHiddenText(button: SkillButton, timeMs: number): string {
+  return [buttonShortName(button), ...buttonLines(button, timeMs), buttonPowerLabel(button)].join('. ');
 }
 
 /** 위력 별을 읽어 주는 글 ("위력 2~3") — 별 모양은 화면 읽기 도구가 못 읽으므로 aria-label에 */

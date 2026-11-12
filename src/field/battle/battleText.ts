@@ -55,8 +55,11 @@ export const battleText = {
   nowStage: (sec: number, n: 2 | 3) => `${sec}초 안 ${n}번`,
   nowSub: (sec: number) => `${sec}초 안에 풀어요`,
   hit: (move: string) => `${move}! 명중!`,
-  /** 빠르게 풀어 윗단계가 나감: n번 기술(주속성 2·3번) 또는 부속성 기술(null) */
-  upper: (move: string, n: 1 | 2 | 3 | null) => `${move}! 빠르다! ${n === null ? '부속성' : `${n}번`} 기술이 나갔어요`,
+  /** 빠르게 풀어 윗단계가 나감: 번호 나열 없이 "빠르다!" 느낌만 (개정: UI 간결화) */
+  quick: '⚡ 빠르다!',
+  upper: (move: string) => `${move}! ${battleText.quick}`,
+  /** 고르기 단계 한 줄 안내 (버튼이 2개 이상일 때만) */
+  chooseHint: '빨리 풀면 더 세져요 ⚡',
   /** 주②의 효과 (스턴·회복·방어) */
   stageEffect: stageEffectText,
   /** 스턴으로 적이 공격하지 못함 */
@@ -77,6 +80,8 @@ export const battleText = {
   subLines: (sec: number, move: string, first: string) => [`${sec}초 안: ${move}(부속성)`, `그보다 느리면 1번 ${first}`],
   /** 특수: 시간 안이면 효과, 못 풀면 약한 기술 */
   specialLines: (sec: number, kind: SpecialKind) => [`${sec}초 안: ${SPECIAL_WORD[kind]} 효과`, '못 풀면 약한 기술'],
+  /** 특수 버튼 아래 한 줄 설명 (속성 버튼·주②의 효과에는 없음) */
+  specialBrief: { heal: '체력 회복', guard: '방어', clue: '힌트', calm: '여유 시간', charge: '충전', stun: '적 기절' } as Record<SpecialKind, string>,
   /** 특수 기술 이름표 (속성 대신) */
   specialTag: '특수',
   /** 내 구구몬에 남아 있는 특수 효과 표시 */

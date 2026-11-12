@@ -1,7 +1,7 @@
 /** 전투 화면의 막대들: 체력 막대(야생·내 구구몬)와 문제 시간 막대 */
 import type { Ref } from 'react';
 import { TIMER_WARN_MS } from '../../domain/field/tuning';
-import { gaugeZones, stopPosition, tierAt, type GaugeStop } from './skillUse';
+import { stopPosition, tierAt, type GaugeStop } from './skillUse';
 
 /** 체력 막대. ratio는 0~1 */
 export function HpBar({ label, ratio, low = false }: { label: string; ratio: number; low?: boolean }) {
@@ -13,8 +13,6 @@ export function HpBar({ label, ratio, low = false }: { label: string; ratio: num
   );
 }
 
-const TIER_MARK = { 1: '①', 2: '②', 3: '③' } as const;
-
 interface TimerProps {
   ms: number;
   totalMs: number;
@@ -23,75 +21,36 @@ interface TimerProps {
   stops?: readonly GaugeStop[];
   /** 문제를 시작한 뒤 흐른 시간 (지금 나갈 단계 = 막대 색) */
   elapsedMs?: number;
-  /** 고르기 버튼 안의 작은 미리보기 (시계가 아니라 그림) */
-  preview?: boolean;
 }
 
 /**
  * 문제 시간 막대. 남은 시간이 TIMER_WARN_MS 이하이면 테두리가 빨갛게 (1번 구간이면 채움도 빨강).
- * 기점이 있으면 눈금(세로 선)과 구간마다 단계 번호(③·②·①)를 그리고, 막대 색은 지금 나갈 단계(data-tier)를 뜻한다.
+ * 기점이 있으면 눈금(굵은 세로 선)만 그리고(글자·번호 없음), 막대 색은 지금 나갈 단계(data-tier)를 뜻한다 (UI 간결화).
  * 기점은 경과 시간으로 고정이라 여유로 시간이 늘어나도(totalMs가 커져도) 판정과 같은 순간에 지난다.
  * 매 프레임 다시 그리지 않도록 화면은 초나 단계가 바뀔 때만 다시 그리고, 채움 너비는 fillRef로 직접 줄인다.
  */
-export function TimerBar({ ms, totalMs, fillRef, stops = [], elapsedMs = 0, preview = false }: TimerProps) {
-  const warn = !preview && ms <= TIMER_WARN_MS;
+export function TimerBar({ ms, totalMs, fillRef, stops = [], elapsedMs = 0 }: TimerProps) {
+  const warn = ms <= TIMER_WARN_MS;
   const tier = tierAt(stops, elapsedMs);
   const top = stops.reduce<1 | 2 | 3>((t, s) => (s.tier > t ? s.tier : t), 1);
   const staged = stops.length > 0;
-  // 기점 자리 (왼쪽 끝부터 비율). 구간은 gaugeZones가 정한다 (① … 가장 윗단계, 기점이 겹쳐도 단계가 맞다)
+  // 기점 자리 (왼쪽 끝부터 비율). 단계 색은 판정과 같은 tierAt이 정한다
   const marks = [...stops].map((s) => ({ ...s, pos: stopPosition(s.atMs, totalMs) }));
-  const zones = gaugeZones(stops, totalMs);
   const cls = [
     'wild__timer',
     staged ? 'wild__timer--staged' : '',
     warn ? 'wild__timer--warn' : '',
     staged && tier < top ? 'wild__timer--dropped' : '',
-    preview ? 'wild__timer--preview' : '',
   ]
     .filter(Boolean)
     .join(' ');
   const fill = Math.min(1, Math.max(0, ms / totalMs)) * 100;
-  const body = (
-    <>
-      {preview ? (
-        // 미리보기: 구간마다 그 단계 색을 칠해 둔다 (시간이 안 가니 채움 대신)
-        zones.map((z, i) => (
-          <span
-            key={`c${i}`}
-            className={`wild__timer-zone wild__timer-zone--${z.tier}`}
-            style={{ left: `${z.from * 100}%`, width: `${(z.to - z.from) * 100}%` }}
-          />
-        ))
-      ) : (
-        <span ref={fillRef} className="wild__timer-fill" style={{ width: `${fill}%` }} />
-      )}
+  return (
+    <div className={cls} data-tier={tier} role="timer" aria-label={`남은 시간 ${Math.ceil(ms / 1000)}초`}>
+      <span ref={fillRef} className="wild__timer-fill" style={{ width: `${fill}%` }} />
       {marks.map((m) => (
         <span key={`t${m.atMs}-${m.tier}`} className="wild__timer-tick" style={{ left: `${m.pos * 100}%` }} />
       ))}
-      {zones.map((z, i) =>
-        z.to - z.from > 0.001 ? (
-          <span
-            key={`z${i}`}
-            className={`wild__timer-mark wild__timer-mark--${z.tier}`}
-            style={{ left: `${((z.from + z.to) / 2) * 100}%` }}
-          >
-            {TIER_MARK[z.tier]}
-          </span>
-        ) : null,
-      )}
-    </>
-  );
-  if (preview) {
-    return (
-      // 버튼 안에 들어가므로 span (버튼 안에는 div를 못 넣는다)
-      <span className={cls} data-tier={tier} aria-hidden>
-        {body}
-      </span>
-    );
-  }
-  return (
-    <div className={cls} data-tier={tier} role="timer" aria-label={`남은 시간 ${Math.ceil(ms / 1000)}초`}>
-      {body}
     </div>
   );
 }

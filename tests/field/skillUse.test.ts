@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ELEMENT_FX, SPECIAL_FX, STRONG_FX } from '../../src/domain/field/elements';
-import { fastSeconds, pickFired, seatedDef, skillButtons, skillDef, type SkillButton } from '../../src/domain/field/skills';
+import { SKILLS, fastSeconds, pickFired, seatedDef, skillButtons, skillDef, type SkillButton } from '../../src/domain/field/skills';
 import { CALM_BONUS_MS, TIER_RULES } from '../../src/domain/field/tuning';
 import { createWild, type WildState } from '../../src/domain/field/wildBattle';
 import { battleText } from '../../src/field/battle/battleText';
@@ -8,6 +8,9 @@ import {
   answerWithSkill,
   buttonLines,
   buttonPower,
+  buttonShortName,
+  buttonBrief,
+  buttonHiddenText,
   buttonPowerLabel,
   clockRuns,
   effectPlan,
@@ -131,19 +134,19 @@ describe('전투 기술: 정답 글 hitMessage', () => {
     expect(hitMessage(heal, 'light', 25, 'special')).toBe('새싹 쑥쑥! 체력을 25 되찾았어요!');
     expect(hitMessage(heal, 'light', 0, 'special')).toBe('새싹 쑥쑥! 체력이 이미 가득해요!');
   });
-  it('윗단계: "빠르다! N번 기술이 나갔어요" + 주②의 효과 줄 + 상성 줄, 느리면 명중만', () => {
+  it('윗단계: "⚡ 빠르다!" 한 줄(번호 나열 없음) + 주②의 효과 줄 + 상성 줄, 느리면 명중만', () => {
     expect(hitMessage(answerWithSkill(at(0), btn(M12), M12, 'water', true), 'water', 0, 'main')).toBe(
-      '새싹 휙! 빠르다! 2번 기술이 나갔어요\n적이 기절했어요! 다음 공격을 한 번 못 해요\n효과가 커요! ▲',
+      '새싹 휙! ⚡ 빠르다!\n적이 기절했어요! 다음 공격을 한 번 못 해요\n효과가 커요! ▲',
     );
-    expect(hitMessage(answerWithSkill(at(0), btn(ALL), ALL, 'light', true), 'light', 0, 'main')).toBe('꽃잎 바람! 빠르다! 3번 기술이 나갔어요');
+    expect(hitMessage(answerWithSkill(at(0), btn(ALL), ALL, 'light', true), 'light', 0, 'main')).toBe('꽃잎 바람! ⚡ 빠르다!');
     expect(hitMessage(answerWithSkill(at(0), btn(M12), M12, 'light', false), 'light', 0, 'main')).toBe('잎사귀 톡! 명중!');
     expect(hitMessage(answerWithSkill(at(0), btn(SP, 'special'), SP, 'fire', false), 'fire', 0, 'special')).toBe(
       '시간이 지나서 약한 기술이 나갔어요. 잎사귀 톡!\n별로예요… ▼',
     );
   });
-  it('부속성 버튼: 빠르면 "부속성 기술이 나갔어요", 느리면 1번 명중', () => {
+  it('부속성 버튼: 빠르면 "⚡ 빠르다!", 느리면 1번 명중', () => {
     const sub = btn(ALL, 'sub');
-    expect(hitMessage(answerWithSkill(at(0), sub, ALL, 'grass', true), 'grass', 0, 'sub')).toBe('햇살 반짝! 빠르다! 부속성 기술이 나갔어요');
+    expect(hitMessage(answerWithSkill(at(0), sub, ALL, 'grass', true), 'grass', 0, 'sub')).toBe('햇살 반짝! ⚡ 빠르다!');
     expect(hitMessage(answerWithSkill(at(0), sub, ALL, 'grass', false), 'grass', 0, 'sub')).toBe('잎사귀 톡! 명중!');
   });
   it('주② 회복은 실제로 늘어난 양, 방어는 "다음 공격이 약해져요"', () => {
@@ -151,11 +154,11 @@ describe('전투 기술: 정답 글 hitMessage', () => {
     const mb = skillButtons(mush, 'mushroom')[0];
     const r = answerWithSkill(at(0), mb, mush, 'poison', true);
     expect(r.special).toBe('heal');
-    expect(hitMessage(r, 'poison', 25, 'main')).toBe('데굴데굴! 빠르다! 2번 기술이 나갔어요\n체력이 25 회복됐어요');
-    expect(hitMessage(r, 'poison', 0, 'main')).toBe('데굴데굴! 빠르다! 2번 기술이 나갔어요\n체력이 이미 가득해요');
+    expect(hitMessage(r, 'poison', 25, 'main')).toBe('데굴데굴! ⚡ 빠르다!\n체력이 25 회복됐어요');
+    expect(hitMessage(r, 'poison', 0, 'main')).toBe('데굴데굴! ⚡ 빠르다!\n체력이 이미 가득해요');
     const fluff = ['fluff-1', 'fluff-2'];
     const g = answerWithSkill(at(0), skillButtons(fluff, 'fluff')[0], fluff, 'light', true);
-    expect(hitMessage(g, 'light', 0, 'main')).toBe('꼬리 흔들기! 빠르다! 2번 기술이 나갔어요\n다음 공격이 약해져요');
+    expect(hitMessage(g, 'light', 0, 'main')).toBe('꼬리 흔들기! ⚡ 빠르다!\n다음 공격이 약해져요');
   });
   it('적이 기절해 공격을 못 했을 때 글', () => {
     expect(battleText.stunBlocked('왕관몬')).toBe('왕관몬이 기절해서 움직이지 못했어요!');
@@ -374,5 +377,33 @@ describe('위력 별 읽는 글: buttonPowerLabel', () => {
     expect(buttonPowerLabel(btn(ALL))).toBe('위력 2~3');
     expect(buttonPowerLabel(btn(['cloud-1']))).toBe('위력 2');
     expect(buttonPowerLabel(btn(ALL, 'sub'))).toBe('위력 3');
+  });
+});
+
+describe('전투 화면 간결 표시: buttonShortName · buttonHiddenText (선택창·관리 화면의 skillLines는 그대로)', () => {
+  it('주속성 버튼은 가진 단계와 무관하게 1번 기술 이름, 부속성·특수는 그 기술 이름', () => {
+    expect(buttonShortName(btn(ALL))).toBe('잎사귀 톡');
+    expect(buttonShortName(btn(M12))).toBe('잎사귀 톡');
+    expect(buttonShortName(btn(ALL, 'sub'))).toBe('햇살 반짝');
+    expect(buttonShortName(btn(ALL, 'special'))).toBe('새싹 쑥쑥');
+  });
+  it('기술 이름은 모두 10글자 이하라 두 줄로 줄바꿈하면 버튼 폭(1/3)에 들어간다', () => {
+    for (const d of SKILLS) expect(d.name.length).toBeLessThanOrEqual(10);
+  });
+  it('숨김 글은 단계별 시간 조건과 위력을 그대로 가진다 (화면에는 안 보이고 읽기 도구용)', () => {
+    const t = buttonHiddenText(btn(ALL), T7);
+    for (const line of buttonLines(btn(ALL), T7)) expect(t).toContain(line);
+    expect(t).toContain(buttonPowerLabel(btn(ALL)));
+    expect(buttonHiddenText(btn(ALL, 'special'), T7)).toContain('4초 안: 회복 효과');
+  });
+  it('특수 버튼에만 짧은 설명 한 줄, 속성 버튼은 없음', () => {
+    expect(buttonBrief(btn(ALL, 'special'))).toBe('체력 회복');
+    expect(buttonBrief(btn(ALL))).toBeNull();
+    expect(buttonBrief(btn(ALL, 'sub'))).toBeNull();
+    expect(battleText.specialBrief).toEqual({ heal: '체력 회복', guard: '방어', clue: '힌트', calm: '여유 시간', charge: '충전', stun: '적 기절' });
+  });
+  it('안내 글과 빠르다 글', () => {
+    expect(battleText.chooseHint).toBe('빨리 풀면 더 세져요 ⚡');
+    expect(battleText.quick).toBe('⚡ 빠르다!');
   });
 });

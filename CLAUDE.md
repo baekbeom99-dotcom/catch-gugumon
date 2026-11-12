@@ -18,7 +18,7 @@ React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/fiel
 | `src/domain/field/` | 필드 모험 순수 로직: **`tuning`(운영 수치 전부)**, `skills`(기술 표·슬롯 패턴·특수·복사), `fields`(필드·단 구성), `movement`, `wildBattle`, `encounter`(만남), `creatures`(종·기술 이름), `fieldQuestions`, `growth`(경험치·레벨·진화), `strength`(만남 강함 단계), `capsules`(캡슐 4종·개수), `wounds`(체력·상처), `shopQuiz`(상점 연습), `roam`(마을 구구몬 배회), `answerTimer`(문제 시계), `elements`(속성 7가지·기술 효과 표) |
 | `src/field/shop/` | 마을 상점 팝업: `ShopPopup`, `CapsuleTab`(한 단 연습으로 캡슐), `PotionTab`·`HealPractice`(회복 연습), `DanPractice`·`PracticeCard`(연습 문제 카드), `shopText`(글) |
 | `src/field/world/` | 필드 걷기: `FieldScreen`, `fieldRenderer`(캔버스), `Joystick`, `FieldHud`(왼쪽 위 캡슐·도감·체력), `loadField`, `maps/`(필드마다 지도·타일 그림) |
-| `src/field/battle/` | 야생 전투: `WildBattleScreen`, `useQuestionFeed`(문제 받기), `BattleBars`(`HpBar`·`TimerBar` — 시간 게이지 기점 눈금·구간 색), `battleText`(화면 글), `SkillPicker`(기술 버튼 3개 고르기), `skillUse`(발동·글·`gaugeStops`/`gaugeZones`·`skillLines`/`buttonLines` 버튼 문구 — 선택창·관리 화면 카드도 같은 함수) |
+| `src/field/battle/` | 야생 전투: `WildBattleScreen`, `useQuestionFeed`(문제 받기), `BattleBars`(`HpBar`·`TimerBar` — 눈금·구간 색만, 글자 없음), `battleText`(화면 글), `SkillPicker`(기술 버튼 3개 한 줄·이름만, 특수만 설명 한 줄), `skillUse`(발동·글·`gaugeStops`/`gaugeZones`·`skillLines`/`buttonLines` 버튼 문구 — 선택창·관리 화면 카드도 같은 함수) |
 | `src/field/art/` | 그림: `creatureArt`(구구몬 그림 등록표), `creatureSprite`, `companionImage`, `hero`(주인공), `pixelArt`(픽셀 그림 틀·표지판), `CapsuleBall` |
 | `src/field/fx/` | 효과: `effects`(효과 목록), `playFx`(틀기) |
 | `src/field/` | 기술 화면: `SkillOfferDialog`(기술 선택창: 새 기술 + 그 자리 기술 하나), `SkillManager`(도감 기술 관리: 주속성 사슬·부속성 자리·특수 자리 세 구역), `SkillCard`, `skillText`(기술 글) |
