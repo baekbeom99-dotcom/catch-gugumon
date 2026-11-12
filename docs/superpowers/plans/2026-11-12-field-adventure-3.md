@@ -274,3 +274,71 @@
 - [ ] **Step 3: 시각 확인** — 375px로 고르기 단계·선택창·관리 화면·던지기 연출·새 효과를 직접 보고 이상하면 해당 작업 고침.
 - [ ] **Step 4: Opus 전체 검토**(저장·전투 흐름 변경이므로) — 브랜치 전체 diff, 옛 저장·복사·회복·강력 판정·특수 폴백·연출 중복 입력.
 - [ ] **Step 5: Commit** — `git commit -m "필드 모험 3차 문서 정리"`; 병합·배포는 사용자 지시를 기다린다.
+
+---
+
+# 개정 3 추가 작업 (기술 버튼 3개 체계) — 설계서 0-1절이 우선
+
+> 사용자 지시로 Task 1~10 이후에 **버튼 3개(주속성·부속성·특수) + 속도에 따라 단계 발동** 체계로 바꾼다. 이미 있는 Task 1~10 결과(55개 기술 표·저장 형식 `skills`·효과·소리·연출)는 **재사용**하고, 아래 세 작업이 규칙·화면을 바꾼다. 같은 원칙: 수치·표는 한 곳(`skills.ts`의 `SLOT_PATTERN`·`tuning.ts`), 테스트는 표를 읽어 단정. `STRONG_FX`는 지우지 않고 보관(사용 안 함, 주석으로 남김).
+
+### Task 11: 규칙 — 버튼·단계 발동·자리 규칙 (Opus, 순수 로직 + 저장 검증)
+
+**담당:** `opus-expert` (전투 규칙·저장 검증), 이후 Opus 검토
+
+**Files:**
+- Modify: `src/domain/field/skills.ts`, `src/domain/field/tuning.ts`(`FAST_BONUS_CELLS` 폐지, `SUB_FAST_RATIO` 추가), `src/domain/field/wildBattle.ts`, `src/store/fieldData.ts`(`normalizeSkills`·`isAllowedSkill` 자리 규칙), `src/store/useGameStore.ts`(`replaceSkill`·`setSkills`·`addSkill`·`acceptSkillOffer` 검증 경로가 자리 규칙을 따르게), 관련 테스트(`skillsTable`·`skills`·`wildBattle`·`skillsSave`·`fieldStore`·`tuning`)
+
+**Interfaces (설계서 0-1절의 수치 그대로):**
+- `SLOT_PATTERN` 수정: 슬롯1(주①) 위력 2·조건 없음, 슬롯2(주②) 위력 3·`fastRatio` 0.5, 슬롯5(주③) 위력 4·`fastRatio` 0.3, 슬롯4(부속성) 위력 3·`fastRatio` 0.5, 슬롯3(특수) 위력 2·`fastRatio` 0.5. (슬롯1의 `fastRatio`는 의미 없음 → 필드는 두되 판정에 쓰지 않음.)
+- `seatOf(def: SkillDef, owner: SpeciesId): 'main' | 'sub' | 'special'`: 자기 종 주속성 스킬(`kind:'main'`) → `main`; `kind:'special'`(자기 종 또는 다른 종) → `special`; 그 밖(자기 종 `sub`, 다른 종의 속성 스킬 — 주/부 무관) → `sub`.
+- `skillButtons(held: SkillId[], owner: SpeciesId): SkillButton[]` with `type SkillButton = { kind: 'main'; chain: SkillDef[] /*슬롯 순서, 가진 것만*/ } | { kind: 'sub'; skill: SkillDef } | { kind: 'special'; skill: SkillDef }` — 주속성 버튼은 항상 맨 앞(체인이 비는 일은 정규화가 막음), 부속성·특수는 가졌을 때만.
+- `pickFired(button: SkillButton, held: SkillId[], elapsedMs: number, timeMs: number, missed: boolean): { fired: SkillDef; tier: 1 | 2 | 3; upper: boolean /*상위 단계가 나갔는가*/; special?: SpecialKind; usedFallback: boolean }`: 설계서 0-1절 발동 판정. `missed`이면 항상 "느림". 특수 성공은 `fired` = 특수 스킬(`special` 채움, 위력 `basePower` 칸), 실패는 `weakestSkill(held)`(`usedFallback: true`); 부속성 버튼은 `elapsedMs ≤ fastSeconds(sub스킬)×1000`이면 그 스킬, 아니면 체인의 첫 스킬(`M1`); 주속성 버튼은 `M3`→`M2`→`M1` 순으로 조건 이내인 가장 높은 것(없는 단계는 건너뜀). `fastSeconds` 수식은 기존 그대로, `M3`의 조건은 `M2`보다 짧아야 하고 테스트가 지킨다.
+- `wildBattle.ts`: `resolveAnswer(s, button, held, wildMainElement, timeMs)`가 `pickFired`를 부르고 `chipCells(fired.basePower, matchup, charge)`(= `clamp(위력 + 충전 + 상성, 1, MAX_CHIP_CELLS)`, 특수 성공은 상성 0)로 계산; 반환 `{ state, fired, upper, usedFallback, special? }`. 기존 `fast` 의미는 `upper`로 대체, 충전·guard·calm·hideChoice·missed 전이는 그대로(`missed`일 때 `pickFired`에 `missed:true`). `FAST_BONUS_CELLS`는 제거(테스트·`tuning.test.ts` 표 갱신). 충전 보너스는 속성 스킬이 나갈 때 소모(특수 성공 시는 소모 안 함 — 기존 규칙 유지).
+- 저장 검증(`normalizeSkills`/`isAllowedSkill`): 설계서 0-1절 "저장" 항목대로 — 자리별 중복 제거(부속성 자리 최대 1·특수 자리 최대 1, 앞에서부터 하나만 남김), 다른 종 스킬은 `sub`/`special` 자리에서만, 자기 종 주속성은 레벨 조건 또는 `legacySlots`. 복사·교체 액션(`replaceSkill`)은 **같은 자리끼리만 교체 허용**(부속성↔부속성, 특수↔특수; 주속성 사슬은 `replaceSkill` 대상이 아님 — 자기 종 슬롯 1·2·5는 레벨로만 생김). `setSkills`는 검증된 결과 목록을 통째로 교체. 옛 저장 슬롯 [1,2,5]는 모두 `main` 사슬이라 그대로 유효.
+
+- [ ] **Step 1: 실패하는 테스트** — `seatOf` 표(자기 종 슬롯 1~5·다른 종 슬롯 1~5·특수 자기/타종), `skillButtons`(옛 저장 [1,2,5]→버튼 1개(체인 3)·스타터 [1]·Lv8 [1,2,3]→주+특수·Lv14 [1,2,3,4]·복사 타종 속성 스킬 포함·복사 특수), `pickFired` 경계(체인 1개/2개/3개, `M2`·`M3` 조건 경계 시간(`fastSeconds`)에서 이하/초과, 부속성 버튼 경계, 특수 성공/실패→`weakestSkill`, `missed`면 항상 느림, 5000ms 단계에서도 동일 로직), `resolveAnswer`(위력·충전·상성 clamp, 특수 성공은 상성 0·충전 보존, 폴백 시 충전 소모), 저장: `normalizeSkills`(자리 중복·타종 주속성 사슬 스킬이 부속성 자리로·특수 타종·6개 이상·빈 목록)·`replaceSkill` 같은 자리만·옛 저장 이월 불변. 기존 테스트에서 `FAST_BONUS_CELLS`·`fast` 기대값은 새 의미로 갱신.
+- [ ] **Step 2: 실패 확인** → **Step 3: 구현** (화면 쪽은 컴파일만 유지: `answerWithSkill`/`SkillPicker` 호출부를 임시로 새 시그니처에 맞추고 상세 UI는 Task 12) → **Step 4:** `npx tsc --noEmit -p .`, `npx vitest run`, `E2E_PORT=5191 npx playwright test e2e/field.spec.ts`(혼자; 기존 E2E 의미가 달라지는 곳은 보고서에 목록).
+- [ ] **Step 5: Commit** — `git commit -m "기술 버튼 3개 체계: 속도에 따라 주속성 1·2·3번, 부속성, 특수 발동"`
+
+---
+
+### Task 12: 전투 화면·정산 — 버튼 3개와 복사 자리 (Opus)
+
+**담당:** `opus-expert` (전투 흐름·정산), 이후 Opus 검토
+
+**Files:**
+- Modify: `src/field/battle/SkillPicker.tsx`(버튼 최대 3개), `src/field/battle/skillUse.ts`(`answerWithSkill`·`hitMessage`·`skillSfxPlan`·`skillFxName`이 `pickFired` 결과를 씀), `src/field/battle/WildBattleScreen.tsx`, `src/field/battle/battleText.ts`, `src/store/useGameStore.ts`(`finishWildBattle` 습득·복사), `src/store/useSessionStore.ts`(`SkillOffer`에 `seat`·`removeId`), `src/field/skillOfferState.ts`, `src/field/skillText.ts`, 관련 테스트·E2E
+- 같은 커밋에서 **최종 검토 Minor 3건**: ① `running`(문제 시계) 조건에 `!throwing` 포함(`healed`·`angry` 뒤 200ms 동안 시계·입력 차단), ② `SkillOfferDialog`의 `autoFocus`를 되돌릴 수 없는 첫 "잊고 배우기" 버튼이 아니라 안전한 건너뛰기 버튼으로(`SkillManager`와 같게), ③ `CLAUDE.md`의 "기술 이름·종 이름 | `creatures.ts` (`MOVES`)" 행을 종 이름(`monsterNames.ts`)만 남기게 고침(기술 이름은 새 `skills.ts` 행이 담당).
+
+**Interfaces:**
+- Consumes (Task 11): `skillButtons`, `pickFired`, `seatOf`, `resolveAnswer`.
+- Produces:
+  - `SkillPicker`: 버튼 최대 3개(주속성·부속성·특수; 가진 것만). 각 버튼: **현재 가진 단계의 이름들과 속성·위력**(주속성은 "1번 ○○ / 4초 안: 2번 ○○ / 3초 안: 3번 ○○"처럼 단계별 시간 조건 표시, 시간은 `fastSeconds`), 부속성은 "N초 안: ○○(부속성) / 그보다 느리면 1번 ○○", 특수는 "N초 안: ○○ 효과 / 못 풀면 약한 기술", 상성 글자(▲▼+글자; 주속성 버튼은 모든 단계가 주속성이므로 한 번만, 부속성 버튼은 부속성 스킬의 속성 기준). 버튼이 1개뿐이면 고르기 단계 건너뜀.
+  - 정답 처리·글·효과·소리는 `pickFired`의 `fired`로: 효과 그림 `skillFxName(fired, false)`(= `ELEMENT_FX[fired.element][fired.fxIndex]`, 복사한 스킬은 **원래 종의 `fxIndex`**를 쓴다 — 4칸 안), 글 "○○!"+단계가 올랐으면 "빠르다! 2번 기술이 나갔어요" 같은 한 줄, 소리 `skillSfxPlan`은 `upper`일 때 `fxPower`·상성 소리 규칙은 기존대로(`superEffective`/`notVery`), 특수 성공·폴백 규칙 기존대로. `STRONG_FX`는 쓰지 않는다.
+  - 정산: `finishWildBattle`에서 레벨 습득은 **주속성(슬롯 1·2·5)은 항상 자동 장착**(자리 제한 없음), 부속성(슬롯 4)·특수(슬롯 3)는 **자리가 비어 있으면 자동 장착**, 복사 스킬이 그 자리를 차지하면 제안(`SkillOffer { species, skillId, source:'level', seat }`, 저장 불변). 복사(2%): `seat = seatOf(skill, mine)`이 `main`이면 → `sub`로 간주(속성 복사는 부속성 자리, 설계서 0-1절); 자리가 비면 바로 장착+알림, 차 있으면 제안(`removeId` = 그 자리의 현재 스킬). 이미 같은 id를 가졌으면 후보에서 제외(기존). `acceptSkillOffer(offer, removeId)`는 같은 자리끼리만 교체(Task 11 `replaceSkill` 규칙), 복사 수락 시 복사 스킬이 `skills`에 들어가고 removeId는 빠짐(자기 종 스킬이면 "아는 기술"로 남음).
+  - `skillOfferState`·`SkillOffer`는 위 필드에 맞게 갱신(건너뛰기 규칙: 이미 가진 기술·자리가 이미 같은 스킬이면 건너뜀).
+
+- [ ] **Step 1: 실패하는 테스트** — 버튼 수(스타터 1개→고르기 건너뜀·Lv8 2개·Lv14 3개)·단계별 시간 조건 표시 문구(`fastSeconds`와 일치, 7초/5초 단계)·상성 글자·단계 상승 글·소리 목록(`upper`)·`skillFxName` 55개 기술(복사 포함)이 4칸 안의 유효한 효과 이름·`finishWildBattle` 습득(Lv1→3 주②자동·Lv1→9 주②+특수 자동·Lv14 부속성 자동·복사 스킬이 부속성 자리를 차지한 상태에서 Lv14 → 제안)·복사(속성→부속성 자리·특수→특수 자리·자리 비면 자동·차면 제안·같은 id 제외)·`acceptSkillOffer` 같은 자리만·E2E(고르기 3버튼 표시·`__GUGU_E2E_FAST__`로 윗단계 발동 글, 느림이면 1번, 복사 스위치로 제안→교체, 기술 1개 스타터는 고르기 없음), 최종 검토 Minor 3건(①은 `healed` 직후 200ms 안에 시계 미진행 단위/E2E, ②는 선택창 열릴 때 포커스된 요소가 안전한 버튼인지 E2E).
+- [ ] **Step 2: 실패 확인** → **Step 3: 구현** → **Step 4:** `npx tsc --noEmit -p .`, `npx vitest run`, `E2E_PORT=5191 npx playwright test e2e/field.spec.ts e2e/skills.spec.ts e2e/title.spec.ts`(혼자), 375px 스크린샷(고르기 단계 3버튼, 윗단계 발동 글)을 `.superpowers/sdd/2026-11-12-field-adventure-3/task-12-shots/`에.
+- [ ] **Step 5: Commit** — `git commit -m "전투 화면 기술 버튼 3개와 복사 자리: 속성 스킬은 부속성 자리, 특수는 특수 자리"`
+
+---
+
+### Task 13: 선택창·관리 화면과 마무리 (Sonnet + 지휘자 확인)
+
+**담당:** Sonnet (화면·문서), 이후 Opus 전체 검토
+
+**Files:**
+- Modify: `src/field/SkillOfferDialog.tsx`, `src/field/SkillManager.tsx`, `src/field/skillText.ts`, `tests/field/skillText.test.ts`, `e2e/skills.spec.ts`, `CLAUDE.md`(기술 행: 버튼 3개·`pickFired`·`SLOT_PATTERN` 의미, `STRONG_FX` 보관 설명), `MVP_DESIGN.md`(v1.46 한 줄), 설계서 2-2·2-6·2-7·5절 맨 앞에 "개정 3(0-1절)이 우선" 주석 한 줄씩
+
+**Interfaces:**
+- Consumes (Task 11·12): `skillButtons`, `seatOf`, `SkillOffer`(`seat`·`removeId`), `acceptSkillOffer`, `setSkills`·`replaceSkill`(같은 자리만).
+- Produces:
+  - `SkillOfferDialog`: 새 스킬 카드 + **바꿀 대상은 그 자리의 현재 스킬 하나**(버튼 "이 기술을 잊고 배우기") + 둘째 버튼(레벨 제안 "배우지 않기" / 복사 제안 "포기"); 자리가 비어 있으면 제안이 안 오므로 선택창에서는 항상 교체. 안전한 버튼에 포커스, Esc는 둘째 버튼.
+  - `SkillManager`: **세 구역** — ① 주속성 사슬(읽기 전용: 가진 단계와 "Lv N에 배워요" 잠금), ② 부속성 자리(현재 스킬 + 아는 부속성 후보: 자기 종 슬롯 4(Lv14 이상) 또는 복사해 가진 타종 스킬; 바꾸기만), ③ 특수 자리(같은 방식). 같은 자리끼리만 교체, 단순 해제 없음, 빈 자리에 아는 스킬을 바로 장착 가능. 전투·상점 중 접근 불가(기존).
+  - `skillText`: 버튼 요약·단계 조건 문구 계산 함수(위 `SkillPicker`와 같은 함수를 쓴다 — 중복 금지).
+
+- [ ] **Step 1: 실패하는 테스트** — `skillText` 문구(리터럴 고정: 예 cloud 7초 단계 "4초 안", "3초 안"), E2E: 선택창 교체/포기·복사 속성이 부속성 자리로·특수가 특수 자리로·관리 화면 세 구역 바꾸기·잠금·주속성 사슬 읽기 전용·새로고침 유지.
+- [ ] **Step 2: 실패 확인** → **Step 3: 구현** → **Step 4:** `npx tsc --noEmit -p .`, `npx vitest run`, `E2E_PORT=5191 npx playwright test e2e/field.spec.ts e2e/skills.spec.ts e2e/title.spec.ts`(혼자), 375px 스크린샷.
+- [ ] **Step 5: Commit** — `git commit -m "기술 선택창·관리 화면을 버튼 3개 체계에 맞춤"`
+- 이후 지휘자: 전체 확인(`tsc`·`vitest`·`build`·E2E 전체 혼자)·375px 직접 확인·Opus 전체 재검토(저장 허용 규칙·발동 판정·정산)·사용자 보고.
