@@ -2,11 +2,9 @@
  * 기술 선택창 — 새 기술이 들어갈 자리(부속성·특수)가 차 있을 때 제안이 오면 한 번에 하나씩 뜬다 (3차 설계 2-5, 개정 3 0-1절).
  * 같은 자리끼리만 바꿀 수 있으므로 잊을 기술은 그 자리의 지금 기술 하나다. 잊고 배우거나, 둘째 버튼(레벨 제안 "배우지 않기" / 복사 제안 "포기")으로 넘긴다.
  * 어떻게 끝내든 제안은 하나 처리되고 다음 제안으로 간다. Esc는 둘째 버튼과 같다. 처음 포커스는 되돌릴 수 있는 둘째 버튼.
- * (Task 13이 글·모양을 다듬는다)
  */
 import { useEffect } from 'react';
 import { speciesDef } from '../domain/field/creatures';
-import { ELEMENT_NAMES } from '../domain/field/elements';
 import { skillDef } from '../domain/field/skills';
 import { useGameStore } from '../store/useGameStore';
 import { useSessionStore } from '../store/useSessionStore';
@@ -54,44 +52,35 @@ export function SkillOfferDialog() {
   const def = skillDef(offer.skillId);
   // 잊을 기술: 그 자리의 지금 기술 하나 (ask일 때는 늘 있다)
   const occupant = seatOccupant(offer, held);
-  const forget = occupant ? [occupant] : [];
 
   return (
-    <div className="skill-offer" role="dialog" aria-modal="true" aria-label="기술 선택창" data-offer-source={offer.source}>
+    <div className="skill-offer" role="dialog" aria-modal="true" aria-label="기술 선택창" data-offer-source={offer.source} data-offer-seat={offer.seat}>
       <div className="skill-offer__card">
         <h2 className="skill-offer__title">{skillText.offerTitle(offer)}</h2>
         <p className="skill-offer__who">{speciesDef(offer.species).name}</p>
-        <SkillCard def={def} note={skillText.source(offer)} />
+        <SkillCard def={def} owner={offer.species} badge={skillText.newBadge} note={skillText.source(offer)} />
         <p className="skill-offer__hint">{skillText.offerHint(offer)}</p>
-        <div className="skill-offer__grid" role="group" aria-label="잊을 기술 고르기">
-          {forget.map((id) => {
-            const k = skillDef(id);
-            return (
-              <button
-                key={id}
-                type="button"
-                className="skill-offer__pick"
-                data-skill={id}
-                aria-label={`${k.name} ${skillText.forgetAndLearn}`}
-                onClick={() => {
-                  useGameStore.getState().acceptSkillOffer(offer, id);
-                  skip();
-                }}
-              >
-                <span className="skill-offer__pick-name">{k.name}</span>
-                <span className="skill-offer__pick-meta">
-                  {k.element ? ELEMENT_NAMES[k.element] : '특수'} {skillText.power(k)}
-                </span>
-                <span className="skill-offer__pick-do">잊고 배우기</span>
-              </button>
-            );
-          })}
-        </div>
+        {occupant && (
+          <SkillCard def={skillDef(occupant)} owner={offer.species} badge={skillText.nowHeld}>
+            <button
+              type="button"
+              className="btn btn--primary skill-offer__forget"
+              data-skill={occupant}
+              onClick={() => {
+                useGameStore.getState().acceptSkillOffer(offer, occupant);
+                skip();
+              }}
+            >
+              {skillText.forgetAndLearn}
+            </button>
+          </SkillCard>
+        )}
         {/* 되돌릴 수 없는 "잊고 배우기"가 아니라 이 버튼에 처음 포커스 (Enter를 눌러도 기술을 잃지 않게) */}
         <button type="button" autoFocus className="btn btn--ghost skill-offer__skip" onClick={skip}>
           {skillText.skip(offer)}
         </button>
         {skillText.skipNote(offer) && <p className="skill-offer__note">{skillText.skipNote(offer)}</p>}
+        <p className="skill-offer__note">{skillText.timeNote}</p>
       </div>
     </div>
   );

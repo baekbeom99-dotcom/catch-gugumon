@@ -9,6 +9,8 @@ import {
   defaultSkills,
   fastSeconds,
   learnedAt,
+  seatOf,
+  seatedDef,
   skillDef,
   type SkillButton,
   type SkillDef,
@@ -164,6 +166,32 @@ export function tierAt(stops: readonly GaugeStop[], elapsedMs: number): 1 | 2 | 
   return tier;
 }
 
+/** 시간 막대 구간: 왼쪽 끝부터 from~to(0~1) 비율, 그 구간에서 풀면 나가는 단계 */
+export interface GaugeZone {
+  from: number;
+  to: number;
+  tier: 1 | 2 | 3;
+}
+
+/**
+ * 시간 막대를 단계 구간으로 나눈다 (기점이 없으면 구간도 없다). 왼쪽 끝부터 ① … 가장 빠른 구간.
+ * 구간의 단계는 "그 구간에서 tierAt이 주는 값" — 왼쪽에서부터 단계의 최댓값을 이어 가므로 기점이 같은 자리에 겹쳐도 틀리지 않는다
+ */
+export function gaugeZones(stops: readonly GaugeStop[], limitMs: number): GaugeZone[] {
+  if (stops.length === 0) return [];
+  const marks = stops.map((st) => ({ pos: stopPosition(st.atMs, limitMs), tier: st.tier })).sort((a, b) => a.pos - b.pos || a.tier - b.tier);
+  const zones: GaugeZone[] = [];
+  let tier: 1 | 2 | 3 = 1;
+  let from = 0;
+  for (const m of marks) {
+    zones.push({ from, to: m.pos, tier });
+    if (m.tier > tier) tier = m.tier;
+    from = m.pos;
+  }
+  zones.push({ from, to: 1, tier });
+  return zones;
+}
+
 /** 기점의 자리: 게이지(왼쪽부터 남은 시간만큼 차 있음)의 왼쪽 끝에서 비율 0~1 */
 export function stopPosition(atMs: number, limitMs: number): number {
   if (!(limitMs > 0)) return 0;
@@ -172,25 +200,29 @@ export function stopPosition(atMs: number, limitMs: number): number {
 
 // ── 고르기 버튼·준비 글 (Task 13의 기술 관리 화면도 이 함수를 쓴다) ──
 
-/** 버튼의 단계별 시간 조건 글 (시간은 fastSeconds — 판정·게이지와 같은 값) */
-export function buttonLines(button: SkillButton, timeMs: number): string[] {
-  const sec = (def: SkillDef) => fastSeconds(def, timeMs);
-  if (button.kind === 'main') {
-    const [m1, ...rest] = button.chain;
-    return [
-      battleText.stageFirst(m1.name),
-      ...rest.map((def) =>
-        battleText.stageUpper(sec(def), def.slot === 5 ? 3 : 2, def.name, def.slot === 2 ? M2_EFFECT_OF_SPECIES[def.species] : undefined),
-      ),
-    ];
+/**
+ * 기술 하나의 단계별 시간 조건 글 (owner 구구몬의 자리로 본다 — 부속성 자리에 앉은 다른 종 기술은 부속성 값).
+ * 고르기 버튼(buttonLines)과 기술 선택창·관리 화면 카드가 같은 함수를 쓴다. 시간은 fastSeconds — 판정·게이지와 같은 값
+ */
+export function skillLines(def: SkillDef, owner: SpeciesId, timeMs: number): string[] {
+  const seat = seatOf(def, owner);
+  const seated = seatedDef(def, owner);
+  const sec = fastSeconds(seated, timeMs);
+  if (seat === 'main') {
+    if (def.slot === 1) return [battleText.stageFirst(def.name)];
+    return [battleText.stageUpper(sec, def.slot === 5 ? 3 : 2, def.name, def.slot === 2 ? M2_EFFECT_OF_SPECIES[def.species] : undefined)];
   }
-  if (button.kind === 'sub') return battleText.subLines(sec(button.skill), button.skill.name, mainFirst(button).name);
-  return battleText.specialLines(sec(button.skill), button.skill.special!);
+  if (seat === 'sub') return battleText.subLines(sec, def.name, skillDef(`${owner}-1`).name);
+  return battleText.specialLines(sec, def.special!);
 }
 
-/** 버튼 주인 종의 주속성 1번 (부속성 버튼이 느릴 때 나가는 기술) */
-function mainFirst(button: SkillButton): SkillDef {
-  return button.kind === 'main' ? button.chain[0] : skillDef(`${button.owner}-1`);
+/** 버튼의 단계별 시간 조건 글 */
+export function buttonLines(button: SkillButton, timeMs: number): string[] {
+  if (button.kind === 'main') {
+    const [m1, ...rest] = button.chain;
+    return [battleText.stageFirst(m1.name), ...rest.flatMap((def) => skillLines(def, button.owner, timeMs))];
+  }
+  return skillLines(button.skill, button.owner, timeMs);
 }
 
 /** 버튼 위력 별: 주속성은 가진 단계의 범위("★★~★★★"), 나머지는 그 기술 (부속성 자리는 앉힌 위력) */
@@ -198,6 +230,15 @@ export function buttonPower(button: SkillButton): string {
   if (button.kind !== 'main') return battleText.power(button.skill.basePower);
   const powers = button.chain.map((d) => d.basePower);
   return battleText.powerRange(Math.min(...powers), Math.max(...powers));
+}
+
+/** 위력 별을 읽어 주는 글 ("위력 2~3") — 별 모양은 화면 읽기 도구가 못 읽으므로 aria-label에 */
+export function buttonPowerLabel(button: SkillButton): string {
+  if (button.kind !== 'main') return `위력 ${button.skill.basePower}`;
+  const powers = button.chain.map((d) => d.basePower);
+  const lo = Math.min(...powers);
+  const hi = Math.max(...powers);
+  return lo === hi ? `위력 ${lo}` : `위력 ${lo}~${hi}`;
 }
 
 /** 문제가 뜰 때 글 ("○○ 준비! …") */

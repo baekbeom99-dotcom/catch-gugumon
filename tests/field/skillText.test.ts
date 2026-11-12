@@ -24,11 +24,37 @@ describe('기술 글 (기술 표에서 계산)', () => {
     expect(skillText.special(skillDef('cloud-1'))).toBeNull();
   });
 
-  it('발동 조건 글: 실제 문구', () => {
-    expect(skillText.condition(skillDef('cloud-1'))).toBe('문제 시간의 60% 안에 풀면 강력!');
-    expect(skillText.condition(skillDef('cloud-5'))).toBe('문제 시간의 30% 안에 풀면 강력!');
-    expect(skillText.condition(skillDef('cloud-3'))).toBe('문제 시간의 50% 안에 풀면 회복! 못 풀면 약한 기술이 나가요');
-    expect(skillText.condition(skillDef('mushroom-3'))).toBe('문제 시간의 50% 안에 풀면 방어! 못 풀면 약한 기술이 나가요');
+  it('단계별 시간 조건 글: 고르기 버튼과 같은 함수 (7초 문제 기준)', () => {
+    expect(skillText.lines(skillDef('cloud-1'), 'cloud')).toEqual(['1번 잎사귀 톡']);
+    expect(skillText.lines(skillDef('cloud-2'), 'cloud')).toEqual(['4초 안: 2번 새싹 휙 +기절']);
+    expect(skillText.lines(skillDef('cloud-5'), 'cloud')).toEqual(['2초 안: 3번 꽃잎 바람']);
+    expect(skillText.lines(skillDef('cloud-4'), 'cloud')).toEqual(['4초 안: 햇살 반짝(부속성)', '그보다 느리면 1번 잎사귀 톡']);
+    expect(skillText.lines(skillDef('cloud-3'), 'cloud')).toEqual(['4초 안: 회복 효과', '못 풀면 약한 기술']);
+    // 다른 종 속성 기술은 부속성 자리 값(부속성 조건)으로
+    expect(skillText.lines(skillDef('horn-1'), 'cloud')[0]).toBe('4초 안: 뿔 콕(부속성)');
+  });
+
+  it('M2 특수효과(스턴·회복·방어): 자기 종 주속성 2번만, 복사해 부속성 자리에 앉으면 없음', () => {
+    expect(skillText.effect(skillDef('cloud-2'), 'cloud')).toBe('빨리 풀면: 다음 적 공격을 한 번 막아요');
+    expect(skillText.effect(skillDef('mushroom-2'), 'mushroom')).toBe('빨리 풀면: 체력이 조금 회복돼요');
+    expect(skillText.effect(skillDef('fluff-2'), 'fluff')).toBe('빨리 풀면: 다음 적 공격이 약해져요');
+    expect(skillText.effect(skillDef('cloud-1'), 'cloud')).toBeNull();
+    expect(skillText.effect(skillDef('cloud-5'), 'cloud')).toBeNull();
+    expect(skillText.effect(skillDef('cloud-2'), 'mushroom')).toBeNull();
+    expect(skillText.effect(skillDef('cloud-3'), 'cloud')).toBe(skillText.special(skillDef('cloud-3')));
+  });
+
+  it('주인 종을 주면 자리로 본 종류·위력 (복사 기술은 부속성 자리 위력)', () => {
+    expect(skillText.kind(skillDef('horn-1'), 'cloud')).toMatch(/ · 부속성$/);
+    expect(skillText.kind(skillDef('cloud-1'), 'cloud')).toBe('풀 · 주속성');
+    expect(skillText.power(skillDef('horn-1'), 'cloud')).toBe('★★★');
+    expect(skillText.power(skillDef('horn-1'))).toBe('★★');
+  });
+
+  it('자리 이름', () => {
+    expect(skillText.seatName('main')).toBe('주속성 사슬');
+    expect(skillText.seatName('sub')).toBe('부속성 자리');
+    expect(skillText.seatName('special')).toBe('특수 자리');
   });
 
   it('출처 글', () => {
@@ -40,7 +66,7 @@ describe('기술 글 (기술 표에서 계산)', () => {
   it('모든 기술이 글을 만든다', () => {
     for (const k of SKILLS) {
       expect(skillText.kind(k)).toMatch(/^(특수|.+ · (주|부)속성)$/);
-      expect(skillText.condition(k)).toMatch(/^문제 시간의 \d+% 안에 풀면 /);
+      expect(skillText.lines(k, k.species).length).toBeGreaterThan(0);
     }
     expect(speciesSkills('cloud')).toHaveLength(5);
   });

@@ -1,7 +1,7 @@
 /** 전투 화면의 막대들: 체력 막대(야생·내 구구몬)와 문제 시간 막대 */
 import type { Ref } from 'react';
 import { TIMER_WARN_MS } from '../../domain/field/tuning';
-import { stopPosition, tierAt, type GaugeStop } from './skillUse';
+import { gaugeZones, stopPosition, tierAt, type GaugeStop } from './skillUse';
 
 /** 체력 막대. ratio는 0~1 */
 export function HpBar({ label, ratio, low = false }: { label: string; ratio: number; low?: boolean }) {
@@ -38,15 +38,9 @@ export function TimerBar({ ms, totalMs, fillRef, stops = [], elapsedMs = 0, prev
   const tier = tierAt(stops, elapsedMs);
   const top = stops.reduce<1 | 2 | 3>((t, s) => (s.tier > t ? s.tier : t), 1);
   const staged = stops.length > 0;
-  // 기점 자리 (왼쪽 끝부터 비율). 구간: [0, 첫 눈금] = ①, … , [마지막 눈금, 1] = 가장 윗단계
-  const marks = [...stops].map((s) => ({ ...s, pos: stopPosition(s.atMs, totalMs) })).sort((a, b) => a.pos - b.pos);
-  const zones = staged
-    ? [0, ...marks.map((m) => m.pos)].map((from, i) => ({
-        from,
-        to: i < marks.length ? marks[i].pos : 1,
-        tier: (i === 0 ? 1 : marks[i - 1].tier) as 1 | 2 | 3,
-      }))
-    : [];
+  // 기점 자리 (왼쪽 끝부터 비율). 구간은 gaugeZones가 정한다 (① … 가장 윗단계, 기점이 겹쳐도 단계가 맞다)
+  const marks = [...stops].map((s) => ({ ...s, pos: stopPosition(s.atMs, totalMs) }));
+  const zones = gaugeZones(stops, totalMs);
   const cls = [
     'wild__timer',
     staged ? 'wild__timer--staged' : '',
@@ -61,9 +55,9 @@ export function TimerBar({ ms, totalMs, fillRef, stops = [], elapsedMs = 0, prev
     <>
       {preview ? (
         // 미리보기: 구간마다 그 단계 색을 칠해 둔다 (시간이 안 가니 채움 대신)
-        zones.map((z) => (
+        zones.map((z, i) => (
           <span
-            key={`c${z.tier}`}
+            key={`c${i}`}
             className={`wild__timer-zone wild__timer-zone--${z.tier}`}
             style={{ left: `${z.from * 100}%`, width: `${(z.to - z.from) * 100}%` }}
           />
@@ -74,10 +68,10 @@ export function TimerBar({ ms, totalMs, fillRef, stops = [], elapsedMs = 0, prev
       {marks.map((m) => (
         <span key={`t${m.atMs}-${m.tier}`} className="wild__timer-tick" style={{ left: `${m.pos * 100}%` }} />
       ))}
-      {zones.map((z) =>
+      {zones.map((z, i) =>
         z.to - z.from > 0.001 ? (
           <span
-            key={`z${z.tier}`}
+            key={`z${i}`}
             className={`wild__timer-mark wild__timer-mark--${z.tier}`}
             style={{ left: `${((z.from + z.to) / 2) * 100}%` }}
           >

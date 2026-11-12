@@ -1185,12 +1185,12 @@ test('복사 스위치: 그 자리(부속성)가 차 있으면 저장은 그대�
   // 선택창: 잊을 기술은 그 자리(부속성)의 jelly-1 하나뿐, 처음 포커스는 되돌릴 수 있는 "포기"
   const offer = page.getByRole('dialog', { name: '기술 선택창' });
   await expect(offer).toBeVisible();
-  await expect(offer.locator('.skill-offer__pick')).toHaveCount(1);
-  await expect(offer.locator('.skill-offer__pick')).toHaveAttribute('data-skill', 'jelly-1');
+  await expect(offer.locator('.skill-offer__forget')).toHaveCount(1);
+  await expect(offer.locator('.skill-offer__forget')).toHaveAttribute('data-skill', 'jelly-1');
   await expect(offer.getByRole('button', { name: '포기' })).toBeFocused();
   // Enter를 눌러도 기술을 잃지 않는다 (포기 = 제안만 사라짐)
   await page.screenshot({ path: `${shot12}/6-offer-dialog-375.png` });
-  await offer.locator('.skill-offer__pick').click();
+  await offer.locator('.skill-offer__forget').click();
   await expect(offer).toHaveCount(0);
   const after = await savedSkills(page);
   expect(after.slice(0, 4)).toEqual(five.slice(0, 4));

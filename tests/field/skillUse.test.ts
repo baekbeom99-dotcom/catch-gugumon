@@ -8,10 +8,12 @@ import {
   answerWithSkill,
   buttonLines,
   buttonPower,
+  buttonPowerLabel,
   clockRuns,
   effectPlan,
   foeSkill,
   gaugeStops,
+  gaugeZones,
   heldSkills,
   hitMessage,
   nowText,
@@ -326,5 +328,51 @@ describe('문제 시계가 흐르는 조건 clockRuns', () => {
   });
   it('캡슐에서 빠져나온 뒤 연출(throwing)이 끝날 때까지는 문제가 떠도 흐르지 않는다', () => {
     expect(clockRuns({ ...base, throwing: true })).toBe(false);
+  });
+});
+
+describe('시간 막대 구간: gaugeZones (같은 기점에서도 단계가 맞다)', () => {
+  it('기점이 둘이면 ① ② ③ 구간 (왼쪽부터)', () => {
+    const zones = gaugeZones(gaugeStops(btn(ALL), T7), T7);
+    expect(zones.map((z) => z.tier)).toEqual([1, 2, 3]);
+    expect(zones[0].from).toBe(0);
+    expect(zones[zones.length - 1].to).toBe(1);
+  });
+
+  it('기점이 같은 자리에 겹쳐도 가장 높은 단계가 마지막 구간이고 tierAt과 같다', () => {
+    const stops = [
+      { atMs: 3000, tier: 2 as const, skillName: 'a' },
+      { atMs: 3000, tier: 3 as const, skillName: 'b' },
+    ];
+    for (const order of [stops, [...stops].reverse()]) {
+      const zones = gaugeZones(order, T7);
+      expect(zones[zones.length - 1].tier).toBe(3);
+      // 구간 가운데 시각의 단계가 tierAt과 같다
+      for (const z of zones) {
+        if (z.to - z.from <= 0.001) continue;
+        const mid = T7 - ((z.from + z.to) / 2) * T7;
+        expect(z.tier).toBe(tierAt(order, mid));
+      }
+    }
+  });
+
+  it('높은 단계 기점이 더 느린 쪽에 있어도 지난 뒤에는 낮아지지 않는다', () => {
+    const stops = [
+      { atMs: 5000, tier: 3 as const, skillName: 'a' },
+      { atMs: 2000, tier: 2 as const, skillName: 'b' },
+    ];
+    expect(gaugeZones(stops, T7).map((z) => z.tier)).toEqual([1, 3, 3]);
+  });
+
+  it('기점이 없으면 구간도 없다', () => {
+    expect(gaugeZones([], T7)).toEqual([]);
+  });
+});
+
+describe('위력 별 읽는 글: buttonPowerLabel', () => {
+  it('범위와 하나', () => {
+    expect(buttonPowerLabel(btn(ALL))).toBe('위력 2~3');
+    expect(buttonPowerLabel(btn(['cloud-1']))).toBe('위력 2');
+    expect(buttonPowerLabel(btn(ALL, 'sub'))).toBe('위력 3');
   });
 });

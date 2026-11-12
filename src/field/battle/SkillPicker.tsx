@@ -8,7 +8,7 @@ import { ELEMENT_NAMES, type Element } from '../../domain/field/elements';
 import { buttonFace, type SkillButton } from '../../domain/field/skills';
 import { TimerBar } from './BattleBars';
 import { battleText } from './battleText';
-import { buttonLines, buttonPower, gaugeStops, skillMatchup } from './skillUse';
+import { buttonLines, buttonPower, buttonPowerLabel, gaugeStops, skillMatchup } from './skillUse';
 
 interface Props {
   buttons: readonly SkillButton[];
@@ -45,7 +45,9 @@ export function SkillPicker({ buttons, timeMs, wildMain, disabled = false, onPic
               <span className="skill-pick__head">
                 <span className="skill-pick__name">{face.name}</span>
                 <span className={`skill-pick__tag skill-pick__tag--${face.element ?? 'special'}`}>{tag}</span>
-                <span className="skill-pick__power">{buttonPower(b)}</span>
+                <span className="skill-pick__power" role="img" aria-label={buttonPowerLabel(b)}>
+                  {buttonPower(b)}
+                </span>
               </span>
               <span className="skill-pick__lines">
                 {buttonLines(b, timeMs).map((line) => (

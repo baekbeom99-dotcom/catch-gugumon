@@ -53,6 +53,23 @@
 .skill-card__line--special {
   font-weight: 800;
 }
+.skill-card__line--time {
+  font-size: 14px;
+  color: #333;
+}
+.skill-card__badge {
+  align-self: flex-start;
+  margin: 0;
+  padding: 0 6px;
+  border-radius: 6px;
+  background: var(--yellow);
+  font-size: 12px;
+  font-weight: 800;
+}
+.skill-card--locked {
+  opacity: 0.7;
+  background: #ececec;
+}
 .skill-card__line--note {
   color: #555;
   font-size: 14px;
@@ -104,52 +121,9 @@
   text-align: center;
   word-break: keep-all;
 }
-.skill-offer__grid {
-  display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-  gap: 6px;
-}
-.skill-offer__pick {
-  grid-column: span 2;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  min-width: 0;
-  min-height: 76px;
-  padding: 6px 2px;
-  border: var(--border);
-  border-radius: var(--radius);
-  background: var(--paper);
-  box-shadow: var(--shadow-sm);
-  font: inherit;
-  color: var(--ink);
-  text-align: center;
-  cursor: pointer;
-}
-.skill-offer__pick:nth-child(n + 4) {
-  grid-column: span 3;
-}
-.skill-offer__pick:active {
-  transform: translate(2px, 2px);
-  box-shadow: none;
-}
-.skill-offer__pick-name {
-  font-family: var(--font-display);
-  font-size: 15px;
-  line-height: 1.15;
-  word-break: keep-all;
-}
-.skill-offer__pick-meta {
-  font-size: 12px;
-}
-.skill-offer__pick-do {
-  margin-top: auto;
-  padding: 1px 6px;
-  border-radius: 6px;
-  background: var(--yellow);
-  font-size: 13px;
-  font-weight: 800;
+.skill-offer__forget {
+  min-height: 48px;
+  font-size: 18px;
 }
 .skill-offer__skip {
   min-height: 52px;
@@ -199,14 +173,35 @@
   font-size: 18px;
 }
 .skill-manage__list,
-.skill-manage__replace {
+.skill-manage__confirm {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
+.skill-manage__seat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 4px;
+  border-top: 2px dashed #bbb;
+}
+.skill-manage__note {
+  margin: 0;
+  font-size: 14px;
+  color: #555;
+  word-break: keep-all;
+}
+.skill-manage__empty {
+  margin: 0;
+  padding: 10px;
+  border: 2px dashed #999;
+  border-radius: var(--radius);
+  font-size: 15px;
+  text-align: center;
+}
 .skill-manage__ask {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 800;
   word-break: keep-all;
 }

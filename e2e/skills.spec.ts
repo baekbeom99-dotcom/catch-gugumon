@@ -3,20 +3,23 @@ import { expect, test } from './fixtures';
 
 test.use({ viewport: { width: 375, height: 812 } });
 
-const SHOTS = '.superpowers/sdd/2026-11-12-field-adventure-3/task-6-shots';
+const SHOTS = '.superpowers/sdd/2026-11-12-field-adventure-3/task-13-shots';
 const SAVE_KEY = 'gugu-monster:save';
 
 interface SeedOptions {
+  /** 동행 구구몬의 기록 */
   cloud: Record<string, unknown>;
+  /** 동행 종 (기본 구름몬) */
+  who?: string;
   /** 풀숲(6,8) 바로 왼쪽에 서고 만남 100%·문제 시간 멈춤·약한 야생·복사 100% */
   battle?: boolean;
   capsules?: Record<string, number>;
 }
 
-/** 페이지가 열리기 전에 구름몬 저장본을 넣는다 (이미 저장이 있으면 그대로 — 새로고침해도 유지) */
+/** 페이지가 열리기 전에 동행 저장본을 넣는다 (이미 저장이 있으면 그대로 — 새로고침해도 유지) */
 async function seed(page: Page, opts: SeedOptions) {
   await page.addInitScript(
-    ([cloud, battle, capsules, key]) => {
+    ([cloud, battle, capsules, key, who]) => {
       const w = window as unknown as Record<string, unknown>;
       if (battle) {
         w.__GUGU_E2E_FIELD__ = true;
@@ -27,20 +30,20 @@ async function seed(page: Page, opts: SeedOptions) {
       if (localStorage.getItem(key as string)) return;
       const field = {
         starterChosen: true,
-        companion: 'cloud',
-        species: { cloud: { exp: 0, stage: 1, caught: 1, firstCaughtAt: 1, ...(cloud as object) } },
-        seen: ['cloud'],
+        companion: who,
+        species: { [who as string]: { exp: 0, stage: 1, caught: 1, firstCaughtAt: 1, ...(cloud as object) } },
+        seen: [who],
         position: { map: 'meadow', x: 5, y: 8, facing: 'right' },
         ...(capsules ? { capsules } : {}),
       };
       localStorage.setItem(key as string, JSON.stringify({ version: 1, state: { field } }));
     },
-    [opts.cloud, !!opts.battle, opts.capsules ?? null, SAVE_KEY] as const,
+    [opts.cloud, !!opts.battle, opts.capsules ?? null, SAVE_KEY, opts.who ?? 'cloud'] as const,
   );
 }
 
-async function savedSkills(page: Page): Promise<string[]> {
-  return page.evaluate((k) => JSON.parse(localStorage.getItem(k)!).state.field.species.cloud.skills, SAVE_KEY);
+async function savedSkills(page: Page, who = 'cloud'): Promise<string[]> {
+  return page.evaluate(([k, w]) => JSON.parse(localStorage.getItem(k)!).state.field.species[w].skills, [SAVE_KEY, who]);
 }
 
 async function stepIntoGrass(page: Page) {
@@ -70,10 +73,19 @@ async function solveWild(page: Page): Promise<number> {
 /** 어지러워질 때까지(또는 캡슐이 없어 돌려보낼 때까지) 정답을 누른다 */
 async function answerUntilDizzy(page: Page) {
   for (let i = 0; i < 8; i++) {
+    // 돌려보내기까지 끝나 필드로 돌아왔으면 그만
+    if (!/#\/field\/battle$/.test(page.url())) return;
     if (await page.getByRole('button', { name: '캡슐 던지기' }).isVisible()) return;
     if (await page.getByText(/캡슐이 없어서/).isVisible()) return;
     const bubble = page.locator('.wild__bubble');
-    const answer = await solveWild(page);
+    let answer: number;
+    try {
+      answer = await solveWild(page);
+    } catch (e) {
+      // 문제가 안 뜬 까닭이 전투가 이미 끝나 필드로 돌아온 것이면 그만
+      if (!/#\/field\/battle$/.test(page.url())) return;
+      throw e;
+    }
     const fact = await bubble.getAttribute('data-fact');
     await page.locator('.wild-move').filter({ has: page.locator(`.wild-move__num:text-is("${answer}")`) }).click();
     // 다음 문제로 넘어가거나(문제가 바뀜) 어지러워질 때까지 기다린다
@@ -99,39 +111,52 @@ async function waitOffer(page: Page) {
   return offer;
 }
 
-const FIVE = ['cloud-1', 'horn-1', 'horn-2', 'jelly-1', 'jelly-2'];
+async function openManager(page: Page) {
+  await page.goto('/#/field/dex');
+  await page.locator('.fdex__cell--caught').first().click();
+  await page.getByRole('button', { name: '기술 보기·바꾸기' }).click();
+  return page.getByRole('dialog', { name: '기술 관리' });
+}
+
+// 젤리몬(Lv8): 부속성 자리는 복사한 뿔뿔몬 기술이 차지, 주속성 사슬 1·2번과 특수 3번이 있다.
+// 초원의 야생(구름몬·버섯몬·솜털몬 Lv3~5)에서 복사하면 속성 기술이므로 늘 부속성 자리 제안이 온다
+const JELLY = ['jelly-1', 'jelly-2', 'jelly-3', 'horn-1'];
 const NO_CAPSULES = { meadow: 0, waterside: 3, desert: 3, legend: 0 };
 
 /** 복사 스위치로 돌려보내 복사 제안 선택창을 띄운다 */
 async function openCopyOffer(page: Page) {
-  await seed(page, { cloud: { level: 8, stage: 2, skills: FIVE }, battle: true, capsules: NO_CAPSULES });
+  await seed(page, { who: 'jelly', cloud: { level: 8, stage: 2, skills: JELLY }, battle: true, capsules: NO_CAPSULES });
   await page.goto('/#/field');
   await stepIntoGrass(page);
   await answerUntilDizzy(page);
   return waitOffer(page);
 }
 
-test('복사 제안: "잊고 배우기"를 누르면 그 기술이 새 기술로 바뀐다', async ({ page }) => {
+test('복사 제안: 새 기술 카드와 그 자리 기술 하나만 보이고, "이 기술을 잊고 배우기"로 바뀐다', async ({ page }) => {
   const offer = await openCopyOffer(page);
   const newId = (await offer.locator('.skill-card').first().getAttribute('data-skill'))!;
   await expect(offer).toContainText('따라 배울까?');
-  await expect(offer.getByRole('button', { name: '포기' })).toBeVisible();
-  await page.screenshot({ path: `${SHOTS}/offer-375.png` });
-  // 가진 기술 5개 버튼이 모두 화면 안에 있다
+  await expect(offer).toContainText('부속성 자리');
+  // 카드 둘: 새 기술 + 그 자리의 지금 기술(뿔뿔몬에게서 따라 배운 기술)
+  await expect(offer.locator('.skill-card')).toHaveCount(2);
+  await expect(offer.locator('.skill-card').nth(1)).toHaveAttribute('data-skill', 'horn-1');
+  // 복사한 기술은 부속성 자리 위력(★★★)과 부속성 조건 글
+  await expect(offer.locator('.skill-card').first()).toContainText('★★★');
+  await expect(offer.locator('.skill-card').first()).toContainText('(부속성)');
+  // 둘째 버튼(포기)에 처음 포커스
+  await expect(offer.getByRole('button', { name: '포기' })).toBeFocused();
+  await page.screenshot({ path: `${SHOTS}/offer-copy-375.png` });
   const box = (await offer.locator('.skill-offer__card').boundingBox())!;
-  for (const b of await offer.locator('.skill-offer__pick').all()) {
-    const r = (await b.boundingBox())!;
-    expect(r.x).toBeGreaterThanOrEqual(box.x);
-    expect(r.x + r.width).toBeLessThanOrEqual(box.x + box.width + 1);
-  }
-  expect(await offer.locator('.skill-offer__pick').count()).toBe(5);
-  await offer.locator('.skill-offer__pick[data-skill="jelly-2"]').click();
+  const fb = (await offer.getByRole('button', { name: '이 기술을 잊고 배우기' }).boundingBox())!;
+  expect(fb.x).toBeGreaterThanOrEqual(box.x);
+  expect(fb.x + fb.width).toBeLessThanOrEqual(box.x + box.width + 1);
+  await offer.getByRole('button', { name: '이 기술을 잊고 배우기' }).click();
   await expect(offer).toHaveCount(0);
   await expect(page.locator('section.fieldmode')).toHaveAttribute('data-skill-offers', '0');
-  const after = await savedSkills(page);
-  expect(after).toEqual(['cloud-1', 'horn-1', 'horn-2', 'jelly-1', newId]);
+  const after = await savedSkills(page, 'jelly');
+  expect(after).toEqual(['jelly-1', 'jelly-2', 'jelly-3', newId]);
   await page.reload();
-  expect(await savedSkills(page)).toEqual(after);
+  expect(await savedSkills(page, 'jelly')).toEqual(after);
 });
 
 test('복사 제안: "포기"는 저장을 바꾸지 않는다', async ({ page }) => {
@@ -139,97 +164,108 @@ test('복사 제안: "포기"는 저장을 바꾸지 않는다', async ({ page }
   await offer.getByRole('button', { name: '포기' }).click();
   await expect(offer).toHaveCount(0);
   await expect(page.locator('section.fieldmode')).toHaveAttribute('data-skill-offers', '0');
-  expect(await savedSkills(page)).toEqual(FIVE);
+  expect(await savedSkills(page, 'jelly')).toEqual(JELLY);
 });
 
 test('복사 제안: Esc는 "포기"와 같다', async ({ page }) => {
   const offer = await openCopyOffer(page);
   await page.keyboard.press('Escape');
   await expect(offer).toHaveCount(0);
-  expect(await savedSkills(page)).toEqual(FIVE);
+  expect(await savedSkills(page, 'jelly')).toEqual(JELLY);
 });
 
-test('레벨 제안: "배우지 않기"는 아는 기술로 남아 도감에서 바꿔 배울 수 있다', async ({ page }) => {
-  // 구름몬 Lv19 (다음 레벨까지 5 모자람), 기술 5개 → 도망쳐도 참여 +10으로 Lv20, 슬롯 5 제안
-  const held = ['cloud-1', 'cloud-2', 'cloud-3', 'cloud-4', 'horn-1'];
-  await seed(page, { cloud: { level: 19, exp: 205, stage: 3, skills: held }, battle: true });
+test('레벨 제안: 부속성 자리가 복사 기술이면 "배우지 않기"로 지키고, 도감에서 바꿔 배울 수 있다', async ({ page }) => {
+  // 구름몬 Lv13 (다음 레벨까지 5 모자람) → 도망쳐도 참여 +10으로 Lv14, 부속성 4번(햇살 반짝) 제안
+  const held = ['cloud-1', 'cloud-2', 'cloud-3', 'horn-1'];
+  await seed(page, { cloud: { level: 13, exp: 145, stage: 2, skills: held }, battle: true });
   await page.goto('/#/field');
   await stepIntoGrass(page);
   await page.getByRole('button', { name: '도망치기' }).click();
   await page.getByRole('dialog', { name: '도망치기' }).getByRole('button', { name: '도망갈래' }).click();
   const offer = await waitOffer(page);
   await expect(offer).toContainText('새 기술을 배울 수 있어');
-  await expect(offer.locator('.skill-card').first()).toHaveAttribute('data-skill', 'cloud-5');
+  await expect(offer.locator('.skill-card').first()).toHaveAttribute('data-skill', 'cloud-4');
+  await expect(offer.locator('.skill-card').nth(1)).toHaveAttribute('data-skill', 'horn-1');
+  await expect(offer.getByRole('button', { name: '배우지 않기' })).toBeFocused();
+  await page.screenshot({ path: `${SHOTS}/offer-level-375.png` });
   await offer.getByRole('button', { name: '배우지 않기' }).click();
   await expect(offer).toHaveCount(0);
   expect(await savedSkills(page)).toEqual(held);
 
-  // 도감에서 다시 배우기: 가진 게 5개라 바꿀 기술을 고른다
-  await page.goto('/#/field/dex');
-  await page.locator('.fdex__cell--caught').first().click();
-  await page.getByRole('button', { name: '기술 보기·바꾸기' }).click();
-  const manage = page.getByRole('dialog', { name: '기술 관리' });
-  await expect(manage.getByTestId('held-skills').locator('.skill-card')).toHaveCount(5);
-  await manage.getByTestId('other-skills').locator('[data-skill="cloud-5"]').getByRole('button', { name: '배우기' }).click();
-  await page.screenshot({ path: `${SHOTS}/manage-replace-375.png` });
-  await manage.locator('.skill-card[data-skill="horn-1"]').getByRole('button', { name: '이 기술을 잊기' }).click();
-  const after = ['cloud-1', 'cloud-2', 'cloud-3', 'cloud-4', 'cloud-5'];
+  // 도감에서 다시 배우기: 복사 기술을 잊는 것이라 한 번 더 묻는다
+  const manage = await openManager(page);
+  const sub = manage.getByTestId('seat-sub');
+  await sub.locator('[data-skill="cloud-4"]').getByRole('button', { name: '이 기술로 바꾸기' }).click();
+  await expect(sub.getByRole('group', { name: '바꾸기 확인' })).toBeVisible();
+  await page.screenshot({ path: `${SHOTS}/manage-confirm-375.png` });
+  await sub.getByRole('button', { name: '그만두기' }).click();
+  expect(await savedSkills(page)).toEqual(held);
+  await sub.locator('[data-skill="cloud-4"]').getByRole('button', { name: '이 기술로 바꾸기' }).click();
+  await sub.locator('[data-action="confirm"]').click();
+  const after = ['cloud-1', 'cloud-2', 'cloud-3', 'cloud-4'];
   expect(await savedSkills(page)).toEqual(after);
   await page.reload();
   expect(await savedSkills(page)).toEqual(after);
 });
 
-test('관리 화면: 못 익힌 기술은 잠겨 눌러도 안 배워지고, 익힌 기술은 바로 배운다. 기술을 비울 수는 없다', async ({ page }) => {
-  await seed(page, { cloud: { level: 5, skills: ['cloud-1'] } });
-  await page.goto('/#/field/dex');
-  await page.locator('.fdex__cell--caught').first().click();
-  await page.getByRole('button', { name: '기술 보기·바꾸기' }).click();
-  const manage = page.getByRole('dialog', { name: '기술 관리' });
-  await expect(manage).toContainText('가진 기술 1/5');
+test('관리 화면: 세 구역(주속성 사슬·부속성 자리·특수 자리), 못 익힌 기술은 잠기고 단계별 조건과 M2 효과가 보인다', async ({ page }) => {
+  await seed(page, { cloud: { level: 5, skills: ['cloud-1', 'cloud-2'] } });
+  const manage = await openManager(page);
   await page.screenshot({ path: `${SHOTS}/manage-375.png` });
+  const main = manage.getByTestId('seat-main');
+  const sub = manage.getByTestId('seat-sub');
+  const special = manage.getByTestId('seat-special');
+  await expect(main).toContainText('주속성 사슬');
+  await expect(sub).toContainText('부속성 자리');
+  await expect(special).toContainText('특수 자리');
 
-  const locked = manage.getByTestId('other-skills').locator('[data-skill="cloud-3"]').getByRole('button', { name: 'Lv8에 배워요' });
-  await expect(locked).toBeDisabled();
-  await locked.click({ force: true });
-  expect(await savedSkills(page)).toEqual(['cloud-1']);
+  // ① 주속성 사슬: 가진 1·2번 + 못 배운 3번(Lv20 잠금). 읽기 전용 — 누를 수 있는 버튼이 없다
+  await expect(main.locator('.skill-card')).toHaveCount(3);
+  await expect(main.locator('[data-skill="cloud-5"]').getByRole('button', { name: 'Lv20에 배워요' })).toBeDisabled();
+  await expect(main.locator('button:enabled')).toHaveCount(0);
+  // 카드: 단계별 시간 조건 + M2 특수효과(스턴)
+  const m2 = main.locator('[data-skill="cloud-2"]');
+  await expect(m2).toContainText('4초 안: 2번 새싹 휙');
+  await expect(m2).toContainText('빨리 풀면: 다음 적 공격을 한 번 막아요');
+  await expect(main.locator('[data-skill="cloud-1"]')).toContainText('1번 잎사귀 톡');
+
+  // ②③: 자리가 비어 있고 못 배운 기술은 잠김
+  await expect(sub).toContainText('아직 비어 있어요');
+  await expect(sub.locator('[data-skill="cloud-4"]').getByRole('button', { name: 'Lv14에 배워요' })).toBeDisabled();
+  await expect(special.locator('[data-skill="cloud-3"]').getByRole('button', { name: 'Lv8에 배워요' })).toBeDisabled();
+  await sub.locator('[data-skill="cloud-4"]').getByRole('button').click({ force: true });
+  expect(await savedSkills(page)).toEqual(['cloud-1', 'cloud-2']);
 
   // 기술을 줄이는 버튼(해제·잊기)은 없다 — 바꾸기만
   await expect(manage.getByRole('button', { name: /해제|잊기|버리기/ })).toHaveCount(0);
-
-  await manage.getByTestId('other-skills').locator('[data-skill="cloud-2"]').getByRole('button', { name: '배우기' }).click();
-  expect(await savedSkills(page)).toEqual(['cloud-1', 'cloud-2']);
-  await expect(manage).toContainText('가진 기술 2/5');
-  await page.reload();
-  expect(await savedSkills(page)).toEqual(['cloud-1', 'cloud-2']);
 });
 
-test('관리 화면: Lv8~19는 주속성 3번째(Lv20)가 잠기고, 옛 저장에서 가진 것은 그대로 보이며, Lv20에서 풀린다', async ({ page }) => {
-  await seed(page, { cloud: { level: 12, stage: 2, skills: ['cloud-1', 'cloud-2', 'cloud-5'] } });
-  await page.goto('/#/field/dex');
-  await page.locator('.fdex__cell--caught').first().click();
-  await page.getByRole('button', { name: '기술 보기·바꾸기' }).click();
-  const manage = page.getByRole('dialog', { name: '기술 관리' });
-  // 옛 저장에서 가진 슬롯5는 가진 기술에 그대로 있다
-  await expect(manage.getByTestId('held-skills').locator('[data-skill="cloud-5"]')).toHaveCount(1);
-  // 새 저장처럼 슬롯5가 없는 구구몬: 잠김
-  await page.evaluate((k) => {
-    const s = JSON.parse(localStorage.getItem(k)!);
-    s.state.field.species.cloud.skills = ['cloud-1'];
-    localStorage.setItem(k, JSON.stringify(s));
-  }, SAVE_KEY);
+test('관리 화면: 빈 자리에 아는 기술을 바로 배우고 새로고침해도 남는다', async ({ page }) => {
+  await seed(page, { cloud: { level: 14, stage: 2, skills: ['cloud-1', 'cloud-2', 'cloud-3'] } });
+  const manage = await openManager(page);
+  const sub = manage.getByTestId('seat-sub');
+  await expect(sub).toContainText('아직 비어 있어요');
+  await sub.locator('[data-skill="cloud-4"]').getByRole('button', { name: '배우기' }).click();
+  const after = ['cloud-1', 'cloud-2', 'cloud-3', 'cloud-4'];
+  expect(await savedSkills(page)).toEqual(after);
+  await expect(sub).not.toContainText('아직 비어 있어요');
+  await expect(sub.locator('.skill-card')).toHaveCount(1);
   await page.reload();
-  await page.locator('.fdex__cell--caught').first().click();
-  await page.getByRole('button', { name: '기술 보기·바꾸기' }).click();
-  const lock = manage.getByTestId('other-skills').locator('[data-skill="cloud-5"]').getByRole('button', { name: 'Lv20에 배워요' });
-  await expect(lock).toBeDisabled();
-  // Lv20이 되면 풀린다
-  await page.evaluate((k) => {
-    const s = JSON.parse(localStorage.getItem(k)!);
-    s.state.field.species.cloud.level = 20;
-    localStorage.setItem(k, JSON.stringify(s));
-  }, SAVE_KEY);
+  expect(await savedSkills(page)).toEqual(after);
+});
+
+test('관리 화면: 특수 자리의 복사 기술을 자기 종 특수로 바꾼다 (같은 자리끼리만)', async ({ page }) => {
+  await seed(page, { cloud: { level: 14, stage: 2, skills: ['cloud-1', 'cloud-2', 'cloud-4', 'mushroom-3'] } });
+  const manage = await openManager(page);
+  await page.screenshot({ path: `${SHOTS}/manage-swap-375.png` });
+  const special = manage.getByTestId('seat-special');
+  await expect(special.locator('.skill-card').first()).toHaveAttribute('data-skill', 'mushroom-3');
+  // 부속성 자리에는 이미 자기 기술(4번)이라 바꿀 후보가 없다
+  await expect(manage.getByTestId('seat-sub').getByRole('button')).toHaveCount(0);
+  await special.locator('[data-skill="cloud-3"]').getByRole('button', { name: '이 기술로 바꾸기' }).click();
+  await special.locator('[data-action="confirm"]').click();
+  const after = ['cloud-1', 'cloud-2', 'cloud-4', 'cloud-3'];
+  expect(await savedSkills(page)).toEqual(after);
   await page.reload();
-  await page.locator('.fdex__cell--caught').first().click();
-  await page.getByRole('button', { name: '기술 보기·바꾸기' }).click();
-  await expect(manage.getByTestId('other-skills').locator('[data-skill="cloud-5"]').getByRole('button', { name: '배우기' })).toBeEnabled();
+  expect(await savedSkills(page)).toEqual(after);
 });

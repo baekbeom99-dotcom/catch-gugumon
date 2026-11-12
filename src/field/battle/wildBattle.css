@@ -113,8 +113,8 @@
 .wild__timer {
   /* 지금 나갈 단계 색: ③ 진한 보라 · ② 주황 · ① 옅은 노랑 (기점이 없으면 예전 주황 한 가지) */
   --tier-3: #7a2ee8;
-  --tier-2: #ff8a1f;
-  --tier-1: #ffd96b;
+  --tier-2: #ff6a00;
+  --tier-1: #fff0a8;
   position: relative;
   display: block;
   height: 10px;
