@@ -5,9 +5,9 @@
  */
 import { useEffect, useState } from 'react';
 import { displayName } from '../domain/field/growth';
-import { skillDef, speciesSkills, type SkillId } from '../domain/field/skills';
+import { learnedAt, skillDef, speciesSkills, type SkillId } from '../domain/field/skills';
 import { MAX_SKILLS } from '../domain/field/tuning';
-import { isAllowedSkill, type SpeciesId } from '../store/fieldData';
+import type { SpeciesId } from '../store/fieldData';
 import { useGameStore } from '../store/useGameStore';
 import { SkillCard } from './SkillCard';
 import { skillText } from './skillText';
@@ -30,6 +30,8 @@ export function SkillManager({ species, onClose }: { species: SpeciesId; onClose
 
   if (!entry) return null;
   const held = entry.skills;
+  // 배울 수 있는 것은 레벨이 된 기술만 (옛 저장에서 일찍 가진 슬롯5도 빼면 Lv20이 돼야 다시 배운다)
+  const learnable = new Set(learnedAt(species, entry.level).map((k) => k.id));
   const others = speciesSkills(species).filter((k) => !held.includes(k.id));
 
   const learn = (id: SkillId) => {
@@ -85,7 +87,7 @@ export function SkillManager({ species, onClose }: { species: SpeciesId; onClose
                 <h3 className="skill-manage__sub">{skillText.learnableTitle}</h3>
                 <div className="skill-manage__list" data-testid="other-skills">
                   {others.map((k) => {
-                    const ok = isAllowedSkill(species, entry.level, k.id);
+                    const ok = learnable.has(k.id);
                     return (
                       <SkillCard key={k.id} def={k}>
                         {ok ? (

@@ -194,3 +194,34 @@ test('관리 화면: 못 익힌 기술은 잠겨 눌러도 안 배워지고, 익
   await page.reload();
   expect(await savedSkills(page)).toEqual(['cloud-1', 'cloud-2']);
 });
+
+test('관리 화면: Lv8~19는 주속성 3번째(Lv20)가 잠기고, 옛 저장에서 가진 것은 그대로 보이며, Lv20에서 풀린다', async ({ page }) => {
+  await seed(page, { cloud: { level: 12, stage: 2, skills: ['cloud-1', 'cloud-2', 'cloud-5'] } });
+  await page.goto('/#/field/dex');
+  await page.locator('.fdex__cell--caught').first().click();
+  await page.getByRole('button', { name: '기술 보기·바꾸기' }).click();
+  const manage = page.getByRole('dialog', { name: '기술 관리' });
+  // 옛 저장에서 가진 슬롯5는 가진 기술에 그대로 있다
+  await expect(manage.getByTestId('held-skills').locator('[data-skill="cloud-5"]')).toHaveCount(1);
+  // 새 저장처럼 슬롯5가 없는 구구몬: 잠김
+  await page.evaluate((k) => {
+    const s = JSON.parse(localStorage.getItem(k)!);
+    s.state.field.species.cloud.skills = ['cloud-1'];
+    localStorage.setItem(k, JSON.stringify(s));
+  }, SAVE_KEY);
+  await page.reload();
+  await page.locator('.fdex__cell--caught').first().click();
+  await page.getByRole('button', { name: '기술 보기·바꾸기' }).click();
+  const lock = manage.getByTestId('other-skills').locator('[data-skill="cloud-5"]').getByRole('button', { name: 'Lv20에 배워요' });
+  await expect(lock).toBeDisabled();
+  // Lv20이 되면 풀린다
+  await page.evaluate((k) => {
+    const s = JSON.parse(localStorage.getItem(k)!);
+    s.state.field.species.cloud.level = 20;
+    localStorage.setItem(k, JSON.stringify(s));
+  }, SAVE_KEY);
+  await page.reload();
+  await page.locator('.fdex__cell--caught').first().click();
+  await page.getByRole('button', { name: '기술 보기·바꾸기' }).click();
+  await expect(manage.getByTestId('other-skills').locator('[data-skill="cloud-5"]').getByRole('button', { name: '배우기' })).toBeEnabled();
+});
