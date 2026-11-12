@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import * as core from 'pixelfx';
-import { ELEMENT_FX, ELEMENT_NAMES, SPECIAL_FX, STRONG_FX, elementOf } from '../../src/domain/field/elements';
+import { ELEMENT_FX, ELEMENT_NAMES, MAIN_ELEMENT, SPECIAL_FX, STRONG_AGAINST, STRONG_FX, SUB_ELEMENT, elementOf, matchup, subElementOf, type Element } from '../../src/domain/field/elements';
 import { SKILLS } from '../../src/domain/field/skills';
 import { skillFxName } from '../../src/field/battle/skillUse';
 import { SPECIES } from '../../src/domain/field/creatures';
@@ -141,7 +141,6 @@ describe('황금 팔레트', () => {
   });
 });
 
-import { MAIN_ELEMENT, SUB_ELEMENT, STRONG_AGAINST, matchup, subElementOf, type Element } from '../../src/domain/field/elements';
 
 describe('주·부 속성과 상성', () => {
   it('11종의 주·부 속성 (설계서 2-1 표)', () => {

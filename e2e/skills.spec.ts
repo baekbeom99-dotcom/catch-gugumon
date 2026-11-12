@@ -46,9 +46,11 @@ async function savedSkills(page: Page): Promise<string[]> {
 async function stepIntoGrass(page: Page) {
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '5,8');
   await page.keyboard.down('ArrowRight');
-  await page.waitForTimeout(120);
-  await page.keyboard.up('ArrowRight');
-  await expect(page).toHaveURL(/#\/field\/battle$/);
+  try {
+    await expect(page).toHaveURL(/#\/field\/battle$/);
+  } finally {
+    await page.keyboard.up('ArrowRight');
+  }
 }
 
 /** 문제를 읽어 답을 계산한다 (기술 고르기가 먼저 나오면 첫 기술을 고른다) */
@@ -70,9 +72,16 @@ async function answerUntilDizzy(page: Page) {
   for (let i = 0; i < 8; i++) {
     if (await page.getByRole('button', { name: '캡슐 던지기' }).isVisible()) return;
     if (await page.getByText(/캡슐이 없어서/).isVisible()) return;
+    const bubble = page.locator('.wild__bubble');
     const answer = await solveWild(page);
+    const fact = await bubble.getAttribute('data-fact');
     await page.locator('.wild-move').filter({ has: page.locator(`.wild-move__num:text-is("${answer}")`) }).click();
-    await page.waitForTimeout(800);
+    // 다음 문제로 넘어가거나(문제가 바뀜) 어지러워질 때까지 기다린다
+    await expect(async () => {
+      const done = (await page.getByRole('button', { name: '캡슐 던지기' }).isVisible()) || (await page.getByText(/캡슐이 없어서/).isVisible());
+      const now = (await bubble.count()) > 0 ? await bubble.getAttribute('data-fact') : null;
+      expect(done || now !== fact).toBe(true);
+    }).toPass({ timeout: 8000 });
   }
 }
 
@@ -80,12 +89,11 @@ async function answerUntilDizzy(page: Page) {
 async function waitOffer(page: Page) {
   const offer = page.getByRole('dialog', { name: '기술 선택창' });
   await expect(page).toHaveURL(/#\/field$/, { timeout: 8000 });
+  const notices = ['성장 알림', '기술 알림'].map((name) => page.getByRole('dialog', { name }));
   for (let i = 0; i < 10 && !(await offer.isVisible()); i++) {
-    for (const name of ['성장 알림', '기술 알림']) {
-      const n = page.getByRole('dialog', { name });
-      if (await n.isVisible()) await n.click();
-    }
-    await page.waitForTimeout(200);
+    // 알림이나 선택창 중 하나가 뜰 때까지 기다렸다가, 알림이면 닫는다
+    await expect(offer.or(notices[0]).or(notices[1])).toBeVisible();
+    for (const n of notices) if (await n.isVisible()) await n.click();
   }
   await expect(offer).toBeVisible();
   return offer;

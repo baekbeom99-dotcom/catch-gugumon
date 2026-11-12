@@ -82,6 +82,14 @@ describe('기술 고정표', () => {
     });
   });
 
+  it('종 표의 moves는 옛 이름 [슬롯1·2·5]와 같다', () => {
+    for (const s of SPECIES) {
+      const n = speciesSkills(s.id).map((k) => k.name);
+      expect(s.moves).toEqual([n[0], n[1], n[4]]);
+      expect(s.moves).toEqual(OLD_MOVES[s.id]);
+    }
+  });
+
   it('skillDef: 없는 id는 던진다', () => {
     expect(skillDef('cloud-1').name).toBe('잎사귀 톡');
     expect(() => skillDef('nope-9')).toThrow();

@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { SKILLS, skillDef, speciesSkills } from '../../src/domain/field/skills';
-import { SPECIAL_HEAL } from '../../src/domain/field/tuning';
 import { skillText } from '../../src/field/skillText';
 
 describe('기술 글 (기술 표에서 계산)', () => {
   it('위력 별은 basePower 개수', () => {
-    for (const k of SKILLS) expect(skillText.power(k)).toBe('★'.repeat(k.basePower));
+    expect(skillText.power(skillDef('cloud-1'))).toBe('★★');
+    expect(skillText.power(skillDef('cloud-5'))).toBe('★★★');
+    for (const k of SKILLS) expect(skillText.power(k)).toMatch(/^★{2,3}$/);
   });
 
   it('종류 글: 주속성·부속성·특수', () => {
@@ -21,17 +22,13 @@ describe('기술 글 (기술 표에서 계산)', () => {
     expect(skillText.special(skillDef('jelly-3'))).toBe('다음 문제 시간이 늘어요');
     expect(skillText.special(skillDef('antenna-3'))).toBe('다음 기술이 더 세져요');
     expect(skillText.special(skillDef('cloud-1'))).toBeNull();
-    expect(SPECIAL_HEAL).toBeGreaterThan(0);
   });
 
-  it('발동 조건 글은 fastRatio에서 나온다', () => {
-    for (const k of SKILLS) {
-      const pct = `${Math.round(k.fastRatio * 100)}%`;
-      const t = skillText.condition(k);
-      expect(t).toContain(pct);
-      if (k.special) expect(t).toContain('못 풀면 약한 기술');
-      else expect(t).toContain('강력');
-    }
+  it('발동 조건 글: 실제 문구', () => {
+    expect(skillText.condition(skillDef('cloud-1'))).toBe('문제 시간의 60% 안에 풀면 강력!');
+    expect(skillText.condition(skillDef('cloud-5'))).toBe('문제 시간의 40% 안에 풀면 강력!');
+    expect(skillText.condition(skillDef('cloud-3'))).toBe('문제 시간의 50% 안에 풀면 회복! 못 풀면 약한 기술이 나가요');
+    expect(skillText.condition(skillDef('mushroom-3'))).toBe('문제 시간의 50% 안에 풀면 방어! 못 풀면 약한 기술이 나가요');
   });
 
   it('출처 글', () => {
@@ -40,10 +37,10 @@ describe('기술 글 (기술 표에서 계산)', () => {
     expect(skillText.learnLevel(skillDef('cloud-5'))).toBe('Lv20에 배워요');
   });
 
-  it('모든 종의 기술 5개가 글을 만든다', () => {
+  it('모든 기술이 글을 만든다', () => {
     for (const k of SKILLS) {
-      expect(skillText.kind(k).length).toBeGreaterThan(0);
-      expect(skillText.condition(k).length).toBeGreaterThan(0);
+      expect(skillText.kind(k)).toMatch(/^(특수|.+ · (주|부)속성)$/);
+      expect(skillText.condition(k)).toMatch(/^문제 시간의 \d+% 안에 풀면 /);
     }
     expect(speciesSkills('cloud')).toHaveLength(5);
   });

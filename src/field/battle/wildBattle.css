@@ -55,7 +55,7 @@
   position: absolute;
   inset: 0 auto 0 0;
   background: var(--lime);
-  /* 체력이 되살아날 때(캡슐에서 빠져나옴) 부드럽게 차오른다 */
+  /* 체력이 되살아날 때(캡슐에서 빠져나옴)뿐 아니라 매 명중에 줄어들 때도 부드럽게 움직인다 (의도) */
   transition: width 0.7s ease-out;
 }
 

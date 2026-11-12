@@ -15,12 +15,13 @@ React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/fiel
 | `src/store/useGameStore.ts` | 저장되는 게임 상태와 액션(Zustand persist) |
 | `src/store/saveData.ts` | `SaveData` 형식, `createInitialSave`, `mergeSave`(예전 저장 채우기), `SAVE_KEY` |
 | `src/store/useSessionStore.ts` | 저장 안 되는 화면 상태(진화·레벨업 알림 대기 등) |
-| `src/domain/field/` | 필드 모험 순수 로직: **`tuning`(운영 수치 전부)**, `fields`(필드·단 구성), `movement`, `wildBattle`, `encounter`(만남), `creatures`(종·기술 이름), `fieldQuestions`, `growth`(경험치·레벨·진화), `strength`(만남 강함 단계), `capsules`(캡슐 4종·개수), `wounds`(체력·상처), `shopQuiz`(상점 연습), `roam`(마을 구구몬 배회), `answerTimer`(문제 시계), `elements`(속성 7가지·기술 효과 표) |
+| `src/domain/field/` | 필드 모험 순수 로직: **`tuning`(운영 수치 전부)**, `skills`(기술 표·슬롯 패턴·특수·복사), `fields`(필드·단 구성), `movement`, `wildBattle`, `encounter`(만남), `creatures`(종·기술 이름), `fieldQuestions`, `growth`(경험치·레벨·진화), `strength`(만남 강함 단계), `capsules`(캡슐 4종·개수), `wounds`(체력·상처), `shopQuiz`(상점 연습), `roam`(마을 구구몬 배회), `answerTimer`(문제 시계), `elements`(속성 7가지·기술 효과 표) |
 | `src/field/shop/` | 마을 상점 팝업: `ShopPopup`, `CapsuleTab`(한 단 연습으로 캡슐), `PotionTab`·`HealPractice`(회복 연습), `DanPractice`·`PracticeCard`(연습 문제 카드), `shopText`(글) |
 | `src/field/world/` | 필드 걷기: `FieldScreen`, `fieldRenderer`(캔버스), `Joystick`, `FieldHud`(왼쪽 위 캡슐·도감·체력), `loadField`, `maps/`(필드마다 지도·타일 그림) |
-| `src/field/battle/` | 야생 전투: `WildBattleScreen`, `useQuestionFeed`(문제 받기), `BattleBars`(`HpBar`·`TimerBar`), `battleText`(화면 글) |
+| `src/field/battle/` | 야생 전투: `WildBattleScreen`, `useQuestionFeed`(문제 받기), `BattleBars`(`HpBar`·`TimerBar`), `battleText`(화면 글), `SkillPicker`(기술 고르기), `skillUse`(기술 쓰기 판정) |
 | `src/field/art/` | 그림: `creatureArt`(구구몬 그림 등록표), `creatureSprite`, `companionImage`, `hero`(주인공), `pixelArt`(픽셀 그림 틀·표지판), `CapsuleBall` |
 | `src/field/fx/` | 효과: `effects`(효과 목록), `playFx`(틀기) |
+| `src/field/` | 기술 화면: `SkillOfferDialog`(기술 선택창), `SkillManager`(도감 기술 관리), `skillText`(기술 글) |
 | `src/field/` | 그 밖: `StarterScreen`, `FieldDexScreen`, `useFieldSession`(저장 안 되는 만남 상태), `debugFlags`(디버그 스위치), `DevFieldGallery`(#/dev/field) |
 | `src/store/fieldData.ts` | 필드 모험 저장 데이터(`SaveData.field`) 형식·기본값·병합 |
 | `src/screens/` | 화면. `TitleScreen.tsx`(타이틀 `#/`). Pet·Explore·Shop·Records·Dex(탭), Battle·Practice·Stairs(전체 화면), `admin/`(관리자, PIN) |
@@ -46,7 +47,7 @@ E2E_PORT=5181 npx playwright test   # E2E (다른 앱이 5181 등을 쓰면 5191
 npm run build                # 배포용 빌드 (tsc -b && vite build)
 ```
 
-- E2E 스위치(`window`에 설정): `__GUGU_E2E_CALM__`(똥·병 끔), `__GUGU_E2E_FIELD__`(필드 만남·캡슐 100%), `__GUGU_E2E_PATH__`(길 걸음도 만남 100%), `__GUGU_E2E_NO_WILD__`(강제 안 한 야생 만남 끔, e2e 기본), `__GUGU_E2E_NO_TIMER__`(전투 문제 시간 멈춤), `__GUGU_E2E_TIER__`(야생 강함 단계 고정, `'weak'`·`'normal'`·`'strong'`·`'mighty'`), `__GUGU_E2E_LEGEND__`(만남이 레전드), `__GUGU_E2E_QUESTION__`(전투 문제 고정). 필드 스위치는 `src/field/debugFlags.ts` 한 곳에서 읽는다.
+- E2E 스위치(`window`에 설정): `__GUGU_E2E_CALM__`(똥·병 끔), `__GUGU_E2E_FIELD__`(필드 만남·캡슐 100%), `__GUGU_E2E_PATH__`(길 걸음도 만남 100%), `__GUGU_E2E_NO_WILD__`(강제 안 한 야생 만남 끔, e2e 기본), `__GUGU_E2E_NO_TIMER__`(전투 문제 시간 멈춤), `__GUGU_E2E_TIER__`(야생 강함 단계 고정, `'weak'`·`'normal'`·`'strong'`·`'mighty'`), `__GUGU_E2E_LEGEND__`(만남이 레전드), `__GUGU_E2E_QUESTION__`(전투 문제 고정), `__GUGU_E2E_FAST__`(true면 항상 빠르게=강력 조건 충족, false면 항상 미충족), `__GUGU_E2E_COPY__`(true 복사 100%, false 복사 안 함, 없으면 2%; `e2e/fixtures.ts`가 기본 false), `__GUGU_E2E_THROW__`(`'caught'`·`'healed'`·`'escaped'`·`'angry'`로 던지기 결과 고정). 필드 스위치는 `src/field/debugFlags.ts` 한 곳에서 읽는다.
 - E2E 하나가 가끔 시간 문제로 실패할 수 있다(`dex.spec` 놀이 장면). 따로 다시 돌려 확인. 파이프로 줄일 때는 `set -o pipefail`로 실패를 놓치지 않기.
 - Windows Git Bash에서 `BASE_PATH=/gugu-monster/`처럼 `/`로 시작하는 값은 경로로 바뀐다 → 로컬 빌드 확인 때 `MSYS_NO_PATHCONV=1`.
 
@@ -77,7 +78,11 @@ npm run build                # 배포용 빌드 (tsc -b && vite build)
 | 기술 이름·종 이름 | `src/domain/field/creatures.ts` (`MOVES`), 이름은 `src/domain/monsterNames.ts` | — |
 | 상점 글 | `src/field/shop/shopText.ts` | E2E가 글을 찾으면 `e2e/field.spec.ts`도 |
 | 캡슐·단 연습 수치 | `src/domain/field/tuning.ts` | `tests/field/tuning.test.ts` |
-| 속성·기술 효과 | `src/domain/field/elements.ts`(속성 표)와 `src/field/fx/effects.ts`(효과 옵션·`center`: 그린 화소의 무게중심, 잴 때는 `tests/field/fxMeasure.ts`) | `#/dev/field`에서 속성별 버튼으로 확인, 효과 시간 ≤ 0.6초(`tests/field/elements.test.ts`) |
+| 기술(슬롯 패턴 위력·강력 조건·배우는 레벨·이름·종별 특수) | `src/domain/field/skills.ts`의 `SLOT_PATTERN`·`SKILL_NAMES`·`SPECIAL_OF_SPECIES` | `tests/field/skillsTable.test.ts` 고정표 |
+| 종의 주·부속성·상성표 | `src/domain/field/elements.ts`의 `MAIN_ELEMENT`·`SUB_ELEMENT`·`STRONG_AGAINST` | 49쌍 테스트(`tests/field/elements.test.ts`) |
+| 기술 확률·칸·회복·복사·연출 시간 | `src/domain/field/tuning.ts` | `tests/field/tuning.test.ts` |
+| 기술 효과음 | `src/audio/sfx.ts`의 `SKILL_SFX`·`SPECIAL_SFX` | — |
+| 속성·기술 효과 | `src/field/fx/effects.ts`(효과 옵션·`center`: 그린 화소의 무게중심, 잴 때는 `tests/field/fxMeasure.ts`; 글자 든 효과는 `noMirror`)와 `src/domain/field/elements.ts`의 `ELEMENT_FX`(평소 4칸: 주①②③+부)·`STRONG_FX`(강력 4칸)·`SPECIAL_FX`(특수 5종) | `#/dev/field`에서 속성별 버튼으로 확인, 효과 시간 ≤ 0.6초(`tests/field/elements.test.ts`) |
 | 전투 화면 글 | `src/field/battle/battleText.ts` | E2E가 글을 찾으면 `e2e/field.spec.ts`도 |
 | 구구몬 그림 교체 | 파일을 `src/field/art/creatures/`에 넣고 `src/field/art/creatureArt.ts`의 `IMAGE_ART`에 한 줄 | `#/dev/field`에서 앞·뒤·동행 크기 확인 (퀴즈 모험 몬스터 그림은 그대로) |
 | 주인공 그림 | `src/field/art/hero.ts` (32×32 글자 배열) | `tests/field/pixelArt.test.ts`가 크기 확인 |

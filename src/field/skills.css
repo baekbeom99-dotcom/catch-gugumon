@@ -88,7 +88,7 @@
 }
 .skill-offer__title {
   margin: 0;
-  font-family: var(--font-display);
+  font-weight: 800;
   font-size: 22px;
   text-align: center;
 }
@@ -190,7 +190,7 @@
 }
 .skill-manage__title {
   margin: 0;
-  font-family: var(--font-display);
+  font-weight: 800;
   font-size: 22px;
 }
 .skill-manage__sub {

@@ -4,7 +4,7 @@
  * 5개 미만이면 바로 배우고, 5개면 잊을 기술을 고른다. 못 익힌 기술은 "Lv N에 배워요" 잠금.
  */
 import { useEffect, useState } from 'react';
-import { displayName } from '../domain/field/growth';
+import { speciesDef } from '../domain/field/creatures';
 import { learnedAt, skillDef, speciesSkills, type SkillId } from '../domain/field/skills';
 import { MAX_SKILLS } from '../domain/field/tuning';
 import type { SpeciesId } from '../store/fieldData';
@@ -51,9 +51,9 @@ export function SkillManager({ species, onClose }: { species: SpeciesId; onClose
       <div className="skill-manage__card">
         <header className="skill-manage__top">
           <h2 className="skill-manage__title">
-            {displayName(species, entry.stage)} {skillText.manageTitle}
+            {speciesDef(species).name} {skillText.manageTitle}
           </h2>
-          <button type="button" className="btn btn--ghost" onClick={onClose}>
+          <button type="button" className="btn btn--ghost" autoFocus onClick={onClose}>
             닫기
           </button>
         </header>
@@ -61,6 +61,9 @@ export function SkillManager({ species, onClose }: { species: SpeciesId; onClose
         {pending && (
           <div className="skill-manage__replace" role="group" aria-label="잊을 기술 고르기">
             <p className="skill-manage__ask">{skillText.pickToReplace(skillDef(pending).name)}</p>
+            <button type="button" className="btn btn--ghost skill-manage__btn" autoFocus onClick={() => setPending(null)}>
+              {skillText.cancel}
+            </button>
             {held.map((id) => (
               <SkillCard key={id} def={skillDef(id)}>
                 <button type="button" className="btn btn--primary skill-manage__btn" onClick={() => replace(id)}>
@@ -68,9 +71,6 @@ export function SkillManager({ species, onClose }: { species: SpeciesId; onClose
                 </button>
               </SkillCard>
             ))}
-            <button type="button" className="btn btn--ghost skill-manage__btn" onClick={() => setPending(null)}>
-              {skillText.cancel}
-            </button>
           </div>
         )}
 

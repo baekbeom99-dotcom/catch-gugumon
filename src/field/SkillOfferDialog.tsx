@@ -7,11 +7,10 @@ import { useEffect } from 'react';
 import { speciesDef } from '../domain/field/creatures';
 import { ELEMENT_NAMES } from '../domain/field/elements';
 import { skillDef } from '../domain/field/skills';
-import { MAX_SKILLS } from '../domain/field/tuning';
-import { setUpdateBusy } from '../pwa/autoUpdate';
 import { useGameStore } from '../store/useGameStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { SkillCard } from './SkillCard';
+import { holdUpdateBusy, offerStatus } from './skillOfferState';
 import { skillText } from './skillText';
 import './skills.css';
 
@@ -22,19 +21,17 @@ export function SkillOfferDialog() {
   const held = useGameStore((s) => (offer ? (s.field.species[offer.species]?.skills ?? null) : null));
 
   // 떠 있는 동안 자동 새로고침을 막는다
-  useEffect(() => {
-    setUpdateBusy(true);
-    return () => setUpdateBusy(false);
-  }, []);
+  useEffect(holdUpdateBusy, []);
 
   // 이미 가진 기술이거나 그 종이 없으면 건너뛴다 (같은 전투에서 같은 기술이 두 번 올 수 있다)
-  const stale = !!offer && (!held || held.includes(offer.skillId));
+  const status = offerStatus(offer, held);
+  const stale = status === 'skip';
   useEffect(() => {
     if (stale) skip();
   }, [stale, offer]);
 
   // 빈 자리가 있으면 그냥 가진다 (보통은 일어나지 않는다)
-  const roomy = !!offer && !!held && !stale && held.length < MAX_SKILLS;
+  const roomy = status === 'take';
   useEffect(() => {
     if (!roomy || !offer) return;
     useGameStore.getState().addSkill(offer.species, offer.skillId);
@@ -69,6 +66,7 @@ export function SkillOfferDialog() {
               <button
                 key={id}
                 type="button"
+                autoFocus={id === held[0]}
                 className="skill-offer__pick"
                 data-skill={id}
                 aria-label={`${k.name} ${skillText.forgetAndLearn}`}

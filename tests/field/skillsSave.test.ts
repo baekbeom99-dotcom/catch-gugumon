@@ -79,6 +79,11 @@ describe('normalizeSkills: 이상한 값 거르기', () => {
     expect(normalizeSkills('cloud', 8, ['cloud-5', 'cloud-4', 'cloud-3'])).toEqual(['cloud-5', 'cloud-3']);
   });
 
+  it('프로토타입 이름(constructor·__proto__ 등)은 id로 안 받는다', () => {
+    expect(normalizeSkills('cloud', 5, ['constructor', '__proto__', 'toString', 'cloud-1'])).toEqual(['cloud-1']);
+    expect(normalizeSkills('cloud', 5, ['constructor', '__proto__'])).toEqual(defaultSkills('cloud', 5));
+  });
+
   it('중복은 한 번만', () => {
     expect(normalizeSkills('cloud', 5, ['cloud-1', 'cloud-1', 'cloud-2', 'cloud-1'])).toEqual(['cloud-1', 'cloud-2']);
   });

@@ -80,7 +80,7 @@ export const EFFECTS = {
     options: { palette: ['#3a1d05', '#6b3a0c', '#a8620f', '#e0961c', '#ffcf3a', '#ffe680', '#fff6cf', '#ffffff'] },
     note: '캡슐로 잡았을 때',
   },
-  // ---- 속성별 기술 효과 21개 (설계서 11절, 속성·순서는 domain/field/elements.ts의 ELEMENT_FX 앞 3칸) ----
+  // ---- 속성별 기술 효과 (총 61개: 평소·강력·특수, 속성·순서는 domain/field/elements.ts의 ELEMENT_FX·STRONG_FX·SPECIAL_FX) ----
   // 전부 캔버스 한 칸 크기 효과. 전투 연출 시간(내 공격 명중 0.6초·적 공격 0.7초 — 같은 효과를 양쪽에 쓰므로 짧은 0.6초에 맞춤) 안에 끝나도록
   // 긴 효과는 until로 앞부분만 자르고 speed로 빠르게 튼다 (실제로 트는 시간 = until ÷ speed ≤ 0.6초).
   // 자리 `at`은 효과의 무게중심(center)을 놓을 곳이라, 맞는 쪽 몬스터 그림 한가운데를 주면 효과 중심에 몬스터 몸이 온다. 방향 있는 효과는 왼쪽에서 오른쪽으로 날아간다.

@@ -589,7 +589,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const buffs = [
     wild.guard && battleText.buff.guard,
     wild.charge > 0 && battleText.buff.charge,
-    (wild.calmMs > 0 || (asking && wild.limitMs > timeMs)) && battleText.buff.calm,
+    (wild.calmMs > 0 || ((asking || picking) && wild.limitMs > timeMs)) && battleText.buff.calm,
     wild.hideChoice && battleText.buff.clue,
   ].filter((b): b is string => !!b);
   const dizzy = wild.phase === 'dizzy';
@@ -713,7 +713,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
                     type="button"
                     className={`wild-move ${glow ? 'wild-move--glow' : ''} ${gone ? 'wild-move--gone' : ''}`}
                     aria-label={gone ? '숨긴 답' : `답 ${num}`}
-                    disabled={gone || (inHint ? !glow : !asking)}
+                    disabled={throwing || gone || (inHint ? !glow : !asking)}
                     onClick={() => (inHint ? onHintPick() : onAnswer(i))}
                   >
                     {gone ? <span className="wild-move__gone">✕</span> : <span className="wild-move__num">{num}</span>}
