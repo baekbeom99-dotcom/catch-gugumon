@@ -63,7 +63,7 @@ import { endWildBattle, useFieldSession } from '../useFieldSession';
 import { HpBar, TimerBar } from './BattleBars';
 import { battleText } from './battleText';
 import { SkillPicker } from './SkillPicker';
-import { answerWithSkill, foeSkill, heldSkills, hitMessage, skillFxName } from './skillUse';
+import { answerWithSkill, foeSkill, heldSkills, hitMessage, skillFxName, skillMatchup, skillSfxPlan } from './skillUse';
 import { useQuestionFeed } from './useQuestionFeed';
 import '../../screens/battle.css';
 import './wildBattle.css';
@@ -226,7 +226,9 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
    * 내 공격(왼→오)은 야생 위에 효과 기본 방향, 적 공격(오→왼)은 내 구구몬 위에 뒤집어서, 특수 기술은 쓴 구구몬 위에 그대로. 내 공격이 효과를 못 틀면(불러오기 실패) 불꽃으로 대신한다.
    */
   const moveFx = useCallback(
-    (attacker: 'ally' | 'foe', def: SkillDef, strong: boolean) => {
+    (attacker: 'ally' | 'foe', def: SkillDef, strong: boolean, matchupValue: -1 | 0 | 1 | null = null) => {
+      // 효과음: 효과 그림과 같은 순간 (그림을 못 틀어도 소리는 난다)
+      for (const name of skillSfxPlan(attacker, def, strong, matchupValue)) playSfx(name);
       const canvas = fxRef.current;
       if (!canvas) return;
       const ally = attacker === 'ally';
@@ -476,7 +478,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     record(true, ms, w.missed);
     setHitCount((n) => n + 1);
     // 강력 효과는 속성 기술이 빠르게 맞았을 때만 (특수 발동·대신 나간 기술은 평소 효과)
-    moveFx('ally', r.fired, r.fast && !r.usedFallback && r.fired.kind !== 'special');
+    moveFx('ally', r.fired, r.fast && !r.usedFallback && r.fired.kind !== 'special', skillMatchup(r.fired, wildElement));
     const text = hitMessage(r, wildElement, healed);
     // 이 문제에서 틀렸었으면 다음으로 넘어갈 때 틀린 사실을 몇 문제 뒤에 다시 넣는다
     const retryWrong = w.missed;

@@ -3,7 +3,7 @@ import { ELEMENT_FX, SPECIAL_FX, STRONG_FX } from '../../src/domain/field/elemen
 import { skillDef } from '../../src/domain/field/skills';
 import { TIER_RULES } from '../../src/domain/field/tuning';
 import { createWild, type WildState } from '../../src/domain/field/wildBattle';
-import { answerWithSkill, foeSkill, heldSkills, hitMessage, skillFxName, skillMatchup } from '../../src/field/battle/skillUse';
+import { answerWithSkill, foeSkill, heldSkills, hitMessage, skillFxName, skillMatchup, skillSfxPlan } from '../../src/field/battle/skillUse';
 
 const k = (id: string) => skillDef(id);
 /** 보통 단계(7초) 문제 하나: 경과 시간만 정해 둔다 */
@@ -106,5 +106,33 @@ describe('전투 기술: 정답 글 hitMessage', () => {
     expect(hitMessage(answerWithSkill(at(0), k('cloud-3'), ['cloud-1', 'cloud-3'], 'fire', false), 'fire', 0)).toBe(
       '시간이 지나서 약한 기술이 나갔어요. 잎사귀 톡!\n별로예요… ▼',
     );
+  });
+});
+
+describe('전투 기술: skillSfxPlan (맞는 순간 소리 목록)', () => {
+  const leaf = k('cloud-1'); // 풀 속성 기술
+  it('내 속성 기술: 평소엔 속성 소리 하나', () => {
+    expect(skillSfxPlan('ally', leaf, false, 0)).toEqual(['fxGrass']);
+    expect(skillSfxPlan('ally', leaf, false, null)).toEqual(['fxGrass']);
+  });
+  it('강력이면 fxPower가 겹친다', () => {
+    expect(skillSfxPlan('ally', leaf, true, 0)).toEqual(['fxGrass', 'fxPower']);
+  });
+  it('상성 강함·약함은 소리가 붙고 보통(0)은 없다', () => {
+    expect(skillSfxPlan('ally', leaf, false, 1)).toEqual(['fxGrass', 'superEffective']);
+    expect(skillSfxPlan('ally', leaf, false, -1)).toEqual(['fxGrass', 'notVery']);
+    expect(skillSfxPlan('ally', leaf, true, 1)).toEqual(['fxGrass', 'fxPower', 'superEffective']);
+  });
+  it('특수 성공은 특수 소리 하나 (강력·상성 없음)', () => {
+    expect(skillSfxPlan('ally', k('cloud-3'), false, null)).toEqual(['skillHeal']);
+    expect(skillSfxPlan('ally', k('cloud-3'), true, 1)).toEqual(['skillHeal']);
+  });
+  it('특수가 늦어 약한 기술이 대신 나가면 그 기술 속성 소리만', () => {
+    // 화면은 나간 기술(fired)을 넘긴다: 강력 아님
+    expect(skillSfxPlan('ally', leaf, false, 0)).toEqual(['fxGrass']);
+  });
+  it('적 공격은 속성 소리만 (강력·상성 소리 없음)', () => {
+    expect(skillSfxPlan('foe', leaf, true, 1)).toEqual(['fxGrass']);
+    expect(skillSfxPlan('foe', leaf, false, -1)).toEqual(['fxGrass']);
   });
 });

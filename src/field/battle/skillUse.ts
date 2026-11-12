@@ -9,6 +9,7 @@ import { TIER_RULES } from '../../domain/field/tuning';
 import { resolveAnswer, type AnswerResult, type WildState } from '../../domain/field/wildBattle';
 import { battleText } from './battleText';
 import type { Rng } from '../../domain/random';
+import { SKILL_SFX, SPECIAL_SFX, type Sfx } from '../../audio/sfx';
 import type { FxName } from '../fx/effects';
 
 /** 저장된 가진 기술(없거나 비었으면 그 레벨의 기본 기술)을 기술 표로. 전투를 시작할 때 한 번 정해 두고 바꾸지 않는다 */
@@ -78,4 +79,26 @@ export function foeSkill(species: SpeciesId, level: number, rng: Rng): SkillDef 
   const list = learnedAt(species, level).filter((k) => k.kind !== 'special');
   if (list.length === 0) return skillDef(`${species}-1`);
   return list[Math.min(list.length - 1, Math.max(0, Math.floor(rng() * list.length)))];
+}
+
+/**
+ * 기술이 맞는 순간 틀 소리 목록 (효과 그림과 같은 타이밍).
+ * 내 속성 기술: 그 속성 소리 + 강력이면 fxPower + 상성 강함·약함(보통·없음은 없음).
+ * 내 특수 기술 성공: 특수 소리만. 적 공격: 속성 소리만.
+ * 늦어서 약한 기술이 대신 나가면 def가 그 속성 기술이므로 속성 소리만 난다.
+ */
+export function skillSfxPlan(
+  attacker: 'ally' | 'foe',
+  def: SkillDef,
+  strong: boolean,
+  matchupValue: -1 | 0 | 1 | null,
+): Sfx[] {
+  if (def.special) return [SPECIAL_SFX[def.special]];
+  const element = def.element ?? MAIN_ELEMENT[def.species];
+  const plan: Sfx[] = [SKILL_SFX[element]];
+  if (attacker === 'foe') return plan;
+  if (strong) plan.push('fxPower');
+  if (matchupValue === 1) plan.push('superEffective');
+  else if (matchupValue === -1) plan.push('notVery');
+  return plan;
 }

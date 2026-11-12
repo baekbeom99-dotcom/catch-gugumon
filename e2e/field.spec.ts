@@ -1717,3 +1717,51 @@ test('화남: 두 번째 흔들림에서 열리고 강력해져 다시 문제', 
   expect(await stagesSeen(page)).toEqual(['throw', 'absorb', 'bounce', 'shake', 'result']);
   await expect(page.locator('.wild__bubble .question')).toBeVisible({ timeout: 3000 });
 });
+
+// ── 기술 효과음 (필드 모험 3차 4-4) ──
+
+test('강력 발동 때 속성 소리와 fxPower, 평소 때는 fxPower 없음', async ({ page }) => {
+  await spyAudio(page);
+  await fixBattle(page, false);
+  await standBesideGrass(page, { tier: 'normal' });
+  await stepIntoGrass(page);
+  await page.getByRole('button', { name: '싸우자!' }).click();
+  await expect(page.locator('.wild__bubble .question')).toBeVisible();
+  const power = await sfxFirstFreq('fxPower');
+  const grass = await sfxFirstFreq('fxGrass');
+  await moveButton(page, 56).click();
+  await expect(page.getByRole('status')).toContainText('잎사귀 톡! 명중!');
+  let freqs = await freqsSeen(page);
+  expect(freqs.filter((x) => x === grass).length).toBe(1);
+  expect(freqs.filter((x) => x === power).length).toBe(0);
+  await setFast(page, true);
+  await expect(page.locator('.wild__bubble .question')).toBeVisible();
+  await moveButton(page, 56).click();
+  await expect(page.getByRole('status')).toContainText('잎사귀 톡! 강력!');
+  freqs = await freqsSeen(page);
+  expect(freqs.filter((x) => x === grass).length).toBe(2);
+  expect(freqs.filter((x) => x === power).length).toBe(1);
+});
+
+test('특수 회복 성공 때 skillHeal 소리, 늦어 약한 기술이 나가면 속성 소리만', async ({ page }) => {
+  await spyAudio(page);
+  await fixBattle(page, true);
+  await standBesideGrass(page, { tier: 'normal', cloud: { level: 8, hp: 50, skills: ['cloud-1', 'cloud-3'] } });
+  await stepIntoGrass(page);
+  await page.getByRole('button', { name: '싸우자!' }).click();
+  await skillPicker(page).locator('[data-skill="cloud-3"]').click();
+  await moveButton(page, 56).click();
+  await expect(page.getByRole('status')).toContainText('체력을 25 되찾았어요!');
+  const heal = await sfxFirstFreq('skillHeal');
+  const grass = await sfxFirstFreq('fxGrass');
+  let freqs = await freqsSeen(page);
+  expect(freqs.filter((x) => x === heal).length).toBe(1);
+  expect(freqs.filter((x) => x === grass).length).toBe(0);
+  await setFast(page, false);
+  await skillPicker(page).locator('[data-skill="cloud-3"]').click();
+  await moveButton(page, 56).click();
+  await expect(page.getByRole('status')).toContainText('약한 기술이 나갔어요');
+  freqs = await freqsSeen(page);
+  expect(freqs.filter((x) => x === heal).length).toBe(1);
+  expect(freqs.filter((x) => x === grass).length).toBe(1);
+});
