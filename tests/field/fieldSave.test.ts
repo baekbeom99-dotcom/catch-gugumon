@@ -85,10 +85,10 @@ describe('저장 데이터 field', () => {
       position: { map: 'meadow', x: 5, y: 8, facing: 'right' },
       stats: { battles: 9, catches: 3, fled: 2 },
     };
-    // 버려지거나 초기화되는 칸 없이, 종 기록에 체력 100·상처 [], 캡슐 3·3·3·0만 채워진다
+    // 버려지거나 초기화되는 칸 없이, 종 기록에 체력 100·상처 []·예전 기술(Lv7 → 슬롯 1·2), 캡슐 3·3·3·0만 채워진다
     expect(mergeSave(createInitialSave(NOW), { ...oldSave(), field: v135 }).field).toEqual({
       ...v135,
-      species: { horn: { ...entry, hp: 100, wounds: [] } },
+      species: { horn: { ...entry, hp: 100, wounds: [], skills: ['horn-1', 'horn-2'] } },
       capsules: { meadow: 3, waterside: 3, desert: 3, legend: 0 },
     });
   });
@@ -113,7 +113,7 @@ describe('저장 데이터 field', () => {
   it('저장된 체력·상처는 그대로(0도), 상처는 중복 없이 최근 10개', () => {
     const ok = { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: 1 };
     const wounds = [{ factId: '2x3', type: 'product' }, { factId: '7x8', type: 'missingSecond' }];
-    expect(mergeField(initialField(), { species: { cloud: { ...ok, hp: 0, wounds } } }).species.cloud).toEqual({ ...ok, hp: 0, wounds });
+    expect(mergeField(initialField(), { species: { cloud: { ...ok, hp: 0, wounds } } }).species.cloud).toEqual({ ...ok, hp: 0, wounds, skills: ['cloud-1', 'cloud-2'] });
     const many = Array.from({ length: 12 }, (_, i) => ({ factId: `3x${(i % 9) + 1}`, type: 'product' }));
     const got = mergeField(initialField(), { species: { cloud: { ...ok, hp: 50, wounds: many } } }).species.cloud!.wounds;
     expect(got.length).toBe(9);
@@ -155,9 +155,9 @@ describe('저장 데이터 field', () => {
     };
     expect(mergeSave(createInitialSave(NOW), { ...oldSave(), field }).field).toEqual({
       ...field,
-      species: { horn: { ...entry, hp: 100, wounds: [] } },
+      species: { horn: { ...entry, hp: 100, wounds: [], skills: ['horn-1', 'horn-2'] } },
     });
-    const hurt = { ...field, species: { horn: { ...entry, hp: 35, wounds: [{ factId: '6x7', type: 'product' }] } } };
+    const hurt = { ...field, species: { horn: { ...entry, hp: 35, wounds: [{ factId: '6x7', type: 'product' }], skills: ['horn-2', 'jelly-5'] } } };
     expect(mergeSave(createInitialSave(NOW), { ...oldSave(), field: hurt }).field).toEqual(hurt);
   });
 
@@ -201,7 +201,7 @@ describe('저장 데이터 field', () => {
     useGameStore.getState().replaceSave({ ...oldSave(), field });
     expect(useGameStore.getState().field).toEqual({
       ...field,
-      species: { horn: { ...entry, hp: 100, wounds: [] } },
+      species: { horn: { ...entry, hp: 100, wounds: [], skills: ['horn-1', 'horn-2'] } },
       capsules: { meadow: 3, waterside: 3, desert: 3, legend: 0 },
     });
   });
@@ -254,7 +254,11 @@ describe('저장 데이터 field', () => {
     expect(r.ok).toBe(true);
     if (!r.ok) return;
     useGameStore.getState().replaceSave(r.save);
-    expect(useGameStore.getState().field).toEqual({ ...field, capsules: { meadow: 3, waterside: 3, desert: 3, legend: 0 } });
+    expect(useGameStore.getState().field).toEqual({
+      ...field,
+      species: { horn: { ...entry, skills: ['horn-1', 'horn-2'] } },
+      capsules: { meadow: 3, waterside: 3, desert: 3, legend: 0 },
+    });
     expect(useGameStore.getState().economy.stars).toBe(777);
   });
 

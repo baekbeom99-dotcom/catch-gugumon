@@ -28,7 +28,7 @@ describe('필드 스토어 액션', () => {
     expect(f.starterChosen).toBe(true);
     expect(f.companion).toBe('jelly');
     expect(Object.keys(f.species)).toEqual(['jelly']);
-    expect(f.species.jelly).toEqual({ level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: NOW, hp: 100, wounds: [] });
+    expect(f.species.jelly).toEqual({ level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: NOW, hp: 100, wounds: [], skills: ['jelly-1', 'jelly-2'] });
     expect(f.seen).toContain('jelly');
   });
 
@@ -39,7 +39,7 @@ describe('필드 스토어 액션', () => {
     expect(r.notices).toEqual([]);
     expect(r.affection).toBe(3);
     const s = useGameStore.getState();
-    expect(s.field.species.horn).toEqual({ level: 4, exp: 0, stage: 1, caught: 1, firstCaughtAt: NOW, hp: 100, wounds: [] });
+    expect(s.field.species.horn).toEqual({ level: 4, exp: 0, stage: 1, caught: 1, firstCaughtAt: NOW, hp: 100, wounds: [], skills: ['horn-1', 'horn-2'] });
     expect(s.field.stats).toEqual({ battles: 1, catches: 1, fled: 0 });
     expect(s.pet.affection).toBe(3);
   });
@@ -128,12 +128,12 @@ describe('필드 경험치·알림', () => {
   it('레벨이 오르면 levelUp(최종 레벨), 진화하면 evolve 알림이 한 번씩', () => {
     useGameStore.getState().chooseStarter('jelly', NOW);
     useGameStore.setState((s) => ({
-      field: { ...s.field, species: { ...s.field.species, jelly: { level: 7, exp: 0, stage: 1, caught: 1, firstCaughtAt: NOW, hp: 100, wounds: [] } } },
+      field: { ...s.field, species: { ...s.field.species, jelly: { level: 7, exp: 0, stage: 1, caught: 1, firstCaughtAt: NOW, hp: 100, wounds: [], skills: ['jelly-1', 'jelly-2'] } } },
     }));
     const r = useGameStore.getState().finishWildBattle(batch({ species: 'jelly', correct: 5 })); // 60 < 90
     expect(r.notices).toEqual([]);
     useGameStore.setState((s) => ({
-      field: { ...s.field, species: { ...s.field.species, jelly: { level: 7, exp: 85, stage: 1, caught: 1, firstCaughtAt: NOW, hp: 100, wounds: [] } } },
+      field: { ...s.field, species: { ...s.field.species, jelly: { level: 7, exp: 85, stage: 1, caught: 1, firstCaughtAt: NOW, hp: 100, wounds: [], skills: ['jelly-1', 'jelly-2'] } } },
     }));
     const r2 = useGameStore.getState().finishWildBattle(batch({ species: 'jelly', correct: 5 }));
     expect(r2.notices).toEqual([
@@ -256,7 +256,7 @@ describe('싸운 구구몬으로 정산 (end.companion)', () => {
       field: {
         ...s.field,
         companion: null,
-        species: { ...s.field.species, cloud: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: NOW, hp: 0, wounds: [] } },
+        species: { ...s.field.species, cloud: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: NOW, hp: 0, wounds: [], skills: ['cloud-1', 'cloud-2'] } },
       },
     }));
     const r = useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', end: 'fainted', correct: 2 }));
@@ -269,7 +269,7 @@ describe('싸운 구구몬으로 정산 (end.companion)', () => {
   it('저장의 companion과 다른 종이 싸웠으면 싸운 종이 받는다', () => {
     useGameStore.getState().chooseStarter('jelly', NOW);
     useGameStore.setState((s) => ({
-      field: { ...s.field, species: { ...s.field.species, cloud: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: NOW, hp: 100, wounds: [] } } },
+      field: { ...s.field, species: { ...s.field.species, cloud: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: NOW, hp: 100, wounds: [], skills: ['cloud-1', 'cloud-2'] } } },
     }));
     useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', end: 'escaped', correct: 0 }));
     expect(useGameStore.getState().field.species.cloud!.exp).toBe(10);
@@ -279,7 +279,7 @@ describe('싸운 구구몬으로 정산 (end.companion)', () => {
 
 describe('쓰러지면 도감의 다른 구구몬이 대신 함께 다님', () => {
   const wound: Wound = { factId: '7x8', type: 'product' };
-  const entry = (level: number, hp: number, firstCaughtAt: number) => ({ level, exp: 0, stage: 1 as const, caught: 1, firstCaughtAt, hp, wounds: [] });
+  const entry = (level: number, hp: number, firstCaughtAt: number) => ({ level, exp: 0, stage: 1 as const, caught: 1, firstCaughtAt, hp, wounds: [], skills: ['cloud-1'] });
   const meadow = { map: 'meadow' as const, x: 5, y: 8, facing: 'right' as const };
   const town = () => ({ map: 'town', ...townStart(), facing: 'down' });
 

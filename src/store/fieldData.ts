@@ -9,6 +9,8 @@ import { MAP_IDS, type MapId } from '../domain/field/fields';
 import { type Dir, parseMap } from '../domain/field/movement';
 import { TOWN_EXITS, TOWN_ROWS, TOWN_SIGNS } from '../field/world/maps/town';
 import { LEGEND_SPECIES, type SpeciesId } from '../domain/field/creatures';
+import { defaultSkills, SKILLS, type SkillDef, type SkillId } from '../domain/field/skills';
+import { MAX_SKILLS } from '../domain/field/tuning';
 
 export { LEGEND_SPECIES };
 export type { SpeciesId };
@@ -24,6 +26,8 @@ export interface SpeciesEntry {
   hp: number;
   /** 맞게 한 문제, 최근 WOUNDS_MAX개 (회복 연습에 쓴다) */
   wounds: Wound[];
+  /** 가진 기술 1~MAX_SKILLS개 (순서 = 화면 순서). 따라 배운 기술은 다른 종의 id로 들어간다 */
+  skills: SkillId[];
 }
 
 export interface FieldPosition {
@@ -87,7 +91,55 @@ export function initialField(): FieldData {
   };
 }
 
-function mergeEntry(raw: unknown): SpeciesEntry | null {
+const SKILL_BY_ID = new Map<string, SkillDef>(SKILLS.map((k) => [k.id, k]));
+
+/**
+ * 옛 저장 이월 슬롯: 3차 전에는 기술이 3개(옛 레벨 1·3·8에서 배움)였고, 같은 이름이 지금 슬롯 1·2·5다.
+ * 레벨 1~2 → [1], 3~7 → [1, 2], 8 이상 → [1, 2, 5]. 새로 주는 규칙에는 쓰지 않고, 이미 가진 것을 지킬 때만 쓴다
+ */
+export function legacySlots(level: number): number[] {
+  if (level >= 8) return [1, 2, 5];
+  if (level >= 3) return [1, 2];
+  return [1];
+}
+
+/**
+ * 이 구구몬이 이 기술을 가질 수 있나 — ① 자기 종 기술이고 배우는 레벨이 됐거나,
+ * ② 다른 종 기술(따라 배운 것)이거나, ③ 옛 저장 이월 슬롯이면 된다
+ */
+export function isAllowedSkill(species: SpeciesId, level: number, id: unknown): id is SkillId {
+  if (typeof id !== 'string') return false;
+  const def = SKILL_BY_ID.get(id);
+  if (!def) return false;
+  if (def.species !== species) return true;
+  return def.learnLevel <= level || legacySlots(level).includes(def.slot);
+}
+
+/**
+ * 가진 기술 목록 다듬기 (검증은 여기 한 곳): 허용 안 되는 id·중복은 버리고 앞에서부터 MAX_SKILLS개.
+ * 남는 게 없거나 배열이 아니면 그 레벨의 기본 기술(defaultSkills)
+ */
+export function normalizeSkills(species: SpeciesId, level: number, skills: unknown): SkillId[] {
+  if (!Array.isArray(skills)) return defaultSkills(species, level);
+  const out: SkillId[] = [];
+  for (const id of skills) {
+    if (out.length >= MAX_SKILLS) break;
+    if (isAllowedSkill(species, level, id) && !out.includes(id)) out.push(id);
+  }
+  return out.length > 0 ? out : defaultSkills(species, level);
+}
+
+/**
+ * 고치지 않고 그대로 받아도 되는 목록인가 (액션의 검증) — normalizeSkills가 아무것도 바꾸지 않으면 된다.
+ * 그래서 1~MAX_SKILLS개, 중복 없음, 모두 허용이라는 규칙이 저장 읽기와 똑같다
+ */
+export function isValidSkills(species: SpeciesId, level: number, skills: unknown): skills is SkillId[] {
+  if (!Array.isArray(skills) || skills.length < 1 || skills.length > MAX_SKILLS) return false;
+  const norm = normalizeSkills(species, level, skills);
+  return norm.length === skills.length && norm.every((id, i) => id === skills[i]);
+}
+
+function mergeEntry(species: SpeciesId, raw: unknown): SpeciesEntry | null {
   if (!raw || typeof raw !== 'object') return null;
   const e = raw as Record<string, unknown>;
   if (!isCount(e.level) || !isCount(e.exp) || !isCount(e.caught) || !isNum(e.firstCaughtAt)) return null;
@@ -96,12 +148,15 @@ function mergeEntry(raw: unknown): SpeciesEntry | null {
   const hp = isNum(e.hp) && Number.isInteger(e.hp) && e.hp >= 0 && e.hp <= COMPANION_MAX_HP ? e.hp : COMPANION_MAX_HP;
   let wounds: Wound[] = [];
   if (Array.isArray(e.wounds)) for (const w of e.wounds) if (isWound(w)) wounds = addWound(wounds, w);
-  return { level: e.level, exp: e.exp, stage: e.stage, caught: e.caught, firstCaughtAt: e.firstCaughtAt, hp, wounds };
+  // 옛 저장(기술 칸 없음)은 예전에 쓰던 기술 그대로 (기술이 줄지 않게). 칸이 있으면 규칙대로 다듬는다
+  const skills =
+    e.skills === undefined ? legacySlots(e.level).map((n) => `${species}-${n}`) : normalizeSkills(species, e.level, e.skills);
+  return { level: e.level, exp: e.exp, stage: e.stage, caught: e.caught, firstCaughtAt: e.firstCaughtAt, hp, wounds, skills };
 }
 
-/** 새로 얻은 종의 기록 (체력 가득, 상처 없음) */
-export function newSpeciesEntry(level: number, now: number): SpeciesEntry {
-  return { level, exp: 0, stage: 1, caught: 1, firstCaughtAt: now, hp: COMPANION_MAX_HP, wounds: [] };
+/** 새로 얻은 종의 기록 (체력 가득, 상처 없음, 그 레벨까지 익힌 기술) */
+export function newSpeciesEntry(species: SpeciesId, level: number, now: number): SpeciesEntry {
+  return { level, exp: 0, stage: 1, caught: 1, firstCaughtAt: now, hp: COMPANION_MAX_HP, wounds: [], skills: defaultSkills(species, level) };
 }
 
 /** 저장본의 필드 칸을 기본값 위에 얹는다. 모르는 종·잘못된 지도 이름·깨진 값은 버리고 기본값.
@@ -114,7 +169,7 @@ export function mergeField(initial: FieldData, persisted: unknown): FieldData {
   if (p.species && typeof p.species === 'object') {
     for (const [k, v] of Object.entries(p.species as Record<string, unknown>)) {
       if (!isSpecies(k)) continue;
-      const entry = mergeEntry(v);
+      const entry = mergeEntry(k, v);
       if (entry) species[k] = entry;
     }
   }

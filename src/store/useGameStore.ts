@@ -47,12 +47,13 @@ import { applyItem, buy, type CatalogData, canWearHat, findItem, grantMasterHats
 import { speciesDef } from '../domain/field/creatures';
 import { addExp, CORRECT_EXP, DUPLICATE_EXP, PARTICIPATION_EXP } from '../domain/field/growth';
 import { type Tier, tierExp } from '../domain/field/strength';
-import { COMPANION_MAX_HP } from '../domain/field/tuning';
+import { COMPANION_MAX_HP, MAX_SKILLS } from '../domain/field/tuning';
 import { addCapsules, type CapsuleType, takeCapsule } from '../domain/field/capsules';
 import { addWound, applyDamage, isFainted, type Wound } from '../domain/field/wounds';
 import { pickReplacement } from '../domain/field/companion';
 import { pickCompanion } from '../field/companion';
-import { type FieldData, type FieldNotice, newSpeciesEntry, SPECIES_IDS, type SpeciesEntry, type SpeciesId, townStart } from './fieldData';
+import { type FieldData, type FieldNotice, isValidSkills, newSpeciesEntry, SPECIES_IDS, type SpeciesEntry, type SpeciesId, townStart } from './fieldData';
+import type { SkillId } from '../domain/field/skills';
 import { createInitialSave, mergeSave, migrateSave, SAVE_KEY, type SaveData, SCHEMA_VERSION, type Settings } from './saveData';
 
 export interface PetChange {
@@ -90,6 +91,20 @@ export interface WildBattleEnd {
 /** 저장된 종 기록 (모르는 종 id면 없음 — `constructor` 같은 이름이 끼어들지 않게) */
 function speciesEntry(field: FieldData, id: SpeciesId): SpeciesEntry | undefined {
   return SPECIES_IDS.includes(id) ? field.species[id] : undefined;
+}
+
+/** 가진 기술을 ids로 바꿔 저장 (검사는 저장 읽기와 같은 규칙). 없는 종이거나 규칙에 어긋나면 false, set을 부르지 않는다 */
+function commitSkills(
+  get: () => GameStore,
+  set: (partial: Partial<GameStore>) => void,
+  species: SpeciesId,
+  ids: unknown,
+): boolean {
+  const field = get().field;
+  const e = speciesEntry(field, species);
+  if (!e || !isValidSkills(species, e.level, ids)) return false;
+  set({ field: { ...field, species: { ...field.species, [species]: { ...e, skills: [...ids] } } } });
+  return true;
 }
 
 /** 밥·먹이를 먹고 5% 확률로 식중독에 걸렸는가 */
@@ -177,6 +192,15 @@ interface GameActions {
   spendCapsule: (t: CapsuleType) => boolean;
   /** 필드 모험: 야생 전투 끝 — 잡기·기록·펫 친밀도 */
   finishWildBattle: (r: WildBattleEnd) => WildResult;
+  /**
+   * 필드 모험: 가진 기술 하나를 잊고 다른 기술을 그 자리에 배운다. 가진 기술을 잊고, 아직 안 가진 허용된 기술을 배울 때만 true.
+   * 거부하면 아무것도 바꾸지 않는다 (상태 객체도 그대로)
+   */
+  replaceSkill: (species: SpeciesId, removeId: SkillId, addId: SkillId) => boolean;
+  /** 필드 모험: 가진 기술을 한 번에 바꾼다 (1~MAX_SKILLS개, 중복 없음, 모두 허용된 기술일 때만 true) */
+  setSkills: (species: SpeciesId, ids: SkillId[]) => boolean;
+  /** 필드 모험: 가진 기술이 MAX_SKILLS개보다 적으면 뒤에 하나 더한다 */
+  addSkill: (species: SpeciesId, id: SkillId) => boolean;
   /** 전체 초기화 */
   resetAll: () => void;
   /** 관리자: 지금 펫을 도감에 넣고 새 알을 고르게 한다 (학습 기록·별·가방은 그대로) */
@@ -328,7 +352,7 @@ export const useGameStore = create<GameStore>()(
               companion: id,
               species: s.field.species[id]
                 ? s.field.species
-                : { ...s.field.species, [id]: newSpeciesEntry(5, now) },
+                : { ...s.field.species, [id]: newSpeciesEntry(id, 5, now) },
               seen: s.field.seen.includes(id) ? s.field.seen : [...s.field.seen, id],
             },
           };
@@ -403,7 +427,7 @@ export const useGameStore = create<GameStore>()(
           const newSpecies = caught && !known;
           let species = s.field.species;
           if (newSpecies) {
-            species = { ...species, [r.species]: newSpeciesEntry(r.level, r.now) };
+            species = { ...species, [r.species]: newSpeciesEntry(r.species, r.level, r.now) };
           } else if (caught && known) {
             species = { ...species, [r.species]: { ...known, caught: known.caught + 1 } };
           }
@@ -443,6 +467,18 @@ export const useGameStore = create<GameStore>()(
           return { field: { ...s.field, species, stats, seen }, pet: settled.pet, lastSeenAt: r.now };
         });
         return result;
+      },
+      // 기술 액션: 먼저 읽어서 검사하고, 통과할 때만 set 한 번 (거부하면 set을 부르지 않아 상태 객체가 그대로)
+      replaceSkill: (species, removeId, addId) => {
+        const e = speciesEntry(get().field, species);
+        if (!e || !e.skills.includes(removeId) || e.skills.includes(addId)) return false;
+        return commitSkills(get, set, species, e.skills.map((id) => (id === removeId ? addId : id)));
+      },
+      setSkills: (species, ids) => commitSkills(get, set, species, ids),
+      addSkill: (species, id) => {
+        const e = speciesEntry(get().field, species);
+        if (!e || e.skills.length >= MAX_SKILLS || e.skills.includes(id)) return false;
+        return commitSkills(get, set, species, [...e.skills, id]);
       },
       setStairsChallenge: (include) => set((s) => ({ stairs: { ...s.stairs, includeChallenge: include } })),
       chooseEgg: (species) => set((s) => ({ pet: chooseEgg(s.pet, species) })),
