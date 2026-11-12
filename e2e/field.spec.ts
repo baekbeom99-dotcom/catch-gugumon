@@ -4,11 +4,11 @@ import { collectErrors } from './helpers';
 
 test.use({ viewport: { width: 375, height: 812 } });
 
-/** 첫 구구몬(구름몬)을 이미 고른 저장본 */
+/** 첫 구구몬(구름몬)을 이미 고른 저장본 — 기술은 1개라 전투에서 고르기 없이 바로 문제 */
 const STARTER_FIELD = {
   starterChosen: true,
   companion: 'cloud',
-  species: { cloud: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: 1 } },
+  species: { cloud: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: 1, skills: ['cloud-1'] } },
   seen: ['cloud'],
 };
 
@@ -281,9 +281,12 @@ async function stepIntoGrass(page: Page) {
   await expect(page).toHaveURL(/#\/field\/battle$/);
 }
 
-/** 말풍선의 문제를 읽어 답을 계산한다 */
+/** 말풍선의 문제를 읽어 답을 계산한다 (기술 고르기가 먼저 나오면 첫 기술을 고른다) */
 async function solveWild(page: Page): Promise<number> {
   const q = page.locator('.wild__bubble .question');
+  const picker = page.getByRole('group', { name: '기술 고르기' });
+  await expect(q.or(picker)).toBeVisible();
+  if (await picker.isVisible()) await picker.locator('.skill-pick').first().click();
   await expect(q).toBeVisible();
   const parts = (await q.locator('> *').allTextContents()).map((t) => t.trim());
   const [a, , b, , r] = parts;
@@ -1307,4 +1310,151 @@ test('도감에서 쓰러진 종은 쓰러짐 꼬리표와 빨간 막대, 함께
   const btn = page.getByRole('button', { name: /함께 다니기/ });
   await expect(btn).toBeDisabled();
   await expect(page.getByRole('dialog')).toContainText('상점에서 회복시켜요');
+});
+
+// ── 필드 모험 3차: 기술 고르기·강력·특수·상성 ──
+
+const shotDir = '.superpowers/sdd/2026-11-12-field-adventure-3/task-4-shots';
+
+/** 전투 문제를 7×8로 고정하고(답 56) "빠르게" 스위치를 정해 둔다 (null이면 실제 시간) */
+async function fixBattle(page: Page, fast: boolean | null) {
+  await page.addInitScript(
+    ([f]) => {
+      const w = window as unknown as Record<string, unknown>;
+      w.__GUGU_E2E_QUESTION__ = { factId: '7x8', type: 'product' };
+      if (f !== null) w.__GUGU_E2E_FAST__ = f;
+    },
+    [fast] as const,
+  );
+}
+
+async function setFast(page: Page, fast: boolean) {
+  await page.evaluate((f) => {
+    (window as unknown as Record<string, unknown>).__GUGU_E2E_FAST__ = f;
+  }, fast);
+}
+
+/** 야생 체력 막대의 숫자 (0~100) */
+async function wildHp(page: Page): Promise<number> {
+  const label = (await page.locator('.wild__card [role="img"]').getAttribute('aria-label')) ?? '';
+  return Number(label.replace(/\D/g, ''));
+}
+
+const skillPicker = (page: Page) => page.getByRole('group', { name: '기술 고르기' });
+
+test('기술이 1개면 고르기 없이 바로 문제, 보기 버튼은 답 숫자만', async ({ page }) => {
+  await fixBattle(page, null);
+  await standBesideGrass(page, { tier: 'normal' });
+  await stepIntoGrass(page);
+  await page.getByRole('button', { name: '싸우자!' }).click();
+  await expect(page.locator('.wild__bubble .question')).toBeVisible();
+  await expect(skillPicker(page)).toHaveCount(0);
+  await expect(page.getByRole('status')).toHaveText('잎사귀 톡 준비! 4초 안에 풀면 강력!');
+  const buttons = page.locator('.wild-move');
+  await expect(buttons).toHaveCount(3);
+  for (const t of await buttons.allTextContents()) expect(t.trim()).toMatch(/^\d+$/);
+  await expect(moveButton(page, 56)).toHaveCount(1);
+});
+
+test('기술 5개: 고르기 단계에 버튼 5개, 발동 조건과 상성 글이 보이고 375px 안에 들어간다', async ({ page }) => {
+  await fixBattle(page, null);
+  await standBesideGrass(page, {
+    tier: 'normal',
+    cloud: { level: 20, skills: ['cloud-1', 'cloud-2', 'cloud-3', 'cloud-4', 'cloud-5'] },
+  });
+  await stepIntoGrass(page);
+  await page.getByRole('button', { name: '싸우자!' }).click();
+  const picker = skillPicker(page);
+  const buttons = picker.locator('.skill-pick');
+  await expect(buttons).toHaveCount(5);
+  // 고르는 동안은 문제가 안 보이고 시간도 안 간다
+  await expect(page.locator('.wild__bubble')).toHaveCount(0);
+  await expect(page.getByRole('status')).toHaveText('어떤 기술을 쓸까?');
+  await expect(buttons.nth(0)).toContainText('잎사귀 톡');
+  await expect(buttons.nth(0)).toContainText('풀');
+  await expect(buttons.nth(0)).toContainText('★★');
+  await expect(buttons.nth(0)).toContainText('4초 안에 풀면 강력!');
+  await expect(buttons.nth(2)).toContainText('특수');
+  await expect(buttons.nth(2)).toContainText('4초 안에 풀면 회복! 못 풀면 약한 기술이 나가요');
+  await expect(buttons.nth(4)).toContainText('★★★');
+  await expect(buttons.nth(4)).toContainText('3초 안에 풀면 강력!');
+  for (const i of [0, 1, 3, 4]) await expect(buttons.nth(i)).toContainText(/효과가 커요! ▲|별로예요… ▼|보통이에요/);
+  await expect(buttons.nth(2).locator('.skill-pick__match')).toHaveCount(0); // 특수는 상성 없음
+  const vp = page.viewportSize()!;
+  for (let i = 0; i < 5; i++) {
+    const b = (await buttons.nth(i).boundingBox())!;
+    expect(b.x).toBeGreaterThanOrEqual(0);
+    expect(b.x + b.width).toBeLessThanOrEqual(vp.width);
+    expect(b.y + b.height).toBeLessThanOrEqual(vp.height);
+    // 글자가 버튼 밖으로 넘치지 않는다
+    expect(await buttons.nth(i).evaluate((el) => el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1)).toBe(true);
+  }
+  await page.screenshot({ path: `${shotDir}/picker-5-375.png` });
+  await buttons.nth(1).click();
+  await expect(picker).toHaveCount(0);
+  await expect(page.locator('.wild__bubble .question')).toBeVisible();
+  await expect(page.getByRole('status')).toHaveText('새싹 휙 준비! 4초 안에 풀면 강력!');
+  await expect(page.locator('.wild__skill-now')).toHaveText('새싹 휙 · 4초 안에 풀면 강력!');
+});
+
+test('빠르게 풀면 "강력!" — 같은 기술이 더 많이 깎는다 (__GUGU_E2E_FAST__)', async ({ page }) => {
+  await fixBattle(page, false);
+  await standBesideGrass(page, { tier: 'normal' });
+  await stepIntoGrass(page);
+  await page.getByRole('button', { name: '싸우자!' }).click();
+  await expect(page.locator('.wild__bubble .question')).toBeVisible();
+  await moveButton(page, 56).click();
+  await expect(page.getByRole('status')).toContainText('잎사귀 톡!');
+  await expect(page.getByRole('status')).not.toContainText('강력');
+  const hp1 = await wildHp(page);
+  await setFast(page, true);
+  await expect(page.locator('.wild__bubble .question')).toBeVisible();
+  await moveButton(page, 56).click();
+  await expect(page.getByRole('status')).toContainText('잎사귀 톡! 강력!');
+  const hp2 = await wildHp(page);
+  // 같은 기술·같은 상성에서 강력은 1칸 더 (보통 8칸 중 1칸 = 12~13)
+  expect(hp1 - hp2).toBeGreaterThan(100 - hp1);
+  await page.screenshot({ path: `${shotDir}/strong-375.png` });
+});
+
+test('특수 회복: 빠르게 풀면 내 체력이 25 늘고, 늦으면 약한 기술이 대신 나간다', async ({ page }) => {
+  await fixBattle(page, true);
+  await standBesideGrass(page, { tier: 'normal', cloud: { level: 8, hp: 50, skills: ['cloud-1', 'cloud-3'] } });
+  await stepIntoGrass(page);
+  await page.getByRole('button', { name: '싸우자!' }).click();
+  await expect(page.getByLabel('내 체력 50')).toBeVisible();
+  await skillPicker(page).locator('[data-skill="cloud-3"]').click();
+  await expect(page.getByRole('status')).toHaveText('새싹 쑥쑥 준비! 4초 안에 풀면 회복!');
+  await moveButton(page, 56).click();
+  await expect(page.getByRole('status')).toContainText('새싹 쑥쑥! 체력을 25 되찾았어요!');
+  await expect(page.getByLabel('내 체력 75')).toBeVisible();
+  expect((await savedCloud(page)).hp).toBe(75);
+  await page.screenshot({ path: `${shotDir}/special-heal-375.png` });
+
+  await setFast(page, false);
+  await skillPicker(page).locator('[data-skill="cloud-3"]').click();
+  await moveButton(page, 56).click();
+  await expect(page.getByRole('status')).toContainText('시간이 지나서 약한 기술이 나갔어요. 잎사귀 톡!');
+  await expect(page.getByLabel('내 체력 75')).toBeVisible();
+  expect((await savedCloud(page)).hp).toBe(75);
+});
+
+test('틀리면 힌트 뒤 같은 기술로 같은 문제를 다시 푼다 (고르기로 안 감)', async ({ page }) => {
+  await fixBattle(page, null);
+  await standBesideGrass(page, { tier: 'normal', cloud: { skills: ['cloud-1', 'cloud-2'] } });
+  await stepIntoGrass(page);
+  await page.getByRole('button', { name: '싸우자!' }).click();
+  await skillPicker(page).locator('[data-skill="cloud-2"]').click();
+  await wrongMoveButton(page, 56).click();
+  const glow = page.locator('.wild-move--glow');
+  await expect(glow).toHaveCount(1);
+  await expect(page.getByRole('status')).toContainText('새싹 휙! …빗나갔다');
+  await glow.click();
+  await expect(skillPicker(page)).toHaveCount(0);
+  await expect(page.locator('.wild__bubble')).toHaveAttribute('data-fact', '7x8');
+  await expect(page.locator('.wild__skill-now')).toContainText('새싹 휙');
+  await moveButton(page, 56).click();
+  await expect(page.getByRole('status')).toContainText('새싹 휙!');
+  // 맞힌 뒤 다음 문제는 다시 고르기부터
+  await expect(skillPicker(page)).toBeVisible();
 });

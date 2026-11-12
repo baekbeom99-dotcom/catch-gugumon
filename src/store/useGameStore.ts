@@ -186,6 +186,8 @@ interface GameActions {
   damageCompanion: (id: SpeciesId, dmg: number, wound: Wound) => { hp: number; fainted: boolean; replacedBy: SpeciesId | null };
   /** 필드 모험: 체력 가득, 상처 비움 */
   healSpecies: (id: SpeciesId) => void;
+  /** 필드 모험: 전투 중 회복 기술 — 체력만 amount 더한다(가득을 넘지 않음, 상처는 그대로). 쓰러진 종·없는 종은 그대로. 새 체력을 돌려준다 */
+  restoreCompanionHp: (id: SpeciesId, amount: number) => number;
   /** 필드 모험: 캡슐 n개 받기 (n은 0 이상 정수만) */
   grantCapsules: (t: CapsuleType, n: number) => void;
   /** 필드 모험: 캡슐 1개 쓰기 — 던지는 순간 바로 저장. 없으면 false, 아무것도 안 바꾼다 */
@@ -402,6 +404,20 @@ export const useGameStore = create<GameStore>()(
           if (!e) return {};
           return { field: { ...s.field, species: { ...s.field.species, [id]: { ...e, hp: COMPANION_MAX_HP, wounds: [] } } } };
         }),
+      restoreCompanionHp: (id, amount) => {
+        let hp = 0;
+        set((s) => {
+          const e = speciesEntry(s.field, id);
+          if (!e) return {};
+          hp = e.hp;
+          const add = Number.isFinite(amount) && amount > 0 ? Math.round(amount) : 0;
+          // 쓰러진 구구몬은 상점에서만 일어난다
+          if (isFainted(e) || add === 0) return {};
+          hp = Math.min(COMPANION_MAX_HP, e.hp + add);
+          return { field: { ...s.field, species: { ...s.field.species, [id]: { ...e, hp } } } };
+        });
+        return hp;
+      },
       grantCapsules: (t, n) =>
         set((s) => {
           const capsules = addCapsules(s.field.capsules, t, n);

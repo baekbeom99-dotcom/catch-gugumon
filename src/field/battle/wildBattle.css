@@ -319,6 +319,8 @@
   border-radius: var(--radius);
   background: var(--paper);
   font-size: 18px;
+  /* 기술 글 + 상성 글처럼 두 줄로 보일 때가 있다 */
+  white-space: pre-line;
 }
 
 .wild__actions {
@@ -329,7 +331,7 @@
 .wild-move {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: center;
   min-height: 56px;
   padding: 6px 16px;
   border: var(--border);
@@ -355,6 +357,163 @@
 .wild-move__num {
   font-family: var(--font-display);
   font-size: 28px;
+}
+
+/* 보기 버튼: 답 숫자만, 한 줄에 셋 */
+.wild__answers {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+/* 힌트 특수로 숨긴 틀린 답 */
+.wild-move--gone,
+.wild-move--gone:disabled {
+  opacity: 0.35;
+  background: var(--grey);
+  box-shadow: none;
+}
+
+.wild-move__gone {
+  font-size: 24px;
+  color: var(--ink-soft);
+}
+
+/* 지금 쓰는 기술과 발동 조건 */
+.wild__skill-now {
+  margin: 0;
+  text-align: center;
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+
+/* 내 구구몬에 남은 특수 효과 (방어·충전·여유·힌트) */
+.wild__buffs {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 6px;
+  vertical-align: middle;
+}
+
+.wild__buff {
+  padding: 0 6px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: var(--yellow);
+  font-family: var(--font-body);
+  font-size: 13px;
+}
+
+/* 기술 고르기: 두 줄 격자 (위 3칸·아래 2칸, 375px에서 잘리지 않게) */
+.skill-picker {
+  display: grid;
+  gap: 6px;
+}
+
+.skill-picker__title {
+  margin: 0;
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 17px;
+}
+
+.skill-picker__grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.skill-pick {
+  grid-column: span 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+  min-height: 92px;
+  padding: 6px 4px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  font: inherit;
+  color: var(--ink);
+  text-align: center;
+  cursor: pointer;
+}
+
+/* 2개·4개는 한 줄에 둘씩, 5개는 위 3 · 아래 2 */
+.skill-picker__grid--n2 .skill-pick,
+.skill-picker__grid--n4 .skill-pick,
+.skill-picker__grid--n5 .skill-pick:nth-child(n + 4) {
+  grid-column: span 3;
+}
+
+.skill-pick:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.skill-pick--special {
+  background: #fff6c8;
+}
+
+.skill-pick__name {
+  font-family: var(--font-display);
+  font-size: 15px;
+  line-height: 1.15;
+  word-break: keep-all;
+}
+
+.skill-pick__meta {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+}
+
+.skill-pick__tag {
+  padding: 0 5px;
+  border: 2px solid var(--ink);
+  border-radius: 6px;
+  background: var(--grey);
+}
+
+.skill-pick__tag--grass { background: #b8f25c; }
+.skill-pick__tag--poison { background: #d9b6ff; }
+.skill-pick__tag--light { background: #fff07a; }
+.skill-pick__tag--water { background: #8fdcff; }
+.skill-pick__tag--thunder { background: #ffe14d; }
+.skill-pick__tag--earth { background: #e0b98a; }
+.skill-pick__tag--fire { background: #ffa07a; }
+.skill-pick__tag--special { background: var(--pink); }
+
+.skill-pick__power {
+  color: #c07800;
+  letter-spacing: -1px;
+}
+
+.skill-pick__cond {
+  font-size: 12px;
+  line-height: 1.2;
+  word-break: keep-all;
+}
+
+.skill-pick__match {
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.skill-pick__match--up {
+  color: #0a7a2a;
+}
+
+.skill-pick__match--down {
+  color: #b0101e;
+}
+
+.skill-pick__match--even {
+  color: var(--ink-soft);
 }
 
 .wild-move--glow,

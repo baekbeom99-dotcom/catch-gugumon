@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  answerWild, chipCells, createWild, damageOf, hiddenChoice, MAX_TICK_MS, maxCells, pickSkill, releaseWild, resolveAnswer,
+  answerWild, chipCells, createWild, damageOf, healAlly, hiddenChoice, MAX_TICK_MS, maxCells, pickSkill, releaseWild, resolveAnswer,
   resumeWild, throwCapsule, tick, tickWild, wildHpRatio,
   type WildState,
 } from '../../src/domain/field/wildBattle';
@@ -177,6 +177,17 @@ describe('wildBattle: 던지기', () => {
     expect(throwCapsule(d, seq(0.5), 5, 2)!.state.phase).toBe('pick');
     expect(throwCapsule(d, seq(0.5), 5, 1)!.state.phase).toBe('question');
   });
+  it('화남: 기술이 2개 이상이면 고르기(pick)로', () => {
+    const d = dizzyOf(createWild('normal', 5, 100));
+    expect(throwCapsule(d, seq(0.999, 0), 10, 2)!.state.phase).toBe('pick');
+    expect(throwCapsule(d, seq(0.999, 0), 10, 1)!.state.phase).toBe('question');
+  });
+  it('healed: 여유(calmMs)가 있으면 다시 싸우는 문제 시간에 더하고 0', () => {
+    const d = { ...dizzyOf(createWild('normal', 5, 100)), calmMs: CALM_BONUS_MS };
+    const r = throwCapsule(d, seq(0.5), 5)!;
+    expect(r.outcome).toBe('healed');
+    expect(r.state).toMatchObject({ timeLeftMs: 7000 + CALM_BONUS_MS, calmMs: 0 });
+  });
   it('healed: 깎인 칸이 절반보다 적으면 0까지만', () => {
     const d = { ...dizzyOf(createWild('normal', 5, 100)), cells: 2 };
     expect(throwCapsule(d, seq(0.5), 5)!.state.cells).toBe(0);
@@ -290,6 +301,23 @@ describe('wildBattle: resolveAnswer — 특수 기술', () => {
   it('대신 나가는 기술: 위력이 같으면 슬롯 번호가 작은 것', () => {
     expect(resolveAnswer(at(6000), k('cloud-3'), ['cloud-2', 'cloud-4', 'cloud-1', 'cloud-3'], 'light', NORMAL_MS).fired.id).toBe('cloud-1');
     expect(resolveAnswer(at(6000), k('cloud-3'), ['cloud-5', 'cloud-4', 'cloud-3'], 'light', NORMAL_MS).fired.id).toBe('cloud-4');
+  });
+  it('늦어서 약한 기술이 대신 나가면 충전을 쓰고 0이 된다', () => {
+    const r = resolveAnswer(at(6000, { charge: 1 }), k('cloud-3'), ['cloud-1', 'cloud-3'], 'light', NORMAL_MS);
+    expect(r).toMatchObject({ usedFallback: true });
+    expect(r.fired.id).toBe('cloud-1');
+    expect(r.state).toMatchObject({ cells: 3, charge: 0 }); // 2 + 충전 1, 풀→빛 보통
+  });
+  it('특수가 성공해도 이미 있던 방어·여유는 그대로', () => {
+    const r = resolveAnswer(at(1000, { guard: true, calmMs: CALM_BONUS_MS }), k('antenna-3'), ['antenna-1', 'antenna-3'], 'light', NORMAL_MS);
+    expect(r.special).toBe('charge');
+    expect(r.state).toMatchObject({ guard: true, calmMs: CALM_BONUS_MS, charge: CHARGE_BONUS_CELLS });
+  });
+  it('healAlly: 내 구구몬 체력을 더하되 가득(100)을 넘지 않는다', () => {
+    expect(healAlly(at(0, { allyHp: 50 }), 25).allyHp).toBe(75);
+    expect(healAlly(at(0, { allyHp: 90 }), 25).allyHp).toBe(100);
+    const full = at(0);
+    expect(healAlly(full, 25)).toBe(full); // 이미 가득이면 그대로
   });
   it('특수만 가졌으면 늦을 때 위력 1 기본 타격', () => {
     const r = resolveAnswer(at(6000), k('cloud-3'), ['cloud-3'], 'water', NORMAL_MS);

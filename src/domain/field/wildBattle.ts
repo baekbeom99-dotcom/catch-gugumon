@@ -13,6 +13,7 @@ import {
   CAPTURE_FAIL_HEAL_RATIO,
   CELLS_PER_HIT,
   CHARGE_BONUS_CELLS,
+  COMPANION_MAX_HP,
   FAST_BONUS_CELLS,
   MAX_CHIP_CELLS,
   TIER_RULES,
@@ -235,14 +236,22 @@ export function throwCapsule(
     return { state: { ...freshClock(s), cells, phase: askPhase(heldCount) }, outcome: 'healed' };
   }
   if (r < 1 - odds.angry) return { state: { ...s, phase: 'escaped' }, outcome: 'escaped' };
-  // 화남: 강력이 되어(이미 강력·황금이면 그대로) 체력을 다 채우고 다시 싸운다
+  // 화남: 강력이 되어(이미 강력·황금이면 그대로) 체력을 다 채우고 다시 싸운다 (기술이 2개 이상이면 고르기부터)
+  // 충전·방어·힌트(charge·guard·hideChoice)는 빠져나옴·화남 뒤에도 그대로 남긴다 — 내가 얻은 힘이라 일부러 지우지 않는다
   const stays = s.tier === 'mighty' || s.tier === 'legend';
   const tier: Tier = stays ? s.tier : 'mighty';
   const level = stays ? s.level : rollTierLevel(rng, 'mighty', companionLevel);
   return {
-    state: { ...freshClock({ ...s, tier }), level, cells: 0, phase: 'question' },
+    state: { ...freshClock({ ...s, tier }), level, cells: 0, phase: askPhase(heldCount) },
     outcome: 'angry',
   };
+}
+
+/** 회복 특수: 내 구구몬 체력을 amount만큼 채운다(가득을 넘지 않음). 저장은 화면이 스토어로 따로 한다. 가득이면 그대로 */
+export function healAlly(s: WildState, amount: number): WildState {
+  const add = Number.isFinite(amount) && amount > 0 ? Math.round(amount) : 0;
+  const allyHp = Math.min(COMPANION_MAX_HP, s.allyHp + add);
+  return allyHp === s.allyHp ? s : { ...s, allyHp };
 }
 
 /** 어지러운 구구몬을 그냥 돌려보낸다 (캡슐이 없을 때 등) */

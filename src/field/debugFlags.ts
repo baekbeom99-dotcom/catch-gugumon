@@ -8,6 +8,7 @@
  *   window.__GUGU_E2E_TIER__ = 'mighty'  야생 강함 단계 고정 (weak·normal·strong·mighty, 레전드는 그대로)
  *   window.__GUGU_E2E_LEGEND__ = true    만남이 레전드 (12단이 열려 있을 때)
  *   window.__GUGU_E2E_QUESTION__ = { factId: '7x8', type: 'product' }   전투 문제 고정
+ *   window.__GUGU_E2E_FAST__ = true      전투 정답이 늘 "빠르게"(강력·특수 발동). false면 늘 늦게. 없으면 실제 시간 (NO_TIMER와 함께 쓴다)
  *
  * 새 스위치를 만들면 여기에 더하고 CLAUDE.md 'E2E 스위치' 줄도 고친다.
  */
@@ -30,6 +31,8 @@ export interface FieldDebugFlags {
   legend: boolean;
   /** 전투 문제를 이 사실·모양으로 고정 (375px 배치 확인용). 평소에는 null */
   question: { factId: string; type: string } | null;
+  /** "빠르게 풀었나" 고정: true 늘 빠르게, false 늘 늦게, null이면 실제 걸린 시간 */
+  fast: boolean | null;
 }
 
 interface DebugGlobals {
@@ -40,6 +43,7 @@ interface DebugGlobals {
   __GUGU_E2E_NO_TIMER__?: boolean;
   __GUGU_E2E_TIER__?: string;
   __GUGU_E2E_QUESTION__?: { factId: string; type: string };
+  __GUGU_E2E_FAST__?: unknown;
 }
 
 const g = () => globalThis as DebugGlobals;
@@ -51,8 +55,15 @@ export function debugFlags(): FieldDebugFlags {
     noWild: !!g().__GUGU_E2E_NO_WILD__,
     noTimer: !!g().__GUGU_E2E_NO_TIMER__,
     tier: readTier(g().__GUGU_E2E_TIER__),
-    legend: !!g().__GUGU_E2E_LEGEND__, question: g().__GUGU_E2E_QUESTION__ ?? null,
+    legend: !!g().__GUGU_E2E_LEGEND__,
+    question: g().__GUGU_E2E_QUESTION__ ?? null,
+    fast: readFast(g().__GUGU_E2E_FAST__),
   };
+}
+
+/** true·false만 받는다. 그 밖의 값은 실제 시간(null) */
+function readFast(v: unknown): boolean | null {
+  return v === true || v === false ? v : null;
 }
 
 /** 모르는 단계 이름은 무시한다 */

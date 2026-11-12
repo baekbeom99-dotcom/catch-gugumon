@@ -216,6 +216,22 @@ describe('구구몬 체력·상처 저장', () => {
     expect(useGameStore.getState().field).toEqual(before);
   });
 
+  it('restoreCompanionHp: 체력만 더한다 (가득을 넘지 않고, 상처는 그대로)', () => {
+    useGameStore.getState().damageCompanion('cloud', 60, wound);
+    expect(useGameStore.getState().restoreCompanionHp('cloud', 25)).toBe(65);
+    expect(useGameStore.getState().field.species.cloud).toMatchObject({ hp: 65, wounds: [wound] });
+    expect(useGameStore.getState().restoreCompanionHp('cloud', 50)).toBe(100);
+    // 없는 종·쓰러진 종·이상한 값은 아무것도 안 바꾼다
+    setHp('cloud', 0);
+    const before = JSON.parse(JSON.stringify(useGameStore.getState().field));
+    expect(useGameStore.getState().restoreCompanionHp('cloud', 25)).toBe(0);
+    expect(useGameStore.getState().restoreCompanionHp('horn', 25)).toBe(0);
+    expect(useGameStore.getState().field).toEqual(before);
+    setHp('cloud', 40);
+    expect(useGameStore.getState().restoreCompanionHp('cloud', Number.NaN)).toBe(40);
+    expect(useGameStore.getState().restoreCompanionHp('cloud', -10)).toBe(40);
+  });
+
   it('finishWildBattle: 강함 배율로 경험치, 쓰러짐 알림, 같은 종 잡기 ×배율', () => {
     // correct 3, tier 'strong' → 동행 +Math.round((10+6)*1.6)=26
     useGameStore.getState().finishWildBattle(batch({ species: 'horn', end: 'escaped', tier: 'strong', correct: 3 }));
