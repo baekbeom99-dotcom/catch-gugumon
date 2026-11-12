@@ -3,6 +3,7 @@
  * 각 규칙 파일(encounter·wildBattle·growth…)은 여기 값을 가져다 쓰고, 테스트는 그 값으로 규칙을 확인한다.
  * 값을 바꾸면 tests/field/tuning.test.ts의 고정값도 함께 고치고, MVP_DESIGN.md 변경 이력에 한 줄 남긴다.
  */
+import type { SpecialKind } from './skills';
 
 // ── 만남 ──
 /** 풀숲 한 걸음에 만날 확률 */
@@ -150,3 +151,34 @@ export const CALM_BONUS_MS = 3000;
 export const CHARGE_BONUS_CELLS = 1;
 /** 캡슐에서 빠져나오면 최대 칸의 이만큼(올림)을 되찾는다 — 약함 3·보통 4·강함 4·강력 6칸 */
 export const CAPTURE_FAIL_HEAL_RATIO = 0.5;
+
+// ── 전투 규칙 4 (필드 모험 3차 설계서 0-2절) ──
+/** 크리티컬 확률: 내 공격은 깎는 칸 ×2, 적 공격은 내게 오는 피해 ×2 */
+export const CRIT_CHANCE = 0.1;
+export const CRIT_MULT = 2;
+/** 크리티컬일 때 한 번에 깎는 칸의 위쪽 한계 */
+export const MAX_CHIP_CRIT_CELLS = 8;
+/** 회피 확률: 공격이 빗나가 피해 0 (내 공격·적 공격 똑같이) */
+export const DODGE_CHANCE = 0.05;
+/** 정답으로 이만큼 때릴 때마다 적이 한 번 자동으로 공격한다 */
+export const ENEMY_ATTACK_EVERY = 2;
+/** 야생 남은 체력이 최대의 이만큼 이하가 되면 캡슐을 던질 수 있다 */
+export const CAPSULE_ACTIVE_RATIO = 0.25;
+/** 같은 야생에게 캡슐이 실패할 때마다 잡힘 확률에 더하는 값 */
+export const CATCH_PER_FAIL = 0.1;
+/** 야생이 기절(스턴)해 있으면 잡힘 확률에 더하는 값 */
+export const CATCH_STATUS_BONUS = 0.1;
+/** 잡힘 확률의 위쪽 한계 */
+export const CATCH_CAP = 0.7;
+/**
+ * 특수효과 성공 확률: 특수 버튼 효과와 주②에 붙은 효과는 조건을 채워도 이 확률로만 성공한다.
+ * 실패해도 공격 칸은 그대로 들어간다. (회복·방어·스턴은 사용자 지시, 나머지는 가정)
+ */
+export const SPECIAL_SUCCESS: Record<SpecialKind, number> = {
+  heal: 0.9,
+  guard: 0.9,
+  stun: 0.5,
+  clue: 0.8,
+  calm: 0.8,
+  charge: 0.7,
+};

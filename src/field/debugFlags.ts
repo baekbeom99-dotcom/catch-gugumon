@@ -11,6 +11,7 @@
  *   window.__GUGU_E2E_FAST__ = true      전투 정답이 늘 "빠르게"(강력·특수 발동). false면 늘 늦게. 없으면 실제 시간 (NO_TIMER와 함께 쓴다)
  *   window.__GUGU_E2E_COPY__ = true      잡거나 돌려보내면 기술 복사 100% (후보 중 첫 기술). false면 0% (E2E 기본). 없으면 2%
  *   window.__GUGU_E2E_THROW__ = 'healed'  캡슐 던지기 결과 고정 (caught·healed·escaped·angry)
+ *   window.__GUGU_E2E_COMBAT__ = { crit: true, dodge: false, effect: false }   전투 굴림 고정 (크리티컬·회피·특수효과 성공). 빠진 칸은 실제 확률
  *
  * 새 스위치를 만들면 여기에 더하고 CLAUDE.md 'E2E 스위치' 줄도 고친다.
  */
@@ -40,6 +41,14 @@ export interface FieldDebugFlags {
   copy: boolean | null;
   /** 캡슐 던지기 결과 고정 (캡슐 연출 확인용). 평소에는 null */
   throwOutcome: ThrowOutcome | null;
+  /** 전투 굴림 고정: 크리티컬·회피·특수효과 성공 (true 늘·false 절대, null 실제 확률) */
+  combat: CombatForce;
+}
+
+export interface CombatForce {
+  crit: boolean | null;
+  dodge: boolean | null;
+  effect: boolean | null;
 }
 
 interface DebugGlobals {
@@ -53,6 +62,7 @@ interface DebugGlobals {
   __GUGU_E2E_FAST__?: unknown;
   __GUGU_E2E_COPY__?: unknown;
   __GUGU_E2E_THROW__?: unknown;
+  __GUGU_E2E_COMBAT__?: unknown;
 }
 
 const g = () => globalThis as DebugGlobals;
@@ -69,7 +79,14 @@ export function debugFlags(): FieldDebugFlags {
     fast: readSwitch(g().__GUGU_E2E_FAST__),
     copy: readSwitch(g().__GUGU_E2E_COPY__),
     throwOutcome: readThrow(g().__GUGU_E2E_THROW__),
+    combat: readCombat(g().__GUGU_E2E_COMBAT__),
   };
+}
+
+/** 굴림 고정: 객체의 crit·dodge·effect 칸만 true·false로 읽는다 (그 밖은 null) */
+function readCombat(v: unknown): CombatForce {
+  const o = typeof v === 'object' && v !== null ? (v as Record<string, unknown>) : {};
+  return { crit: readSwitch(o.crit), dodge: readSwitch(o.dodge), effect: readSwitch(o.effect) };
 }
 
 /** true·false만 받는다. 그 밖의 값은 null(실제 시간·실제 확률) */

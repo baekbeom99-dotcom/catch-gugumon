@@ -169,6 +169,13 @@ describe('구구몬 체력·상처 저장', () => {
     expect(f.position).toEqual(pos);
   });
 
+  it('damageCompanion: 틀린 문제가 없으면(적의 주기 공격) 체력만 줄고 상처는 그대로', () => {
+    useGameStore.getState().damageCompanion('cloud', 25, wound);
+    const r = useGameStore.getState().damageCompanion('cloud', 25);
+    expect(r).toEqual({ hp: 50, fainted: false, replacedBy: null });
+    expect(useGameStore.getState().field.species.cloud).toMatchObject({ hp: 50, wounds: [wound] });
+  });
+
   it('damageCompanion으로 0이 되면 같은 순간 마을 시작 칸으로', () => {
     setHp('cloud', 20);
     useGameStore.setState((s) => ({ field: { ...s.field, position: { map: 'meadow', x: 5, y: 8, facing: 'right' } } }));

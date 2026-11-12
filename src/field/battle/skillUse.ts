@@ -17,11 +17,12 @@ import {
   type SkillId,
 } from '../../domain/field/skills';
 import { TIER_RULES } from '../../domain/field/tuning';
-import { resolveAnswer, type AnswerResult, type WildPhase, type WildState } from '../../domain/field/wildBattle';
+import { resolveAnswer, type AnswerResult, type StrikeRoll, type WildPhase, type WildState } from '../../domain/field/wildBattle';
 import { battleText } from './battleText';
 import type { Rng } from '../../domain/random';
 import { SKILL_SFX, SPECIAL_SFX, type Sfx } from '../../audio/sfx';
 import type { FxName } from '../fx/effects';
+import type { CombatForce } from '../debugFlags';
 
 /** 저장된 가진 기술(없거나 비었으면 그 레벨의 기본 기술)을 기술 표로. 전투를 시작할 때 한 번 정해 두고 바꾸지 않는다 */
 export function heldSkills(species: SpeciesId, entry: { level: number; skills?: readonly SkillId[] } | undefined): SkillDef[] {
@@ -33,6 +34,7 @@ export function heldSkills(species: SpeciesId, entry: { level: number; skills?: 
  * 정답 하나를 기술 버튼으로 판정한다. 단계 기준 시간은 **그 단계 문제 시간(TIER_RULES[tier].timeMs)만** 넘긴다 —
  * 여유(calm)로 늘어난 남은 시간을 넘기면 조건이 느슨해지므로 넣지 않는다.
  * fast(E2E 스위치 __GUGU_E2E_FAST__): true면 늘 가장 빠르게, false면 늘 늦게, null이면 실제로 흐른 시간.
+ * rng는 회피·크리티컬·효과 성공 굴림 (화면은 combatRng로 E2E 스위치를 얹어 넘긴다).
  */
 export function answerWithSkill(
   s: WildState,
@@ -40,12 +42,13 @@ export function answerWithSkill(
   held: readonly SkillId[],
   wildMain: Element,
   fast: boolean | null,
+  rng: Rng,
 ): AnswerResult {
   const timeMs = TIER_RULES[s.tier].timeMs;
-  if (fast === null) return resolveAnswer(s, button, held, wildMain, timeMs);
+  if (fast === null) return resolveAnswer(s, button, held, wildMain, timeMs, rng);
   // 판정할 때만 경과 시간을 바꿔 넣고, 돌려줄 상태에는 원래 값을 둔다
   const forced: WildState = { ...s, elapsedMs: fast ? 0 : timeMs + 1 };
-  const r = resolveAnswer(forced, button, held, wildMain, timeMs);
+  const r = resolveAnswer(forced, button, held, wildMain, timeMs, rng);
   return { ...r, state: r.state === forced ? s : { ...r.state, elapsedMs: s.elapsedMs } };
 }
 
@@ -60,22 +63,50 @@ export function stageEffect(r: Pick<AnswerResult, 'fired' | 'special'>) {
 }
 
 /**
- * 정답 글: 나간 기술 한 줄(윗단계면 "빠르다! N번 기술이 나갔어요") + 주②의 효과 한 줄 + 상성 한 줄(보통이면 없음).
- * healed는 회복(특수 버튼·주②)으로 실제로 늘어난 체력 (가득이었으면 0). from은 고른 버튼 종류(부속성이면 "부속성 기술").
+ * 전투 굴림을 E2E 스위치(__GUGU_E2E_COMBAT__)로 고정하는 난수. 공격 한 번마다 새로 만든다.
+ * 도메인이 굴리는 순서(회피 → 크리티컬 → 효과 성공, 적 공격은 회피 → 크리티컬)대로 n번째 값을 정한다:
+ * true는 늘 일어나는 값(0), false는 안 일어나는 값(0.9999), null이면 base 난수.
+ */
+export function combatRng(force: CombatForce, base: Rng): Rng {
+  const order = [force.dodge, force.crit, force.effect];
+  let n = 0;
+  return () => {
+    const f = order[n++] ?? null;
+    return f === true ? 0 : f === false ? 0.9999 : base();
+  };
+}
+
+/**
+ * 정답 글: (크리티컬이면 "크리티컬!" 한 줄) + 나간 기술 한 줄(윗단계면 "⚡ 빠르다!") + 주②의 효과 한 줄(실패면 "효과가 실패했어요…") + 상성 한 줄(보통이면 없음).
+ * 빗나가면 "○○! 빗나갔어요!" 한 줄만. healed는 회복(특수 버튼·주②)으로 실제로 늘어난 체력 (가득이었으면 0).
  */
 export function hitMessage(r: AnswerResult, wildMain: Element, healed: number, _from: SkillButton['kind'] = 'main'): string {
   const name = r.fired.name;
+  if (r.dodged) return battleText.dodgedHit(name);
   const lines: string[] = [];
+  if (r.crit) lines.push(battleText.crit);
   if (r.usedFallback) lines.push(battleText.fallback(name));
   else if (specialFired(r)) lines.push(r.special === 'heal' ? battleText.healSkill(name, healed) : battleText.special(name, r.special!));
   else if (r.upper) lines.push(battleText.upper(name));
   else lines.push(battleText.hit(name));
   const effect = stageEffect(r);
   if (effect) lines.push(battleText.stageEffect(effect, healed));
+  // 효과(특수 버튼·주②)가 확률에 져서 실패했으면 한 줄만 (그림·소리 없음)
+  if (r.effect && !r.effect.ok) lines.push(battleText.effectFailed);
   // 특수 기술(속성 없음)은 상성이 없다
   const m = skillMatchup(r.fired, wildMain);
   if (m) lines.push(battleText.matchup(m));
   return lines.join('\n');
+}
+
+/**
+ * 적 공격 글 (오답·시간 초과·주기 공격): 기절해서 못 움직임 / "○○의 △△! 빗나갔어요!" / 크리티컬이면 둘째 줄 "크리티컬!" / 보통 "○○의 △△!"
+ */
+export function strikeMessage(foeName: string, move: string, roll: StrikeRoll): string {
+  if (roll.blocked) return battleText.stunBlocked(foeName);
+  if (roll.dodged) return `${battleText.foeAttack(foeName, move)} ${battleText.dodge}`;
+  if (roll.crit) return `${battleText.foeAttack(foeName, move)}\n${battleText.crit}`;
+  return battleText.foeAttack(foeName, move);
 }
 
 /** 내 기술 → 야생 주속성 상성 (+1 강함·−1 약함·0 보통). 특수 기술은 상성이 없어 null */
@@ -256,15 +287,23 @@ export function buttonPowerLabel(button: SkillButton): string {
   return lo === hi ? `위력 ${lo}` : `위력 ${lo}~${hi}`;
 }
 
-/** 문제가 뜰 때 글 ("○○ 준비! …") */
-export function readyText(button: SkillButton, timeMs: number): string {
-  if (button.kind === 'main') return battleText.readyMain(button.chain[0].name, button.chain.length > 1);
-  if (button.kind === 'sub') return battleText.readySub(button.skill.name, fastSeconds(button.skill, timeMs));
-  return battleText.ready(button.skill.name, fastSeconds(button.skill, timeMs), button.skill.special);
+/**
+ * 문제가 뜰 때 글: 간결하게 "○○ 준비!" (몇 초 안인지는 시간 막대의 눈금·색이 보여 준다).
+ * 특수 버튼만 "빨리 풀면 회복!"처럼 효과 한 낱말을 붙인다 (개정 4 간결화)
+ */
+export function readyText(button: SkillButton): string {
+  if (button.kind === 'special') return battleText.ready(button.skill.name, button.skill.special);
+  return battleText.ready(buttonShortName(button));
 }
 
-/** 문제 아래 "지금 쓰는 기술" 한 줄 */
-export function nowText(button: SkillButton, timeMs: number): string {
+/** 문제 아래 "지금 쓰는 기술" 한 줄: 기술 이름만 (특수는 "· 빨리 풀면 회복"). 자세한 시간 조건은 nowDetail(숨김 글) */
+export function nowText(button: SkillButton): string {
+  if (button.kind === 'special' && button.skill.special) return `${button.skill.name} · ${battleText.quickFor(button.skill.special)}`;
+  return buttonShortName(button);
+}
+
+/** 화면 읽기 도구용 "지금 쓰는 기술" 자세한 글 (단계별 몇 초 안) — 화면에는 숨긴다 */
+export function nowDetail(button: SkillButton, timeMs: number): string {
   if (button.kind === 'main') {
     const [m1, ...rest] = button.chain;
     return [m1.name, ...rest.map((d) => battleText.nowStage(fastSeconds(d, timeMs), d.slot === 5 ? 3 : 2))].join(' · ');

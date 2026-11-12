@@ -4,6 +4,7 @@ import { SKILLS, fastSeconds, pickFired, seatedDef, skillButtons, skillDef, type
 import { CALM_BONUS_MS, TIER_RULES } from '../../src/domain/field/tuning';
 import { createWild, type WildState } from '../../src/domain/field/wildBattle';
 import { battleText } from '../../src/field/battle/battleText';
+import type { Rng } from '../../src/domain/random';
 import {
   answerWithSkill,
   buttonLines,
@@ -13,18 +14,21 @@ import {
   buttonHiddenText,
   buttonPowerLabel,
   clockRuns,
+  combatRng,
   effectPlan,
   foeSkill,
   gaugeStops,
   gaugeZones,
   heldSkills,
   hitMessage,
+  nowDetail,
   nowText,
   readyText,
   skillFxName,
   skillMatchup,
   skillSfxPlan,
   stopPosition,
+  strikeMessage,
   tierAt,
 } from '../../src/field/battle/skillUse';
 
@@ -34,6 +38,13 @@ const at = (elapsedMs: number, over: Partial<WildState> = {}): WildState => ({ .
 /** 구름몬이 held를 가졌을 때의 kind 버튼 */
 const btn = (held: string[], kind: SkillButton['kind'] = 'main') => skillButtons(held, 'cloud').find((b) => b.kind === kind)!;
 const M12 = ['cloud-1', 'cloud-2'];
+/** 빗나가지도 크리티컬도 아니고 효과는 다 성공하는 난수 */
+const ok: Rng = () => 0.3;
+/** 정해 둔 난수를 차례로 (다 쓰고 또 부르면 실패) */
+const seq = (...values: number[]): Rng => () => {
+  if (values.length === 0) throw new Error('난수를 너무 많이 씀');
+  return values.shift()!;
+};
 const SP = ['cloud-1', 'cloud-3'];
 
 describe('전투 기술: 가진 기술과 고르기 단계', () => {
@@ -53,43 +64,40 @@ describe('전투 기술: 가진 기술과 고르기 단계', () => {
 describe('전투 기술: answerWithSkill (빠르게 스위치·문제 시간)', () => {
   it('스위치가 없으면 실제 경과 시간으로 판정', () => {
     // 새싹 휙(주②): 7초 × 0.5 → 4초
-    expect(answerWithSkill(at(4000), btn(M12), M12, 'light', null).upper).toBe(true);
-    expect(answerWithSkill(at(4001), btn(M12), M12, 'light', null).upper).toBe(false);
+    expect(answerWithSkill(at(4000), btn(M12), M12, 'light', null, ok).upper).toBe(true);
+    expect(answerWithSkill(at(4001), btn(M12), M12, 'light', null, ok).upper).toBe(false);
   });
   it('빠르게 스위치 true면 늘 가장 높은 단계, false면 늘 주① (경과 시간은 그대로 둔다)', () => {
-    const slow = answerWithSkill(at(6500), btn(M12), M12, 'light', true);
+    const slow = answerWithSkill(at(6500), btn(M12), M12, 'light', true, ok);
     expect(slow).toMatchObject({ upper: true, fired: { id: 'cloud-2' }, special: 'stun' });
     expect(slow.state).toMatchObject({ cells: 2, elapsedMs: 6500, stun: true });
-    const quick = answerWithSkill(at(0), btn(M12), M12, 'light', false);
+    const quick = answerWithSkill(at(0), btn(M12), M12, 'light', false, ok);
     expect(quick).toMatchObject({ upper: false, fired: { id: 'cloud-1' } });
     expect(quick.state).toMatchObject({ cells: 2, elapsedMs: 0 });
   });
   it('특수: 스위치 true면 발동, false면 약한 기술이 대신', () => {
-    expect(answerWithSkill(at(6500), btn(SP, 'special'), SP, 'light', true).special).toBe('heal');
-    const late = answerWithSkill(at(0), btn(SP, 'special'), SP, 'light', false);
+    expect(answerWithSkill(at(6500), btn(SP, 'special'), SP, 'light', true, ok).special).toBe('heal');
+    const late = answerWithSkill(at(0), btn(SP, 'special'), SP, 'light', false, ok);
     expect(late).toMatchObject({ usedFallback: true, upper: false });
     expect(late.fired.id).toBe('cloud-1');
   });
   it('단계 기준은 그 단계 문제 시간(TIER_RULES)만 — 여유로 늘어난 시간은 넣지 않는다', () => {
     // 여유로 10초가 된 문제에서 4.5초 걸림: 7초 기준 4초를 넘었으니 주① (10초 기준이면 5초라 주②가 된다)
     const s = at(4500, { timeLeftMs: 5500 });
-    expect(answerWithSkill(s, btn(M12), M12, 'light', null).upper).toBe(false);
+    expect(answerWithSkill(s, btn(M12), M12, 'light', null, ok).upper).toBe(false);
     // 화나서 강력(5초)이 되면 그 단계 시간으로: 5초 × 0.5 = 2.5 → 3초
     const m = { ...createWild('mighty', 15, 100), elapsedMs: 3000 };
     expect(TIER_RULES.mighty.timeMs).toBe(5000);
-    expect(answerWithSkill(m, btn(M12), M12, 'light', null).upper).toBe(true);
-    expect(answerWithSkill({ ...m, elapsedMs: 3001 }, btn(M12), M12, 'light', null).upper).toBe(false);
+    expect(answerWithSkill(m, btn(M12), M12, 'light', null, ok).upper).toBe(true);
+    expect(answerWithSkill({ ...m, elapsedMs: 3001 }, btn(M12), M12, 'light', null, ok).upper).toBe(false);
   });
-  it('틀린 뒤 같은 문제(missed)여도 빠르면 윗단계 (스위치 없이도), 상태의 missed는 그대로', () => {
-    const r = answerWithSkill(at(0, { missed: true }), btn(M12), M12, 'light', true);
-    expect(r.upper).toBe(true);
-    expect(r.state.missed).toBe(true);
-    expect(answerWithSkill(at(0, { missed: true }), btn(M12), M12, 'light', null).upper).toBe(true);
-    expect(answerWithSkill(at(0, { missed: true }), btn(M12), M12, 'light', false).upper).toBe(false);
+  it('굴림 난수를 그대로 넘긴다: 빗나감·크리티컬 (스위치로 경과 시간을 바꿔도)', () => {
+    expect(answerWithSkill(at(6500), btn(M12), M12, 'light', true, seq(0.01))).toMatchObject({ dodged: true, state: { cells: 0, elapsedMs: 6500 } });
+    expect(answerWithSkill(at(0), btn(M12), M12, 'light', false, seq(0.5, 0))).toMatchObject({ crit: true, state: { cells: 4 } });
   });
   it('문제 단계가 아니면 상태 그대로 (스위치가 있어도)', () => {
     const p = at(0, { phase: 'pick' });
-    expect(answerWithSkill(p, btn(M12), M12, 'light', true).state).toBe(p);
+    expect(answerWithSkill(p, btn(M12), M12, 'light', true, ok).state).toBe(p);
   });
 });
 
@@ -129,35 +137,35 @@ const T5 = TIER_RULES.mighty.timeMs;
 
 describe('전투 기술: 정답 글 hitMessage', () => {
   it('특수 회복 버튼은 실제로 늘어난 체력만 쓰고, 0이면 이미 가득', () => {
-    const heal = answerWithSkill(at(0, { allyHp: 90 }), btn(SP, 'special'), SP, 'light', true);
+    const heal = answerWithSkill(at(0, { allyHp: 90 }), btn(SP, 'special'), SP, 'light', true, ok);
     expect(hitMessage(heal, 'light', 10, 'special')).toBe('새싹 쑥쑥! 체력을 10 되찾았어요!');
     expect(hitMessage(heal, 'light', 25, 'special')).toBe('새싹 쑥쑥! 체력을 25 되찾았어요!');
     expect(hitMessage(heal, 'light', 0, 'special')).toBe('새싹 쑥쑥! 체력이 이미 가득해요!');
   });
   it('윗단계: "⚡ 빠르다!" 한 줄(번호 나열 없음) + 주②의 효과 줄 + 상성 줄, 느리면 명중만', () => {
-    expect(hitMessage(answerWithSkill(at(0), btn(M12), M12, 'water', true), 'water', 0, 'main')).toBe(
+    expect(hitMessage(answerWithSkill(at(0), btn(M12), M12, 'water', true, ok), 'water', 0, 'main')).toBe(
       '새싹 휙! ⚡ 빠르다!\n적이 기절했어요! 다음 공격을 한 번 못 해요\n효과가 커요! ▲',
     );
-    expect(hitMessage(answerWithSkill(at(0), btn(ALL), ALL, 'light', true), 'light', 0, 'main')).toBe('꽃잎 바람! ⚡ 빠르다!');
-    expect(hitMessage(answerWithSkill(at(0), btn(M12), M12, 'light', false), 'light', 0, 'main')).toBe('잎사귀 톡! 명중!');
-    expect(hitMessage(answerWithSkill(at(0), btn(SP, 'special'), SP, 'fire', false), 'fire', 0, 'special')).toBe(
+    expect(hitMessage(answerWithSkill(at(0), btn(ALL), ALL, 'light', true, ok), 'light', 0, 'main')).toBe('꽃잎 바람! ⚡ 빠르다!');
+    expect(hitMessage(answerWithSkill(at(0), btn(M12), M12, 'light', false, ok), 'light', 0, 'main')).toBe('잎사귀 톡! 명중!');
+    expect(hitMessage(answerWithSkill(at(0), btn(SP, 'special'), SP, 'fire', false, ok), 'fire', 0, 'special')).toBe(
       '시간이 지나서 약한 기술이 나갔어요. 잎사귀 톡!\n별로예요… ▼',
     );
   });
   it('부속성 버튼: 빠르면 "⚡ 빠르다!", 느리면 1번 명중', () => {
     const sub = btn(ALL, 'sub');
-    expect(hitMessage(answerWithSkill(at(0), sub, ALL, 'grass', true), 'grass', 0, 'sub')).toBe('햇살 반짝! ⚡ 빠르다!');
-    expect(hitMessage(answerWithSkill(at(0), sub, ALL, 'grass', false), 'grass', 0, 'sub')).toBe('잎사귀 톡! 명중!');
+    expect(hitMessage(answerWithSkill(at(0), sub, ALL, 'grass', true, ok), 'grass', 0, 'sub')).toBe('햇살 반짝! ⚡ 빠르다!');
+    expect(hitMessage(answerWithSkill(at(0), sub, ALL, 'grass', false, ok), 'grass', 0, 'sub')).toBe('잎사귀 톡! 명중!');
   });
   it('주② 회복은 실제로 늘어난 양, 방어는 "다음 공격이 약해져요"', () => {
     const mush = ['mushroom-1', 'mushroom-2'];
     const mb = skillButtons(mush, 'mushroom')[0];
-    const r = answerWithSkill(at(0), mb, mush, 'poison', true);
+    const r = answerWithSkill(at(0), mb, mush, 'poison', true, ok);
     expect(r.special).toBe('heal');
     expect(hitMessage(r, 'poison', 25, 'main')).toBe('데굴데굴! ⚡ 빠르다!\n체력이 25 회복됐어요');
     expect(hitMessage(r, 'poison', 0, 'main')).toBe('데굴데굴! ⚡ 빠르다!\n체력이 이미 가득해요');
     const fluff = ['fluff-1', 'fluff-2'];
-    const g = answerWithSkill(at(0), skillButtons(fluff, 'fluff')[0], fluff, 'light', true);
+    const g = answerWithSkill(at(0), skillButtons(fluff, 'fluff')[0], fluff, 'light', true, ok);
     expect(hitMessage(g, 'light', 0, 'main')).toBe('꼬리 흔들기! ⚡ 빠르다!\n다음 공격이 약해져요');
   });
   it('적이 기절해 공격을 못 했을 때 글', () => {
@@ -168,26 +176,26 @@ describe('전투 기술: 정답 글 hitMessage', () => {
 
 describe('전투 기술: 주②의 효과 연출 effectPlan', () => {
   it('스턴은 적 위에 스턴 그림·skillStun, 회복·방어는 내 구구몬 위', () => {
-    expect(effectPlan(answerWithSkill(at(0), btn(M12), M12, 'light', true))).toEqual({ fx: 'stunned', sfx: 'skillStun', on: 'foe' });
+    expect(effectPlan(answerWithSkill(at(0), btn(M12), M12, 'light', true, ok))).toEqual({ fx: 'stunned', sfx: 'skillStun', on: 'foe' });
     const mush = ['mushroom-1', 'mushroom-2'];
-    expect(effectPlan(answerWithSkill(at(0), skillButtons(mush, 'mushroom')[0], mush, 'light', true))).toEqual({
+    expect(effectPlan(answerWithSkill(at(0), skillButtons(mush, 'mushroom')[0], mush, 'light', true, ok))).toEqual({
       fx: SPECIAL_FX.heal,
       sfx: 'skillHeal',
       on: 'ally',
     });
     const fluff = ['fluff-1', 'fluff-2'];
-    expect(effectPlan(answerWithSkill(at(0), skillButtons(fluff, 'fluff')[0], fluff, 'light', true))).toEqual({
+    expect(effectPlan(answerWithSkill(at(0), skillButtons(fluff, 'fluff')[0], fluff, 'light', true, ok))).toEqual({
       fx: SPECIAL_FX.guard,
       sfx: 'skillGuard',
       on: 'ally',
     });
   });
   it('주①·주③·부속성·대신 나감·특수 버튼 성공은 따로 틀 효과가 없다 (특수 버튼은 기술 효과 자체가 특수 그림)', () => {
-    expect(effectPlan(answerWithSkill(at(0), btn(M12), M12, 'light', false))).toBeNull();
-    expect(effectPlan(answerWithSkill(at(0), btn(ALL), ALL, 'light', true))).toBeNull();
-    expect(effectPlan(answerWithSkill(at(0), btn(ALL, 'sub'), ALL, 'light', true))).toBeNull();
-    expect(effectPlan(answerWithSkill(at(0), btn(SP, 'special'), SP, 'light', true))).toBeNull();
-    expect(effectPlan(answerWithSkill(at(0), btn(SP, 'special'), SP, 'light', false))).toBeNull();
+    expect(effectPlan(answerWithSkill(at(0), btn(M12), M12, 'light', false, ok))).toBeNull();
+    expect(effectPlan(answerWithSkill(at(0), btn(ALL), ALL, 'light', true, ok))).toBeNull();
+    expect(effectPlan(answerWithSkill(at(0), btn(ALL, 'sub'), ALL, 'light', true, ok))).toBeNull();
+    expect(effectPlan(answerWithSkill(at(0), btn(SP, 'special'), SP, 'light', true, ok))).toBeNull();
+    expect(effectPlan(answerWithSkill(at(0), btn(SP, 'special'), SP, 'light', false, ok))).toBeNull();
   });
 });
 
@@ -206,8 +214,8 @@ describe('전투 기술: skillSfxPlan (맞는 순간 소리 목록)', () => {
     expect(skillSfxPlan('ally', leaf, true, 1)).toEqual(['fxGrass', 'fxPower', 'superEffective']);
   });
   it('화면이 넘기는 upper = 결과의 upper (주①·대신 나감은 false, 주②·주③·부속성은 true)', () => {
-    const r1 = answerWithSkill(at(0), btn(M12), M12, 'light', false);
-    const r2 = answerWithSkill(at(0), btn(ALL, 'sub'), ALL, 'light', true);
+    const r1 = answerWithSkill(at(0), btn(M12), M12, 'light', false, ok);
+    const r2 = answerWithSkill(at(0), btn(ALL, 'sub'), ALL, 'light', true, ok);
     expect(skillSfxPlan('ally', r1.fired, r1.upper, 0)).toEqual(['fxGrass']);
     expect(skillSfxPlan('ally', r2.fired, r2.upper, 0)).toEqual(['fxLight', 'fxPower']);
   });
@@ -307,15 +315,23 @@ describe('고르기 버튼 글: buttonLines (단계별 시간 조건은 fastSeco
     expect(buttonPower(btn(['cloud-1', 'horn-1'], 'sub'))).toBe('★★★');
     expect(buttonPower(btn(ALL, 'special'))).toBe('★★');
   });
-  it('준비 글·지금 쓰는 기술 줄', () => {
-    expect(readyText(btn(['cloud-1']), T7)).toBe('잎사귀 톡 준비!');
-    expect(readyText(btn(ALL), T7)).toBe('잎사귀 톡 준비! 빨리 풀수록 센 기술이 나가요!');
-    expect(readyText(btn(ALL, 'sub'), T7)).toBe('햇살 반짝 준비! 4초 안에 풀어요!');
-    expect(readyText(btn(SP, 'special'), T7)).toBe('새싹 쑥쑥 준비! 4초 안에 풀면 회복!');
-    expect(nowText(btn(['cloud-1']), T7)).toBe('잎사귀 톡');
-    expect(nowText(btn(ALL), T7)).toBe('잎사귀 톡 · 4초 안 2번 · 2초 안 3번');
-    expect(nowText(btn(ALL, 'sub'), T7)).toBe('햇살 반짝 · 4초 안에 풀어요');
-    expect(nowText(btn(SP, 'special'), T7)).toBe('새싹 쑥쑥 · 4초 안에 풀면 회복!');
+  it('준비 글·지금 쓰는 기술 줄은 간결하게 ("N초 안" 없음), 자세한 시간은 숨김 글(nowDetail)', () => {
+    expect(readyText(btn(['cloud-1']))).toBe('잎사귀 톡 준비!');
+    expect(readyText(btn(ALL))).toBe('잎사귀 톡 준비!');
+    expect(readyText(btn(ALL, 'sub'))).toBe('햇살 반짝 준비!');
+    expect(readyText(btn(SP, 'special'))).toBe('새싹 쑥쑥 준비! 빨리 풀면 회복!');
+    expect(nowText(btn(['cloud-1']))).toBe('잎사귀 톡');
+    expect(nowText(btn(ALL))).toBe('잎사귀 톡');
+    expect(nowText(btn(ALL, 'sub'))).toBe('햇살 반짝');
+    expect(nowText(btn(SP, 'special'))).toBe('새싹 쑥쑥 · 빨리 풀면 회복');
+    for (const b of [btn(ALL), btn(ALL, 'sub'), btn(SP, 'special')]) {
+      expect(readyText(b)).not.toMatch(/초 안/);
+      expect(nowText(b)).not.toMatch(/초 안/);
+    }
+    expect(nowDetail(btn(['cloud-1']), T7)).toBe('잎사귀 톡');
+    expect(nowDetail(btn(ALL), T7)).toBe('잎사귀 톡 · 4초 안 2번 · 2초 안 3번');
+    expect(nowDetail(btn(ALL, 'sub'), T7)).toBe('햇살 반짝 · 4초 안에 풀어요');
+    expect(nowDetail(btn(SP, 'special'), T7)).toBe('새싹 쑥쑥 · 4초 안에 풀면 회복!');
   });
 });
 
@@ -405,5 +421,41 @@ describe('전투 화면 간결 표시: buttonShortName · buttonHiddenText (선�
   it('안내 글과 빠르다 글', () => {
     expect(battleText.chooseHint).toBe('빨리 풀면 더 세져요 ⚡');
     expect(battleText.quick).toBe('⚡ 빠르다!');
+  });
+});
+
+describe('전투 굴림 글: 크리티컬·빗나감·효과 실패 (설계서 0-2절)', () => {
+  it('내 공격: 크리티컬이면 맨 앞에 "크리티컬!" 한 줄, 빗나가면 "○○! …빗나갔어요!" 한 줄만', () => {
+    const crit = answerWithSkill(at(0), btn(M12), M12, 'light', false, seq(0.5, 0));
+    expect(hitMessage(crit, 'light', 0, 'main')).toBe('💥 크리티컬!\n잎사귀 톡! 명중!');
+    const miss = answerWithSkill(at(0), btn(M12), M12, 'water', true, seq(0.01));
+    expect(hitMessage(miss, 'water', 0, 'main')).toBe('새싹 휙! …빗나갔어요!');
+  });
+  it('효과 실패: 주②는 "⚡ 빠르다!" 뒤 "효과가 실패했어요…", 특수 버튼은 명중 뒤 한 줄 (효과 연출 없음)', () => {
+    const m2 = answerWithSkill(at(0), btn(M12), M12, 'light', true, seq(0.5, 0.5, 0.9));
+    expect(m2.effect).toEqual({ kind: 'stun', ok: false });
+    expect(hitMessage(m2, 'light', 0, 'main')).toBe('새싹 휙! ⚡ 빠르다!\n효과가 실패했어요…');
+    expect(effectPlan(m2)).toBeNull();
+    const sp = answerWithSkill(at(0, { allyHp: 50 }), btn(SP, 'special'), SP, 'light', true, seq(0.5, 0.5, 0.95));
+    expect(sp.special).toBeUndefined();
+    expect(hitMessage(sp, 'light', 0, 'special')).toBe('새싹 쑥쑥! 명중!\n효과가 실패했어요…');
+  });
+  it('적 공격 글: 기절해서 못 움직임 / 빗나감 / 크리티컬 / 보통', () => {
+    const r = (o: Partial<{ damage: number; dodged: boolean; crit: boolean; blocked: boolean }>) => ({ damage: 25, dodged: false, crit: false, blocked: false, ...o });
+    expect(strikeMessage('왕관몬', '박치기', r({ blocked: true, damage: 0 }))).toBe('왕관몬이 기절해서 움직이지 못했어요!');
+    expect(strikeMessage('왕관몬', '박치기', r({ dodged: true, damage: 0 }))).toBe('왕관몬의 박치기! 빗나갔어요!');
+    expect(strikeMessage('왕관몬', '박치기', r({ crit: true, damage: 50 }))).toBe('왕관몬의 박치기!\n💥 크리티컬!');
+    expect(strikeMessage('왕관몬', '박치기', r({}))).toBe('왕관몬의 박치기!');
+  });
+  it('굴림 고정 난수(combatRng): 회피 → 크리티컬 → 효과 순서로 정한 값, 빈 칸은 원래 난수', () => {
+    const base = seq(0.42, 0.43);
+    const g = combatRng({ dodge: false, crit: true, effect: null }, base);
+    expect([g(), g(), g(), g()]).toEqual([0.9999, 0, 0.42, 0.43]);
+    const none = combatRng({ dodge: null, crit: null, effect: false }, seq(0.5, 0.6));
+    expect([none(), none(), none()]).toEqual([0.5, 0.6, 0.9999]);
+    // 실제 판정에 넣으면: 크리티컬 고정 → 칸 ×2, 빗나감 고정 → 칸 0, 효과 실패 고정 → 효과 없음
+    expect(answerWithSkill(at(0), btn(M12), M12, 'light', false, combatRng({ dodge: false, crit: true, effect: null }, ok))).toMatchObject({ crit: true, state: { cells: 4 } });
+    expect(answerWithSkill(at(0), btn(M12), M12, 'light', false, combatRng({ dodge: true, crit: null, effect: null }, ok))).toMatchObject({ dodged: true, state: { cells: 0 } });
+    expect(answerWithSkill(at(0), btn(M12), M12, 'light', true, combatRng({ dodge: false, crit: false, effect: false }, ok)).effect).toEqual({ kind: 'stun', ok: false });
   });
 });

@@ -73,6 +73,16 @@ describe('필드 모험 운영 수치', () => {
       CALM_BONUS_MS: 3000,
       CHARGE_BONUS_CELLS: 1,
       CAPTURE_FAIL_HEAL_RATIO: 0.5,
+      CRIT_CHANCE: 0.1,
+      CRIT_MULT: 2,
+      MAX_CHIP_CRIT_CELLS: 8,
+      DODGE_CHANCE: 0.05,
+      ENEMY_ATTACK_EVERY: 2,
+      CAPSULE_ACTIVE_RATIO: 0.25,
+      CATCH_PER_FAIL: 0.1,
+      CATCH_STATUS_BONUS: 0.1,
+      CATCH_CAP: 0.7,
+      SPECIAL_SUCCESS: { heal: 0.9, guard: 0.9, stun: 0.5, clue: 0.8, calm: 0.8, charge: 0.7 },
     });
   });
 });

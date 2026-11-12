@@ -323,7 +323,7 @@ test('길 스위치를 켜면 풀숲 밖 길 한 걸음에도 만나 전투 화�
 });
 
 test('풀숲에서 만나 정답으로 HP를 0으로 만들면 캡슐 던지기 버튼이 나온다', async ({ page }) => {
-  await standBesideGrass(page);
+  await standBesideGrass(page, { tier: 'normal' }); // 강력(5%)은 주기 공격 두 번에 쓰러질 수 있어 고정
   await stepIntoGrass(page);
   await expect(page.getByText(/나타났다/)).toBeVisible();
   // 상성이 약하면 한 번에 1칸 ("빠르면 +1칸"은 없어짐) — 넉넉히
@@ -423,7 +423,7 @@ test('정답 버튼을 빠르게 두 번 눌러도 한 번만 기록된다', asy
   expect(await totalAttempts(page)).toBe(before + 1);
 });
 
-test('오답이면 적이 공격해 내 체력이 줄고, 힌트의 빛나는 기술을 누르면 다시 문제', async ({ page }) => {
+test('오답이면 적이 공격해 내 체력이 줄고, 힌트의 빛나는 기술을 누르면 다음 문제', async ({ page }) => {
   await standBesideGrass(page);
   await stepIntoGrass(page);
   await page.getByRole('button', { name: '싸우자!' }).click();
@@ -1044,6 +1044,8 @@ test('12·13단이 열렸으면 레전드가 나타나 13단 문제를 낸다', 
 });
 
 test('황금 캡슐이 0개여도 레전드를 만나고, 어지러워지면 캡슐이 없어 돌려보낸다', async ({ page }) => {
+  // 상성이 약하면 한 번에 1칸이라 8번 맞혀야 하고, 그 사이 주기 공격(34) 3번에 쓰러진다 → 크리티컬로 싸움을 짧게
+  await forceCombat(page, { crit: true, dodge: false, effect: true });
   await standBesideGrassWith(page, true);
   await expect(page.getByRole('group', { name: '필드 정보' }).getByLabel('황금 캡슐 0개')).toBeVisible();
   await stepIntoGrass(page);
@@ -1548,8 +1550,15 @@ test('기술 5개: 고르기 단계에 버튼 3개가 한 줄에 나란히, 초 
   await buttons.nth(1).click();
   await expect(picker).toHaveCount(0);
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
-  await expect(page.getByRole('status')).toHaveText('햇살 반짝 준비! 4초 안에 풀어요!');
-  await expect(page.locator('.wild__skill-now')).toHaveText('햇살 반짝 · 4초 안에 풀어요');
+  // 준비 글·지금 쓰는 기술 줄은 간결하게 (몇 초 안인지는 숨김 글에만)
+  await expect(page.getByRole('status')).toHaveText('햇살 반짝 준비!');
+  await expect(page.locator('.wild__skill-now')).toContainText('햇살 반짝');
+  await expect(page.locator('.wild__skill-now .wild__sr')).toHaveText('. 햇살 반짝 · 4초 안에 풀어요');
+  expect(await page.locator('.wild__skill-now').evaluate((el) => {
+    const c = el.cloneNode(true) as HTMLElement;
+    c.querySelectorAll('.wild__sr').forEach((n) => n.remove());
+    return c.textContent ?? '';
+  })).not.toContain('초 안');
   await expect(page.locator('.wild__timer-tick')).toHaveCount(1);
 });
 
@@ -1596,7 +1605,7 @@ test('특수 회복: 빠르게 풀면 내 체력이 25 늘고, 늦으면 약한 
   await page.getByRole('button', { name: '싸우자!' }).click();
   await expect(page.getByLabel('내 체력 50')).toBeVisible();
   await skillPicker(page).locator('[data-skill="cloud-3"]').click();
-  await expect(page.getByRole('status')).toHaveText('새싹 쑥쑥 준비! 4초 안에 풀면 회복!');
+  await expect(page.getByRole('status')).toHaveText('새싹 쑥쑥 준비! 빨리 풀면 회복!');
   await moveButton(page, 56).click();
   await expect(page.getByRole('status')).toContainText('새싹 쑥쑥! 체력을 25 되찾았어요!');
   await expect(page.getByLabel('내 체력 75')).toBeVisible();
@@ -1611,32 +1620,152 @@ test('특수 회복: 빠르게 풀면 내 체력이 25 늘고, 늦으면 약한 
   expect((await savedCloud(page)).hp).toBe(75);
 });
 
-test('틀리면 힌트 뒤 같은 버튼으로 같은 문제를 다시 풀고(고르기로 안 감), 그때도 빨리 풀면 윗단계가 나간다', async ({ page }) => {
-  // 문제를 고정하지 않는다: 처음 문제의 data-fact를 읽어 힌트 뒤와 비교. 시간이 멈춰 있어 늘 "빠르게"
-  await standBesideGrass(page, { tier: 'normal', cloud: { level: 14, skills: ['cloud-1', 'cloud-2', 'cloud-4'] } });
+test('틀리면 힌트 뒤 다른 문제로 넘어가고(기록·피해 없음), 틀린 문제는 몇 문제 뒤에 다시 나온다', async ({ page }) => {
+  // 문제를 고정하지 않는다. 기술 1개(주①)·보통이라 한 번에 1~2칸 → 세 번 맞혀도 어지럽지 않다
+  await standBesideGrass(page, { tier: 'normal' });
   await stepIntoGrass(page);
   await page.getByRole('button', { name: '싸우자!' }).click();
-  await skillPicker(page).locator('[data-skill="cloud-4"]').click();
   const bubble = page.locator('.wild__bubble');
-  await expect(bubble).toBeVisible();
+  await expect(bubble.locator('.question')).toBeVisible();
   const fact = (await bubble.getAttribute('data-fact'))!;
-  const text = await bubble.locator('.question').textContent();
   const answer = await solveWild(page);
+  const before = await totalAttempts(page);
   await wrongMoveButton(page, answer).click();
   const glow = page.locator('.wild-move--glow');
   await expect(glow).toHaveCount(1);
-  await expect(page.getByRole('status')).toContainText('햇살 반짝! …빗나갔다');
+  await expect(page.getByRole('status')).toHaveText('아쉬워! 힌트를 보자!');
+  expect(await totalAttempts(page)).toBe(before + 1);
+  const hpAfterHit = (await savedCloud(page)).hp;
   await glow.click();
-  await expect(skillPicker(page)).toHaveCount(0);
+  await expect(page.getByRole('status')).toHaveText('좋아, 다음 문제!');
   await expect(page.locator('.wild__hint')).toHaveCount(0);
-  await expect(bubble).toHaveAttribute('data-fact', fact);
-  await expect(bubble.locator('.question')).toHaveText(text!);
-  await expect(page.locator('.wild__skill-now')).toContainText('햇살 반짝');
-  await moveButton(page, answer).click();
-  // 다시 푼 문제도 시계가 처음부터라 빨리 풀면 부속성이 나간다 (사용자 결정)
-  await expect(page.getByRole('status')).toContainText('햇살 반짝! ⚡ 빠르다!');
-  // 맞힌 뒤 다음 문제는 다시 고르기부터
-  await expect(skillPicker(page)).toBeVisible();
+  await expect(bubble.locator('.question')).toBeVisible();
+  // 힌트 탭은 기록·피해 없음, 다른 문제(재출제 표시가 없는 새 문제)
+  expect(await totalAttempts(page)).toBe(before + 1);
+  expect((await savedCloud(page)).hp).toBe(hpAfterHit);
+  await expect(bubble).not.toHaveAttribute('data-retry', 'true');
+  // 몇 문제(2~3) 뒤 틀린 문제가 재출제로 다시 나온다
+  let seen = false;
+  for (let i = 0; i < 4 && !seen; i++) {
+    await expect(bubble.locator('.question')).toBeVisible();
+    if ((await bubble.getAttribute('data-retry')) === 'true') {
+      expect(await bubble.getAttribute('data-fact')).toBe(fact);
+      seen = true;
+      break;
+    }
+    await moveButton(page, await solveWild(page)).click();
+    await page.waitForTimeout(800);
+  }
+  expect(seen).toBe(true);
+});
+
+// ── 개정 4 (설계서 0-2절): 크리티컬·회피·효과 성공률·주기 공격·캡슐 활성화 ──
+
+const shot16 = '.superpowers/sdd/2026-11-12-field-adventure-3/task-16-shots';
+
+/** 전투 굴림 고정 (__GUGU_E2E_COMBAT__, 기본 fixture의 값을 덮는다) */
+async function forceCombat(page: Page, c: { crit?: boolean; dodge?: boolean; effect?: boolean }) {
+  await page.addInitScript((v) => {
+    (window as unknown as Record<string, unknown>).__GUGU_E2E_COMBAT__ = v;
+  }, c);
+}
+
+test('크리티컬: 깎는 칸이 2배, "💥 크리티컬!" 글이 크게', async ({ page }) => {
+  await fixBattle(page, false);
+  await forceCombat(page, { crit: true, dodge: false, effect: true });
+  await standBesideGrass(page, { tier: 'normal' });
+  await stepIntoGrass(page);
+  const m = LEAF_VS[(await page.locator('.wild__stage').getAttribute('data-species'))!];
+  await page.getByRole('button', { name: '싸우자!' }).click();
+  await moveButton(page, 56).click();
+  await expect(page.getByRole('status')).toContainText('💥 크리티컬!');
+  await expect(page.locator('[data-burst="crit"]')).toBeVisible();
+  await page.screenshot({ path: `${shot16}/1-crit-375.png` });
+  const cells = (2 + m) * 2;
+  await expect(page.getByLabel(`야생 체력 ${Math.round((1 - cells / 8) * 100)}`)).toBeVisible();
+});
+
+test('빗나감: 정답이어도 야생이 피하면 칸이 안 깎이고 "빗나갔어요!"', async ({ page }) => {
+  await fixBattle(page, false);
+  await forceCombat(page, { dodge: true });
+  await standBesideGrass(page, { tier: 'normal' });
+  await stepIntoGrass(page);
+  await page.getByRole('button', { name: '싸우자!' }).click();
+  const before = await totalAttempts(page);
+  await moveButton(page, 56).click();
+  await expect(page.getByRole('status')).toHaveText('잎사귀 톡! …빗나갔어요!');
+  await expect(page.locator('[data-burst="dodge"]')).toBeVisible();
+  await page.screenshot({ path: `${shot16}/2-dodge-375.png` });
+  await expect(page.getByLabel('야생 체력 100')).toBeVisible();
+  // 정답 기록은 그대로 남는다
+  expect(await totalAttempts(page)).toBe(before + 1);
+});
+
+test('효과 실패: 주② 스턴이 확률에 지면 칸은 깎이고 "효과가 실패했어요…"만, 기절 표시 없음', async ({ page }) => {
+  await fixBattle(page, true);
+  await forceCombat(page, { crit: false, dodge: false, effect: false });
+  await standBesideGrass(page, { tier: 'normal', cloud: { skills: ['cloud-1', 'cloud-2'] } });
+  await stepIntoGrass(page);
+  const m = LEAF_VS[(await page.locator('.wild__stage').getAttribute('data-species'))!];
+  await page.getByRole('button', { name: '싸우자!' }).click();
+  await moveButton(page, 56).click();
+  // (상성 줄이 붙는 종도 있다)
+  await expect(page.getByRole('status')).toContainText('새싹 휙! ⚡ 빠르다!');
+  await expect(page.getByRole('status')).toContainText('효과가 실패했어요…');
+  await expect(page.getByRole('status')).not.toContainText('기절했어요');
+  await page.screenshot({ path: `${shot16}/3-effect-failed-375.png` });
+  await expect(page.locator('.wild__buff--foe')).toHaveCount(0);
+  await expect(page.getByLabel(`야생 체력 ${Math.round((1 - (2 + m) / 8) * 100)}`)).toBeVisible();
+});
+
+test('주기 공격: 정답 2번째 뒤에 적이 한 번 공격해 체력이 줄고(상처는 없음), 힌트 없이 다음 문제', async ({ page }) => {
+  await fixBattle(page, false);
+  await standBesideGrass(page, { tier: 'normal' });
+  await stepIntoGrass(page);
+  await page.getByRole('button', { name: '싸우자!' }).click();
+  await moveButton(page, 56).click();
+  await page.waitForTimeout(900);
+  await expect(page.locator('.wild__bubble .question')).toBeVisible();
+  await expect(page.getByLabel('내 체력 100')).toBeVisible();
+  await moveButton(page, 56).click();
+  await expect(page.getByLabel('내 체력 75')).toBeVisible();
+  await expect(page.getByRole('status')).toHaveText(/의 .+!$/);
+  await page.screenshot({ path: `${shot16}/4-counter-375.png` });
+  await expect(page.locator('.wild-move--glow')).toHaveCount(0);
+  await expect(page.locator('.wild__bubble .question')).toBeVisible();
+  await expect(page.locator('.wild__hint')).toHaveCount(0);
+  const cloud = await savedCloud(page);
+  expect(cloud.hp).toBe(75);
+  expect(cloud.wounds).toHaveLength(0);
+});
+
+test('캡슐 버튼: 야생 체력 1/4 이하에서만 켜지고, 문제를 푸는 중에도 던져 잡을 수 있다', async ({ page }) => {
+  await fixBattle(page, false);
+  await standBesideGrass(page, { tier: 'normal' });
+  await stepIntoGrass(page);
+  await page.getByRole('button', { name: '싸우자!' }).click();
+  await expect(page.locator('.wild__bubble .question')).toBeVisible();
+  const catchBtn = page.getByRole('button', { name: '캡슐로 잡기' });
+  await expect(catchBtn).toBeDisabled();
+  await expect(page.locator('.wild__catch-note')).toHaveText('체력이 1/4 이하일 때 던질 수 있어요');
+  await page.screenshot({ path: `${shot16}/5-capsule-locked-375.png` });
+  for (let i = 0; i < 8; i++) {
+    await expect(page.locator('.wild__bubble .question')).toBeVisible();
+    if (await catchBtn.isEnabled()) break;
+    expect(await wildHp(page)).toBeGreaterThan(25);
+    await moveButton(page, 56).click();
+    await page.waitForTimeout(1500); // 명중 + (2번째마다) 적의 공격
+  }
+  await expect(catchBtn).toBeEnabled();
+  expect(await wildHp(page)).toBeLessThanOrEqual(25);
+  await expect(page.locator('.wild__catch-note')).toHaveCount(0);
+  await page.screenshot({ path: `${shot16}/6-capsule-ready-375.png` });
+  const attempts = await totalAttempts(page);
+  await catchBtn.click();
+  await expect(page.getByText(/잡았다!/)).toBeVisible({ timeout: 5000 });
+  // 던질 때 풀던 문제는 틀린 것으로 치지 않는다
+  expect(await totalAttempts(page)).toBe(attempts);
+  expect((await savedCapsules(page)).meadow).toBe(2);
 });
 
 test('주② 스턴으로 막은 적 공격은 저장 체력도 그대로, 그다음 공격은 화면과 저장이 같이 준다', async ({ page }) => {
@@ -1658,7 +1787,7 @@ test('주② 스턴으로 막은 적 공격은 저장 체력도 그대로, 그�
   await expect(page.getByLabel('내 체력 100')).toBeVisible();
   await expect(page.locator('.wild__buff--foe')).toHaveCount(0);
   expect((await savedCloud(page)).hp).toBe(100);
-  // 힌트 뒤 같은 문제에서 또 틀리면 이번엔 맞는다 (화면 75 = 저장 75)
+  // 힌트 뒤 다음 문제에서 또 틀리면 이번엔 맞는다 (화면 75 = 저장 75)
   await page.locator('.wild-move--glow').click();
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
   await wrongMoveButton(page, 56).click();

@@ -229,9 +229,10 @@ interface GameActions {
   setCompanion: (id: SpeciesId) => boolean;
   /**
    * 필드 모험: 전투에서 맞은 순간 체력·상처를 저장. 체력 0이면 같은 저장에서 태초마을 시작 칸으로 옮기고,
-   * 함께 다니던 종이면 도감의 다른 건강한 종으로 동행을 바꾼다(replacedBy). 이미 쓰러진 종은 아무것도 안 바뀐다
+   * 함께 다니던 종이면 도감의 다른 건강한 종으로 동행을 바꾼다(replacedBy). 이미 쓰러진 종은 아무것도 안 바뀐다.
+   * 상처(wound)는 틀린 문제가 있을 때만 더한다 — 적의 주기 공격(정답 뒤)은 틀린 문제가 없어 체력만 준다
    */
-  damageCompanion: (id: SpeciesId, dmg: number, wound: Wound) => { hp: number; fainted: boolean; replacedBy: SpeciesId | null };
+  damageCompanion: (id: SpeciesId, dmg: number, wound?: Wound) => { hp: number; fainted: boolean; replacedBy: SpeciesId | null };
   /** 필드 모험: 체력 가득, 상처 비움 */
   healSpecies: (id: SpeciesId) => void;
   /** 필드 모험: 전투 중 회복 기술 — 체력만 amount 더한다(가득을 넘지 않음, 상처는 그대로). 쓰러진 종·없는 종은 그대로. 새 체력을 돌려준다 */
@@ -434,7 +435,7 @@ export const useGameStore = create<GameStore>()(
           }
           const hp = applyDamage(e.hp, dmg);
           const fainted = isFainted({ hp });
-          const species = { ...s.field.species, [id]: { ...e, hp, wounds: addWound(e.wounds, wound) } };
+          const species = { ...s.field.species, [id]: { ...e, hp, wounds: wound ? addWound(e.wounds, wound) : e.wounds } };
           // 함께 다니던 구구몬(동행이 비었으면 화면이 고른 종)이 쓰러지면 도감의 다른 건강한 구구몬이 대신 함께 다닌다
           const replacedBy = fainted && pickCompanion(s) === id ? pickReplacement(species, id) : null;
           result = { hp, fainted, replacedBy };

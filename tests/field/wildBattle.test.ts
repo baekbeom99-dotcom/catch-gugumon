@@ -1,16 +1,19 @@
 import { describe, expect, it } from 'vitest';
 import {
-  answerWild, chipCells, strikeDamage, createWild, damageOf, healAlly, hiddenChoice, MAX_TICK_MS, maxCells, pickSkill, releaseWild, resolveAnswer,
-  resumeWild, throwCapsule, tick, tickWild, wildHpRatio,
+  answerWild, canThrow, catchActive, chipCells, counterAttack, counterDue, createWild, damageOf, enemyStrike, healAlly, hiddenChoice, MAX_TICK_MS, maxCells,
+  pickSkill, releaseWild, resolveAnswer, resumeWild, throwCapsule, tick, tickWild, wildHpRatio,
   type WildState,
 } from '../../src/domain/field/wildBattle';
 import type { Rng } from '../../src/domain/random';
 import { skillButtons, skillDef, type SkillButton } from '../../src/domain/field/skills';
 import type { SpeciesId } from '../../src/domain/field/creatures';
 import type { Element } from '../../src/domain/field/elements';
-import { CALM_BONUS_MS, CHARGE_BONUS_CELLS, TIER_RULES } from '../../src/domain/field/tuning';
+import { CALM_BONUS_MS, CHARGE_BONUS_CELLS, SPECIAL_SUCCESS, TIER_RULES } from '../../src/domain/field/tuning';
+import { throwOdds } from '../../src/domain/field/strength';
 
 const r0 = () => 0;
+/** 빗나가지도 크리티컬도 아니고 효과는 다 성공하는 난수 (0.05 이상, 0.1 이상, 0.5 아래) */
+const ok: Rng = () => 0.3;
 /** 정해 둔 난수를 차례로 내놓는다 (다 쓰고 또 부르면 실패) */
 const seq = (...values: number[]): Rng => () => {
   if (values.length === 0) throw new Error('난수를 너무 많이 씀');
@@ -23,47 +26,47 @@ describe('wildBattle: 문제 시간·정답', () => {
   it('보통: 7초, 정답 4개로 어지러움', () => {
     let s = createWild('normal', 5, 100);
     expect(s.timeLeftMs).toBe(7000);
-    for (let i = 0; i < 3; i++) s = resumeWild(answerWild(s, true, r0));
+    for (let i = 0; i < 3; i++) s = resumeWild(answerWild(s, true, ok));
     expect(s.phase).toBe('question');
-    expect(answerWild(s, true, r0).phase).toBe('dizzy');
+    expect(answerWild(s, true, ok).phase).toBe('dizzy');
   });
   it.each([['weak', 3], ['normal', 4], ['strong', 4], ['mighty', 6], ['legend', 4]] as const)('%s 정답 %i개', (t, n) => {
     let s = createWild(t, 5, 100);
     for (let i = 0; i < n - 1; i++) {
-      s = answerWild(s, true, r0);
+      s = answerWild(s, true, ok);
       expect(s.phase).toBe('hit');
       s = resumeWild(s);
     }
     expect(s).toMatchObject({ phase: 'question', cells: 2 * (n - 1), correct: n - 1 });
-    expect(answerWild(s, true, r0)).toMatchObject({ phase: 'dizzy', cells: 2 * n, correct: n });
+    expect(answerWild(s, true, ok)).toMatchObject({ phase: 'dizzy', cells: 2 * n, correct: n });
   });
   it.each([['weak', 7000], ['strong', 5000], ['mighty', 5000], ['legend', 7000]] as const)('%s 시간 %i', (t, ms) =>
     expect(createWild(t, 1, 100).timeLeftMs).toBe(ms));
   it('처음 상태', () => {
     expect(createWild('strong', 8, 60)).toEqual({
       tier: 'strong', level: 8, cells: 0, timeLeftMs: 5000, limitMs: 5000, elapsedMs: 0, allyHp: 60, phase: 'question', correct: 0, timedOut: false,
-      missed: false, charge: 0, guard: false, stun: false, calmMs: 0, hideChoice: false,
+      charge: 0, guard: false, stun: false, calmMs: 0, hideChoice: false, attackCount: 0, throwTries: 0, lastStrike: null,
     });
   });
   it('시작부터 체력 0이면 쓰러진 채(전투가 열리지 않게)', () => {
     const s = createWild('normal', 5, 0);
     expect(s.phase).toBe('fainted');
-    expect(tick(s, 250, r0)).toBe(s);
-    expect(answerWild(s, false, r0)).toBe(s);
+    expect(tick(s, 250, ok)).toBe(s);
+    expect(answerWild(s, false, ok)).toBe(s);
   });
   it('시간은 question에서만, 한 번에 250ms까지', () => {
     const s = createWild('normal', 5, 100);
-    expect(tick(s, 60000, r0).timeLeftMs).toBe(6750);
-    expect(tick(s, NaN, r0).timeLeftMs).toBe(7000);
-    for (const bad of [Infinity, -Infinity, -100]) expect(tick(s, bad, r0).timeLeftMs).toBe(7000);
-    expect(tick(s, 100, r0).timeLeftMs).toBe(6900);
-    for (const phase of ['pick', 'hit', 'struck', 'hint', 'dizzy'] as const) expect(tick({ ...s, phase }, 100, r0)).toEqual({ ...s, phase });
+    expect(tick(s, 60000, ok).timeLeftMs).toBe(6750);
+    expect(tick(s, NaN, ok).timeLeftMs).toBe(7000);
+    for (const bad of [Infinity, -Infinity, -100]) expect(tick(s, bad, ok).timeLeftMs).toBe(7000);
+    expect(tick(s, 100, ok).timeLeftMs).toBe(6900);
+    for (const phase of ['pick', 'hit', 'counter', 'struck', 'hint', 'dizzy'] as const) expect(tick({ ...s, phase }, 100, ok)).toEqual({ ...s, phase });
   });
   it('시간이 다 되면 피격(timedOut), 체력 −25, 힌트로', () => {
     let s = createWild('normal', 5, 100);
-    for (let i = 0; i < 27; i++) s = tick(s, 250, r0);
+    for (let i = 0; i < 27; i++) s = tick(s, 250, ok);
     expect(s).toMatchObject({ phase: 'question', timeLeftMs: 250 });
-    s = tick(s, 250, r0);
+    s = tick(s, 250, ok);
     expect(s).toMatchObject({ phase: 'struck', timedOut: true, allyHp: 75, timeLeftMs: 0 });
     expect(resumeWild(s).phase).toBe('hint');
     expect(resumeWild(resumeWild(s))).toMatchObject({ phase: 'question', timeLeftMs: 7000 });
@@ -72,8 +75,8 @@ describe('wildBattle: 문제 시간·정답', () => {
     expect(() => tick(createWild('normal', 5, 100), 250, seq())).not.toThrow();
   });
   it('정답 뒤 다음 문제는 시간이 처음부터', () => {
-    const s = tick(tick(createWild('strong', 5, 100), 250, r0), 250, r0);
-    expect(resumeWild(answerWild(s, true, r0)).timeLeftMs).toBe(5000);
+    const s = tick(tick(createWild('strong', 5, 100), 250, ok), 250, ok);
+    expect(resumeWild(answerWild(s, true, ok)).timeLeftMs).toBe(5000);
   });
 });
 
@@ -81,37 +84,37 @@ describe('wildBattle: 적의 공격', () => {
   it.each([['weak', 5], ['normal', 4], ['strong', 3], ['mighty', 2], ['legend', 3]] as const)('%s: 오답 %i번에 쓰러지고 힌트 없이 끝', (t, n) => {
     let s = createWild(t, 5, 100);
     for (let i = 0; i < n - 1; i++) {
-      s = answerWild(s, false, r0);
+      s = answerWild(s, false, ok);
       expect(s.phase).toBe('struck');
       s = resumeWild(resumeWild(s));
     }
-    const last = answerWild(s, false, r0);
+    const last = answerWild(s, false, ok);
     expect(last).toMatchObject({ phase: 'fainted', allyHp: 0, timedOut: false });
     expect(resumeWild(last)).toBe(last);
   });
   it('시간 초과로 쓰러져도 힌트 없이 끝', () => {
     let s = createWild('mighty', 5, 50);
-    for (let i = 0; i < 20; i++) s = tick(s, 250, r0);
+    for (let i = 0; i < 20; i++) s = tick(s, 250, ok);
     expect(s).toMatchObject({ phase: 'fainted', allyHp: 0, timedOut: true });
   });
   it('오답은 timedOut false, 맞힌 수는 그대로', () => {
-    expect(answerWild(createWild('normal', 5, 100), false, r0)).toMatchObject({ phase: 'struck', timedOut: false, allyHp: 75, correct: 0, cells: 0 });
+    expect(answerWild(createWild('normal', 5, 100), false, ok)).toMatchObject({ phase: 'struck', timedOut: false, allyHp: 75, correct: 0, cells: 0 });
   });
   it('question이 아니면 answerWild는 그대로(연타)', () => {
-    const a = answerWild(createWild('normal', 5, 100), true, r0);
-    expect(answerWild(a, true, r0)).toBe(a);
-    expect(answerWild(a, false, r0)).toBe(a);
-    for (const phase of ['struck', 'hint', 'dizzy', 'caught', 'escaped', 'released', 'fainted'] as const) {
+    const a = answerWild(createWild('normal', 5, 100), true, ok);
+    expect(answerWild(a, true, ok)).toBe(a);
+    expect(answerWild(a, false, ok)).toBe(a);
+    for (const phase of ['counter', 'struck', 'hint', 'dizzy', 'caught', 'escaped', 'released', 'fainted'] as const) {
       const s = { ...a, phase };
-      expect(answerWild(s, true, r0)).toBe(s);
+      expect(answerWild(s, true, ok)).toBe(s);
     }
   });
-  it('적의 공격은 난수를 쓰지 않는다 (적 기술 이름은 화면이 고른다)', () => {
-    const none: Rng = () => {
-      throw new Error('난수를 쓰면 안 됨');
-    };
-    expect(answerWild(createWild('normal', 5, 100), false, none).phase).toBe('struck');
-    expect(tick({ ...createWild('normal', 5, 100), timeLeftMs: 100 }, 250, none).phase).toBe('struck');
+  it('적의 공격은 회피·크리티컬 두 번 굴린다 (적 기술 이름은 화면이 고른다). 스턴이면 굴리지 않는다', () => {
+    expect(answerWild(createWild('normal', 5, 100), false, seq(0.5, 0.5)).phase).toBe('struck');
+    expect(tick({ ...createWild('normal', 5, 100), timeLeftMs: 100 }, 250, seq(0.5, 0.5)).phase).toBe('struck');
+    const stunned = { ...createWild('normal', 5, 100), stun: true };
+    expect(answerWild(stunned, false, seq()).phase).toBe('struck');
+    expect(tick({ ...stunned, timeLeftMs: 100 }, 250, seq()).phase).toBe('struck');
   });
   it('damageOf', () => {
     expect(damageOf(createWild('weak', 5, 100))).toBe(20);
@@ -154,15 +157,16 @@ describe('wildBattle: 던지기', () => {
       const d = { ...dizzyOf(createWild(t, 13, 100)), allyHp: 40, elapsedMs: 1234 };
       const r = throwCapsule(d, seq(0.999), 10)!; // 레벨을 다시 뽑지 않으니 난수는 한 번
       expect(r.outcome).toBe('angry');
-      expect(r.state).toEqual({ ...d, cells: 0, elapsedMs: 0, phase: 'question', timeLeftMs: t === 'mighty' ? 5000 : 7000 });
+      expect(r.state).toEqual({ ...d, cells: 0, elapsedMs: 0, phase: 'question', timeLeftMs: t === 'mighty' ? 5000 : 7000, throwTries: 1 });
     }
   });
   it('빠져나옴(healed): 어지러움이 풀리고 칸을 절반(올림) 되찾고, 문제 시간 처음부터. dizzy가 아니면 null', () => {
     const d = { ...dizzyOf(createWild('normal', 5, 100)), timeLeftMs: 1200, elapsedMs: 5800 };
     const r = throwCapsule(d, seq(0.5), 5)!; // 난수 한 번으로 결정 (R11)
     expect(r.outcome).toBe('healed');
-    expect(r.state).toEqual({ ...d, cells: 4, phase: 'question', timeLeftMs: 7000, elapsedMs: 0 });
-    for (const phase of ['question', 'pick', 'hit', 'struck', 'hint', 'caught', 'escaped', 'released', 'fainted'] as const) {
+    expect(r.state).toEqual({ ...d, cells: 4, phase: 'question', timeLeftMs: 7000, elapsedMs: 0, throwTries: 1 });
+    // 체력이 1/4 이하여도 문제를 풀거나 고르는 때(pick·question)·어지러울 때만 던진다
+    for (const phase of ['hit', 'counter', 'struck', 'hint', 'caught', 'escaped', 'released', 'fainted'] as const) {
       expect(throwCapsule({ ...d, phase }, r0, 5)).toBeNull();
     }
   });
@@ -210,8 +214,8 @@ describe('wildBattle: 던지기', () => {
   it('끝난 상태에서는 모든 함수가 그대로', () => {
     for (const phase of ['caught', 'escaped', 'released', 'fainted'] as const) {
       const s = { ...createWild('normal', 5, 100), phase };
-      expect(tick(s, 250, r0)).toBe(s);
-      expect(answerWild(s, true, r0)).toBe(s);
+      expect(tick(s, 250, ok)).toBe(s);
+      expect(answerWild(s, true, ok)).toBe(s);
       expect(resumeWild(s)).toBe(s);
       expect(releaseWild(s)).toBe(s);
       expect(throwCapsule(s, r0, 5)).toBeNull();
@@ -233,8 +237,8 @@ const btn = (held: string[], kind: SkillButton['kind'] = 'main'): SkillButton =>
 const at = (elapsedMs: number, over: Partial<WildState> = {}): WildState => ({ ...createWild('normal', 5, 100), elapsedMs, ...over });
 const NORMAL_MS = 7000;
 /** 가진 기술 held로 kind 버튼을 눌러 정답 */
-const answer = (s: WildState, held: string[], kind: SkillButton['kind'], wild: Element, timeMs = NORMAL_MS) =>
-  resolveAnswer(s, btn(held, kind), held, wild, timeMs);
+const answer = (s: WildState, held: string[], kind: SkillButton['kind'], wild: Element, timeMs = NORMAL_MS, rng: Rng = ok) =>
+  resolveAnswer(s, btn(held, kind), held, wild, timeMs, rng);
 
 describe('wildBattle: 칸 체력과 깎는 칸', () => {
   it('maxCells = 어지러워지는 정답 수 × 2', () => {
@@ -254,7 +258,7 @@ describe('wildBattle: 칸 체력과 깎는 칸', () => {
   it.each(['weak', 'normal', 'strong', 'mighty', 'legend'] as const)('%s: 가장 센 한 방(주③ 3 + 충전 + 상성 → 4칸)으로도 한 번에 안 끝난다', (t) => {
     const s = { ...createWild(t, 5, 100), charge: 1 };
     const held = ['cloud-1', 'cloud-2', 'cloud-5'];
-    const r = resolveAnswer(s, btn(held), held, 'water', TIER_RULES[t].timeMs);
+    const r = resolveAnswer(s, btn(held), held, 'water', TIER_RULES[t].timeMs, ok);
     expect(r).toMatchObject({ upper: true, tier: 3, fired: { id: 'cloud-5' } });
     expect(r.state).toMatchObject({ cells: 4, phase: 'hit' });
   });
@@ -264,8 +268,8 @@ describe('wildBattle: 칸 체력과 깎는 칸', () => {
     expect(r.state).toMatchObject({ cells: 8, phase: 'dizzy', correct: 1 });
   });
   it('answerWild(옛 호출)은 위력 2·보통, 충전은 더한다', () => {
-    expect(answerWild(at(0), true, r0).cells).toBe(2);
-    expect(answerWild(at(0, { charge: 1 }), true, r0)).toMatchObject({ cells: 3, charge: 0 });
+    expect(answerWild(at(0), true, ok).cells).toBe(2);
+    expect(answerWild(at(0, { charge: 1 }), true, ok)).toMatchObject({ cells: 3, charge: 0 });
   });
 });
 
@@ -327,10 +331,10 @@ describe('wildBattle: resolveAnswer — 주속성 단계·부속성·상성', ()
     const held = ['cloud-1', 'cloud-2'];
     let s = resumeWild({ ...at(0), phase: 'hit', calmMs: CALM_BONUS_MS });
     expect(s).toMatchObject({ phase: 'question', timeLeftMs: 10000, elapsedMs: 0, calmMs: 0 });
-    for (let i = 0; i < 16; i++) s = tickWild(s, 250, r0);
+    for (let i = 0; i < 16; i++) s = tickWild(s, 250, ok);
     expect(s).toMatchObject({ elapsedMs: 4000, timeLeftMs: 6000 });
     expect(answer(s, held, 'main', 'light').upper).toBe(true);
-    s = tickWild(s, 1, r0);
+    s = tickWild(s, 1, ok);
     expect(answer(s, held, 'main', 'light').upper).toBe(false);
   });
   it('question이 아니면 상태 그대로(연타)', () => {
@@ -382,7 +386,7 @@ describe('wildBattle: resolveAnswer — 특수 기술', () => {
   });
   it('(깨진 목록 대비) 특수만 가졌으면 늦을 때 위력 1 기본 타격', () => {
     const b: SkillButton = { kind: 'special', owner: 'cloud', skill: k('cloud-3') };
-    const r = resolveAnswer(at(6000), b, ['cloud-3'], 'water', NORMAL_MS);
+    const r = resolveAnswer(at(6000), b, ['cloud-3'], 'water', NORMAL_MS, ok);
     expect(r).toMatchObject({ upper: false, usedFallback: true });
     expect(r.fired.id).toBe('cloud-3');
     expect(r.special).toBeUndefined();
@@ -403,14 +407,14 @@ describe('wildBattle: resolveAnswer — 특수 기술', () => {
     expect(s.guard).toBe(true);
     const q = resumeWild(s);
     expect(damageOf(q)).toBe(13); // 25 → 12.5 → 13
-    const hit1 = answerWild(q, false, r0);
+    const hit1 = answerWild(q, false, ok);
     expect(hit1).toMatchObject({ allyHp: 87, guard: false, phase: 'struck' });
-    expect(answerWild(resumeWild(resumeWild(hit1)), false, r0).allyHp).toBe(62);
+    expect(answerWild(resumeWild(resumeWild(hit1)), false, ok).allyHp).toBe(62);
     expect(damageOf({ ...createWild('strong', 5, 100), guard: true })).toBe(17);
   });
   it('방어는 시간 초과 공격에도', () => {
     let s: WildState = { ...createWild('normal', 5, 100), guard: true, timeLeftMs: 250 };
-    s = tick(s, 250, r0);
+    s = tick(s, 250, ok);
     expect(s).toMatchObject({ phase: 'struck', allyHp: 87, guard: false, timedOut: true });
   });
   it('여유: 다음 문제 시간 +3초, 고르기를 거쳐도', () => {
@@ -425,8 +429,8 @@ describe('wildBattle: resolveAnswer — 특수 기술', () => {
     expect(s.hideChoice).toBe(true);
     const q = resumeWild(s);
     expect(q.hideChoice).toBe(true);
-    // 틀려서 같은 문제를 다시 풀 때도 숨긴 채
-    expect(resumeWild(resumeWild(answerWild(q, false, r0))).hideChoice).toBe(true);
+    // 틀려서 힌트를 보고 다음 문제로 넘어가도 숨긴 채 (맞힐 때까지)
+    expect(resumeWild(resumeWild(answerWild(q, false, ok))).hideChoice).toBe(true);
     // 그 문제를 맞히면 사라짐
     expect(answer(at(6000, { hideChoice: true }), ['fluff-1'], 'main', 'light').state.hideChoice).toBe(false);
     expect(hiddenChoice([3, 6, 9], 6, r0)).toBe(0);
@@ -450,18 +454,18 @@ describe('wildBattle: 스턴 (다음 적 공격 1회 무효)', () => {
   it('오답이면 피해 0, 스턴은 쓰고 방어는 남는다', () => {
     const q = { ...resumeWild(stunned()), guard: true };
     expect(q.stun).toBe(true);
-    const hit = answerWild(q, false, r0);
-    expect(hit).toMatchObject({ phase: 'struck', allyHp: 100, stun: false, guard: true, missed: true });
+    const hit = answerWild(q, false, ok);
+    expect(hit).toMatchObject({ phase: 'struck', allyHp: 100, stun: false, guard: true, lastStrike: { blocked: true, damage: 0 } });
     // 그 다음 공격은 방어로 절반
-    expect(answerWild(resumeWild(resumeWild(hit)), false, r0)).toMatchObject({ allyHp: 87, guard: false });
+    expect(answerWild(resumeWild(resumeWild(hit)), false, ok)).toMatchObject({ allyHp: 87, guard: false });
   });
   it('시간 초과 공격도 막는다', () => {
     const q = { ...resumeWild(stunned()), timeLeftMs: 250 };
-    expect(tick(q, 250, r0)).toMatchObject({ phase: 'struck', allyHp: 100, stun: false, timedOut: true });
+    expect(tick(q, 250, ok)).toMatchObject({ phase: 'struck', allyHp: 100, stun: false, timedOut: true });
   });
   it('체력이 거의 없어도 스턴이면 쓰러지지 않는다', () => {
     const q = { ...resumeWild(stunned()), allyHp: 5 };
-    expect(answerWild(q, false, r0)).toMatchObject({ phase: 'struck', allyHp: 5 });
+    expect(answerWild(q, false, ok)).toMatchObject({ phase: 'struck', allyHp: 5 });
   });
   it('맞히는 동안·빠져나옴·화남 뒤에도 남는다 (방어·충전과 같이)', () => {
     let s = resumeWild(stunned());
@@ -474,43 +478,61 @@ describe('wildBattle: 스턴 (다음 적 공격 1회 무효)', () => {
   });
 });
 
-describe('wildBattle: strikeDamage — 저장할 피해 = 화면에서 실제로 줄어든 체력', () => {
-  /** 공격 전 상태로 계산한 피해를 저장에 적용한 체력이 공격 뒤 화면 체력과 같다 */
-  const same = (before: WildState, after: WildState) => {
-    expect(after.phase === 'struck' || after.phase === 'fainted').toBe(true);
-    expect(Math.max(0, before.allyHp - strikeDamage(before))).toBe(after.allyHp);
-  };
+describe('wildBattle: enemyStrike — 스턴 → 회피 → 크리티컬, 저장할 피해 = 화면에서 줄어든 체력', () => {
   const q = (over: Partial<WildState> = {}): WildState => ({ ...at(500), ...over });
+  /** 저장(damageCompanion)에 쓰는 반환 피해를 공격 전 체력에 적용하면 공격 뒤 화면 체력과 같다 */
+  const same = (before: WildState, after: WildState) => {
+    expect(after.lastStrike).not.toBeNull();
+    expect(Math.max(0, before.allyHp - after.lastStrike!.damage)).toBe(after.allyHp);
+  };
   it.each([
-    ['보통', {}, 25],
-    ['방어', { guard: true }, 13],
-    ['스턴', { stun: true }, 0],
-    ['스턴 + 방어', { stun: true, guard: true }, 0],
-  ] as const)('%s: 오답 공격', (_n, over, dmg) => {
+    // [이름, 상태, 난수(회피, 크리티컬), 피해, 회피, 크리티컬]
+    ['보통', {}, [0.5, 0.5], 25, false, false],
+    ['회피 경계 0.0499', {}, [0.0499], 0, true, false],
+    ['회피 경계 0.05는 안 피함', {}, [0.05, 0.5], 25, false, false],
+    ['크리티컬 경계 0.0999', {}, [0.5, 0.0999], 50, false, true],
+    ['크리티컬 경계 0.10은 보통', {}, [0.5, 0.1], 25, false, false],
+    ['방어 + 크리티컬 = 절반(올림) 뒤 ×2', { guard: true }, [0.5, 0], 26, false, true],
+    ['방어', { guard: true }, [0.5, 0.5], 13, false, false],
+  ] as const)('%s', (_n, over, rolls, damage, dodged, crit) => {
     const before = q(over);
-    expect(strikeDamage(before)).toBe(dmg);
-    same(before, answerWild(before, false, r0));
+    const r = enemyStrike(before, seq(...rolls));
+    expect(r).toMatchObject({ damage, dodged, crit, blocked: false });
+    expect(r.state.allyHp).toBe(100 - damage);
+    expect(r.state.lastStrike).toEqual({ damage, dodged, crit, blocked: false });
+    // 방어는 맞으면 사라지고, 피하면 남는다
+    if ('guard' in over) expect(r.state.guard).toBe(dodged);
+  });
+  it('스턴이면 막힘: 굴리지 않고 피해 0, 스턴만 사라지고 방어는 남는다', () => {
+    const r = enemyStrike(q({ stun: true, guard: true }), seq());
+    expect(r).toMatchObject({ damage: 0, blocked: true, dodged: false, crit: false });
+    expect(r.state).toMatchObject({ stun: false, guard: true, allyHp: 100 });
+  });
+  it('체력보다 큰 피해면 0에서 멈추고 쓰러짐 (반환 피해는 굴린 값 그대로)', () => {
+    const r = enemyStrike(q({ allyHp: 30 }), seq(0.5, 0));
+    expect(r.damage).toBe(50);
+    expect(r.state).toMatchObject({ allyHp: 0, phase: 'fainted' });
   });
   it.each([
-    ['보통', {}, 25],
-    ['방어', { guard: true }, 13],
-    ['스턴', { stun: true }, 0],
-  ] as const)('%s: 시간 초과 공격', (_n, over, dmg) => {
-    const before = q({ timeLeftMs: 100, ...over });
-    expect(strikeDamage(before)).toBe(dmg);
-    same(before, tick(before, 250, r0));
+    ['보통', {}, [0.5, 0.5]],
+    ['방어', { guard: true }, [0.5, 0.5]],
+    ['크리티컬', {}, [0.5, 0]],
+    ['회피', {}, [0]],
+    ['스턴', { stun: true }, []],
+    ['쓰러짐', { allyHp: 10 }, [0.5, 0.5]],
+  ] as const)('%s: 오답·시간 초과 모두 저장 피해 = 화면 피해', (_n, over, rolls) => {
+    const before = q(over);
+    same(before, answerWild(before, false, seq(...rolls)));
+    const timed = q({ timeLeftMs: 100, ...over });
+    same(timed, tick(timed, 250, seq(...rolls)));
   });
-  it('공격 뒤 상태로 부르면 다르다 (그래서 화면은 공격 전 상태로 부른다)', () => {
-    const before = q({ stun: true });
-    const after = answerWild(before, false, r0);
-    expect(strikeDamage(before)).toBe(0);
-    expect(strikeDamage(after)).toBe(25);
+  it('오답·시간 초과의 적 공격은 공격 횟수(attackCount)를 바꾸지 않는다', () => {
+    const before = q({ attackCount: 1 });
+    expect(answerWild(before, false, ok).attackCount).toBe(1);
+    expect(tick({ ...before, timeLeftMs: 100 }, 250, ok).attackCount).toBe(1);
   });
-  it('체력보다 큰 피해면 0에서 멈추고 쓰러짐', () => {
-    const before = q({ allyHp: 10 });
-    const after = answerWild(before, false, r0);
-    expect(after).toMatchObject({ phase: 'fainted', allyHp: 0 });
-    same(before, after);
+  it('크리티컬로 쓰러질 수 있다 (보통 25 × 2)', () => {
+    expect(answerWild(q({ allyHp: 50 }), false, seq(0.5, 0))).toMatchObject({ phase: 'fainted', allyHp: 0 });
   });
 });
 
@@ -522,60 +544,53 @@ describe('wildBattle: 기술 고르기(pick)', () => {
   });
   it('pick에서는 시간이 안 간다, pickSkill 뒤 시작', () => {
     const p = { ...createWild('normal', 5, 100, 2), elapsedMs: 300 };
-    expect(tickWild(p, 250, r0)).toBe(p);
-    expect(answerWild(p, true, r0)).toBe(p);
+    expect(tickWild(p, 250, ok)).toBe(p);
+    expect(answerWild(p, true, ok)).toBe(p);
     const q = pickSkill(p);
     expect(q).toMatchObject({ phase: 'question', elapsedMs: 0, timeLeftMs: 7000 });
-    expect(tickWild(q, 250, r0)).toMatchObject({ elapsedMs: 250, timeLeftMs: 6750 });
+    expect(tickWild(q, 250, ok)).toMatchObject({ elapsedMs: 250, timeLeftMs: 6750 });
     expect(pickSkill(q)).toBe(q);
   });
   it('명중 뒤: 버튼 1개면 고르기를 건너뛴다', () => {
-    const h = answerWild(at(0), true, r0);
+    const h = answerWild(at(0), true, ok);
     expect(resumeWild(h, 1).phase).toBe('question');
     expect(resumeWild(h, 2).phase).toBe('pick');
   });
-  it('힌트 뒤 같은 문제는 고르지 않고 바로, 경과 시간은 0부터', () => {
-    const struck = answerWild(at(3000), false, r0);
+  it('힌트 뒤에는 다른 문제라 버튼이 2개 이상이면 고르기부터, 경과 시간은 0부터', () => {
+    const struck = answerWild(at(3000), false, ok);
     const hint = resumeWild(struck, 3);
     expect(hint.phase).toBe('hint');
-    expect(resumeWild(hint, 3)).toMatchObject({ phase: 'question', elapsedMs: 0, timeLeftMs: 7000 });
+    expect(resumeWild(hint, 3)).toMatchObject({ phase: 'pick', elapsedMs: 0, timeLeftMs: 7000 });
+    expect(resumeWild(hint, 1)).toMatchObject({ phase: 'question', elapsedMs: 0, timeLeftMs: 7000 });
   });
 });
 
-describe('wildBattle: 틀린 뒤 같은 문제도 다시 빨리 풀면 윗단계 (missed는 기록용)', () => {
-  /** 보통 단계 문제에서 틀리고 힌트를 본 뒤 같은 문제로 돌아온 상태 */
-  const retried = (over: Partial<WildState> = {}) => resumeWild(resumeWild(answerWild({ ...at(500), ...over }, false, r0)));
-  it('오답·시간 초과면 missed가 켜진다', () => {
-    expect(answerWild(at(500), false, r0).missed).toBe(true);
-    expect(tick({ ...at(0), timeLeftMs: 100 }, 250, r0)).toMatchObject({ phase: 'struck', missed: true });
+describe('wildBattle: 틀린 문제는 힌트 뒤 다른 문제로 (2차 방식, 설계서 0-2절)', () => {
+  it('오답 → 피격 → 힌트 → 새 문제: 시계는 처음부터, 칸·맞힌 수는 그대로', () => {
+    const struck = answerWild({ ...at(3000), timeLeftMs: 4000, cells: 2, correct: 1 }, false, ok);
+    expect(struck.phase).toBe('struck');
+    const hint = resumeWild(struck);
+    expect(hint.phase).toBe('hint');
+    const next = resumeWild(hint);
+    expect(next).toMatchObject({ phase: 'question', elapsedMs: 0, timeLeftMs: 7000, limitMs: 7000, cells: 2, correct: 1 });
   });
-  it('틀림 → 힌트 → 같은 문제: 시계가 처음부터라 빨리 풀면 주③', () => {
-    const q = retried();
-    expect(q).toMatchObject({ phase: 'question', missed: true, elapsedMs: 0 });
+  it('힌트 뒤 새 문제에 여유(calmMs)가 있으면 더하고 0', () => {
+    const hint = resumeWild(answerWild(at(500, { calmMs: CALM_BONUS_MS }), false, ok));
+    expect(resumeWild(hint)).toMatchObject({ timeLeftMs: 7000 + CALM_BONUS_MS, calmMs: 0 });
+  });
+  it('힌트 뒤 새 문제에서도 빨리 풀면 윗단계 (새 문제라 시계가 처음부터)', () => {
+    const q = resumeWild(resumeWild(answerWild(at(500), false, ok)));
     const r = answer(q, ['cloud-1', 'cloud-2', 'cloud-5'], 'main', 'light');
     expect(r).toMatchObject({ upper: true, tier: 3, fired: { id: 'cloud-5' } });
-    expect(r.state.cells).toBe(3);
-    // 다시 푼 문제에서도 느리면 주①
-    expect(answer({ ...q, elapsedMs: 4001 }, ['cloud-1', 'cloud-2', 'cloud-5'], 'main', 'light').fired.id).toBe('cloud-1');
   });
-  it('틀림 → 힌트 → 같은 문제: 부속성·특수도 빨리 풀면 발동', () => {
-    expect(answer(retried(), ['cloud-1', 'cloud-4'], 'sub', 'light').fired.id).toBe('cloud-4');
-    const r = answer(retried(), ['cloud-1', 'cloud-3'], 'special', 'light');
-    expect(r).toMatchObject({ usedFallback: false, special: 'heal', fired: { id: 'cloud-3' } });
+  it('시간 초과도 같은 흐름 (힌트 → 새 문제)', () => {
+    const struck = tick({ ...at(0), timeLeftMs: 100 }, 250, ok);
+    expect(struck).toMatchObject({ phase: 'struck', timedOut: true });
+    expect(resumeWild(resumeWild(struck))).toMatchObject({ phase: 'question', timeLeftMs: 7000, elapsedMs: 0 });
   });
-  it('맞힌 뒤 새 문제에서는 missed가 꺼지고 윗단계 가능 (고르기를 거쳐도)', () => {
-    const held = ['cloud-1', 'cloud-2'];
-    const hit = answer(retried(), held, 'main', 'light').state;
-    const next = resumeWild(hit, 1);
-    expect(next.missed).toBe(false);
-    expect(answer(next, held, 'main', 'light').upper).toBe(true);
-    const picked = pickSkill(resumeWild(hit, 2));
-    expect(picked.missed).toBe(false);
-  });
-  it('빠져나옴·화남 뒤 새 문제는 missed가 꺼진다', () => {
-    const d = { ...dizzyOf(createWild('normal', 5, 100)), missed: true };
-    expect(throwCapsule(d, seq(0.5), 5)!.state.missed).toBe(false);
-    expect(throwCapsule(d, seq(0.999, 0), 10)!.state.missed).toBe(false);
+  it('WildState에 "이 문제에서 틀렸나(missed)"는 더 이상 없다 (학습 기록은 문제 목록의 isRetry만)', () => {
+    expect('missed' in createWild('normal', 5, 100)).toBe(false);
+    expect('missed' in answerWild(at(0), false, ok)).toBe(false);
   });
 });
 
@@ -592,4 +607,203 @@ describe('wildBattle: 시간 한도 limitMs (시간 막대 기준)', () => {
     const d = dizzyOf(createWild('normal', 5, 100));
     expect(throwCapsule(d, seq(0.999, 0), 10)!.state.limitMs).toBe(5000);
   });
+});
+
+// ── 개정 4 (설계서 0-2절): 크리티컬·회피·특수효과 성공률·주기 공격·캡슐 활성화·포획 상승 ──
+
+describe('wildBattle: 내 공격의 회피·크리티컬', () => {
+  const M = ['cloud-1', 'cloud-2', 'cloud-5'];
+  it('회피 경계: 0.0499면 빗나감, 0.05면 맞음', () => {
+    const miss = answer(at(6000), ['cloud-1'], 'main', 'light', NORMAL_MS, seq(0.0499));
+    expect(miss).toMatchObject({ dodged: true, crit: false, effect: null });
+    expect(miss.state).toMatchObject({ cells: 0, phase: 'hit', correct: 1 });
+    const hit = answer(at(6000), ['cloud-1'], 'main', 'light', NORMAL_MS, seq(0.05, 0.5));
+    expect(hit).toMatchObject({ dodged: false, crit: false });
+    expect(hit.state.cells).toBe(2);
+  });
+  it('크리티컬 경계: 0.0999면 칸 ×2, 0.10이면 보통', () => {
+    expect(answer(at(6000), ['cloud-1'], 'main', 'light', NORMAL_MS, seq(0.5, 0.0999))).toMatchObject({ crit: true, state: { cells: 4 } });
+    expect(answer(at(6000), ['cloud-1'], 'main', 'light', NORMAL_MS, seq(0.5, 0.1))).toMatchObject({ crit: false, state: { cells: 2 } });
+  });
+  it('크리티컬은 위력·충전·상성을 다 계산한 칸 ×2, 최대 8칸', () => {
+    // 주③ 3 + 충전 1 + 풀→물 1 = 5 → 4로 자름 → ×2 = 8
+    const s = { ...createWild('mighty', 5, 100), charge: 1 };
+    const r = resolveAnswer(s, btn(M), M, 'water', TIER_RULES.mighty.timeMs, seq(0.5, 0));
+    expect(r).toMatchObject({ crit: true, fired: { id: 'cloud-5' } });
+    expect(r.state).toMatchObject({ cells: 8, charge: 0, phase: 'hit' });
+    // 풀 → 불(약함) 주① 2 − 1 = 1 → ×2 = 2
+    expect(answer(at(6000), ['cloud-1'], 'main', 'fire', NORMAL_MS, seq(0.5, 0)).state.cells).toBe(2);
+  });
+  it('크리티컬로 한 번에 어지러워질 수 있다 (칸은 최대에서 멈춤)', () => {
+    const r = answer(at(6000, { cells: 6 }), ['cloud-1'], 'main', 'light', NORMAL_MS, seq(0.5, 0));
+    expect(r.state).toMatchObject({ cells: 8, phase: 'dizzy' });
+  });
+  it('빗나가면 칸·특수효과 없음, 충전은 남고, 효과는 굴리지 않는다 (난수 한 번)', () => {
+    // 주②(스턴)가 나갈 빠르기, 충전 1
+    const r = answer(at(0, { charge: 1, hideChoice: true }), ['cloud-1', 'cloud-2'], 'main', 'water', NORMAL_MS, seq(0.01));
+    expect(r).toMatchObject({ dodged: true, crit: false, effect: null, fired: { id: 'cloud-2' } });
+    expect(r.special).toBeUndefined();
+    expect(r.state).toMatchObject({ cells: 0, charge: 1, stun: false, phase: 'hit', correct: 1, attackCount: 1, hideChoice: false });
+    // 특수 버튼도 빗나가면 효과 없음
+    const sp = answer(at(0, { allyHp: 40 }), ['cloud-1', 'cloud-3'], 'special', 'light', NORMAL_MS, seq(0));
+    expect(sp).toMatchObject({ dodged: true, effect: null, state: { cells: 0, allyHp: 40 } });
+    expect(sp.special).toBeUndefined();
+  });
+  it('옛 호출 answerWild(정답)도 회피·크리티컬을 굴린다', () => {
+    expect(answerWild(at(0), true, seq(0.01))).toMatchObject({ cells: 0, phase: 'hit', attackCount: 1, correct: 1 });
+    expect(answerWild(at(0), true, seq(0.5, 0))).toMatchObject({ cells: 4, attackCount: 1 });
+  });
+});
+
+describe('wildBattle: 특수효과 성공률 (SPECIAL_SUCCESS)', () => {
+  it('표 값 (회복·방어 90%, 스턴 50%, 힌트·여유 80%, 충전 70%)', () => {
+    expect(SPECIAL_SUCCESS).toEqual({ heal: 0.9, guard: 0.9, stun: 0.5, clue: 0.8, calm: 0.8, charge: 0.7 });
+  });
+  // [가진 기술, 버튼, 효과, 성공하면 남는 상태]
+  const CASES = [
+    [['cloud-1', 'cloud-2'], 'main', 'stun', { stun: true }],
+    [['mushroom-1', 'mushroom-2'], 'main', 'heal', {}],
+    [['fluff-1', 'fluff-2'], 'main', 'guard', { guard: true }],
+    [['cloud-1', 'cloud-3'], 'special', 'heal', {}],
+    [['mushroom-1', 'mushroom-3'], 'special', 'guard', { guard: true }],
+    [['antenna-1', 'antenna-3'], 'special', 'charge', { charge: CHARGE_BONUS_CELLS }],
+    [['jelly-1', 'jelly-3'], 'special', 'calm', { calmMs: CALM_BONUS_MS }],
+    [['fluff-1', 'fluff-3'], 'special', 'clue', { hideChoice: true }],
+  ] as const;
+  it.each(CASES)('%s %s(%s): 경계 바로 아래면 성공, 경계 값이면 실패 — 실패해도 칸은 그대로 깎인다', (held, kind, effect, success) => {
+    const p = SPECIAL_SUCCESS[effect];
+    const s = at(1000, { allyHp: 40 });
+    const good = answer(s, [...held], kind, 'light', NORMAL_MS, seq(0.5, 0.5, p - 0.0001));
+    expect(good.effect).toEqual({ kind: effect, ok: true });
+    expect(good.special).toBe(effect);
+    expect(good.state).toMatchObject(success);
+    const bad = answer(s, [...held], kind, 'light', NORMAL_MS, seq(0.5, 0.5, p));
+    expect(bad.effect).toEqual({ kind: effect, ok: false });
+    expect(bad.special).toBeUndefined(); // 회복도 알려 주지 않아 체력이 안 찬다
+    // 효과는 하나도 남지 않는다 (충전은 특수 버튼에서 쓰지 않으니 0 그대로)
+    expect(bad.state).toMatchObject({ stun: false, guard: false, charge: 0, calmMs: 0, hideChoice: false, allyHp: 40 });
+    // 칸은 성공·실패와 상관없이 같다
+    expect(bad.state.cells).toBe(good.state.cells);
+  });
+  it('효과가 없는 기술(주①·주③·부속성·늦어서 대신 나감)은 효과를 굴리지 않는다 (난수 두 번)', () => {
+    expect(answer(at(6000), ['cloud-1', 'cloud-2'], 'main', 'light', NORMAL_MS, seq(0.5, 0.5)).effect).toBeNull();
+    expect(answer(at(0), ['cloud-1', 'cloud-2', 'cloud-5'], 'main', 'light', NORMAL_MS, seq(0.5, 0.5)).effect).toBeNull();
+    expect(answer(at(0), ['cloud-1', 'cloud-4'], 'sub', 'light', NORMAL_MS, seq(0.5, 0.5)).effect).toBeNull();
+    const late = answer(at(6000), ['cloud-1', 'cloud-3'], 'special', 'light', NORMAL_MS, seq(0.5, 0.5));
+    expect(late).toMatchObject({ usedFallback: true, effect: null });
+  });
+  it('크리티컬과 효과는 함께 날 수 있다 (주② 스턴 + 크리티컬)', () => {
+    const r = answer(at(0), ['cloud-1', 'cloud-2'], 'main', 'light', NORMAL_MS, seq(0.5, 0, 0));
+    expect(r).toMatchObject({ crit: true, effect: { kind: 'stun', ok: true }, state: { cells: 4, stun: true } });
+  });
+});
+
+describe('wildBattle: 2번 때릴 때마다 적이 한 번 공격 (주기 공격)', () => {
+  const held = ['cloud-1'];
+  const hitOnce = (s: WildState, rng: Rng = ok) => answer({ ...s, elapsedMs: 6000 }, held, 'main', 'light', NORMAL_MS, rng).state;
+  it('정답 2번째 뒤에 주기 공격: 피해·카운터 0·힌트 없이 새 문제', () => {
+    let s = hitOnce(at(0));
+    expect(s).toMatchObject({ attackCount: 1, phase: 'hit' });
+    expect(counterDue(s)).toBe(false);
+    expect(counterAttack(s, ok)).toBeNull();
+    s = resumeWild(s);
+    s = hitOnce(s);
+    expect(s).toMatchObject({ attackCount: 2, phase: 'hit' });
+    expect(counterDue(s)).toBe(true);
+    const c = counterAttack(s, seq(0.5, 0.5))!;
+    expect(c).toMatchObject({ damage: 25, dodged: false, crit: false, blocked: false });
+    expect(c.state).toMatchObject({ phase: 'counter', attackCount: 0, allyHp: 75, lastStrike: { damage: 25 } });
+    // 연출 뒤 힌트 없이 바로 새 문제 (버튼 2개 이상이면 고르기)
+    expect(resumeWild(c.state, 1)).toMatchObject({ phase: 'question', elapsedMs: 0, timeLeftMs: 7000 });
+    expect(resumeWild(c.state, 3).phase).toBe('pick');
+  });
+  it('주기 공격도 크리티컬·회피·스턴(막힘)·방어를 따른다', () => {
+    const due = { ...at(0), phase: 'hit' as const, attackCount: 2 };
+    expect(counterAttack(due, seq(0.5, 0))!.state.allyHp).toBe(50);
+    expect(counterAttack(due, seq(0))!).toMatchObject({ dodged: true, damage: 0, state: { allyHp: 100, attackCount: 0, phase: 'counter' } });
+    expect(counterAttack({ ...due, stun: true }, seq())!).toMatchObject({ blocked: true, damage: 0, state: { stun: false, attackCount: 0 } });
+    expect(counterAttack({ ...due, guard: true }, ok)!.state).toMatchObject({ allyHp: 87, guard: false });
+  });
+  it('주기 공격으로 쓰러지면 끝', () => {
+    const due = { ...at(0), phase: 'hit' as const, attackCount: 2, allyHp: 20 };
+    expect(counterAttack(due, ok)!.state).toMatchObject({ phase: 'fainted', allyHp: 0 });
+  });
+  it('어지러워지면(체력 0) 반격 없음', () => {
+    const s = hitOnce(at(0, { attackCount: 1, cells: 6 }));
+    expect(s).toMatchObject({ phase: 'dizzy', attackCount: 2 });
+    expect(counterDue(s)).toBe(false);
+    expect(counterAttack(s, ok)).toBeNull();
+  });
+  it('빗나간 공격도 센다, 틀린 답의 적 공격은 세지 않는다', () => {
+    let s = hitOnce(at(0), seq(0.01));
+    expect(s).toMatchObject({ attackCount: 1, cells: 0 });
+    s = resumeWild(s);
+    s = answerWild(s, false, ok);
+    expect(s).toMatchObject({ phase: 'struck', attackCount: 1, allyHp: 75 });
+    s = resumeWild(resumeWild(s));
+    s = hitOnce(s);
+    expect(counterDue(s)).toBe(true);
+  });
+});
+
+describe('wildBattle: 캡슐은 야생 체력 1/4 이하에서', () => {
+  it.each([
+    ['weak', 6, 4, 5],
+    ['normal', 8, 5, 6],
+    ['strong', 8, 5, 6],
+    ['mighty', 12, 8, 9],
+    ['legend', 8, 5, 6],
+  ] as const)('%s(최대 %i칸): 깎인 칸 %i면 아직, %i면 던질 수 있음', (tier, max, notYet, ready) => {
+    const s = createWild(tier, 5, 100);
+    expect(maxCells(tier)).toBe(max);
+    expect(catchActive({ ...s, cells: notYet })).toBe(false);
+    expect(catchActive({ ...s, cells: ready })).toBe(true);
+    expect(catchActive({ ...s, cells: max })).toBe(true);
+  });
+  it('던질 수 있는 때: 고르기·문제·어지러움 (체력 1/4 이하일 때만)', () => {
+    const low = { ...createWild('normal', 5, 100), cells: 6 };
+    for (const phase of ['pick', 'question', 'dizzy'] as const) expect(canThrow({ ...low, phase })).toBe(true);
+    for (const phase of ['hit', 'counter', 'struck', 'hint', 'caught', 'escaped', 'released', 'fainted'] as const) expect(canThrow({ ...low, phase })).toBe(false);
+    expect(canThrow({ ...low, cells: 5 })).toBe(false);
+    expect(throwCapsule({ ...low, cells: 5 }, r0, 5)).toBeNull();
+  });
+  it('문제를 푸는 중에 던져 빠져나오면: 칸을 되찾고 새 문제(시계 처음부터), 틀린 것으로 치지 않는다', () => {
+    const q = { ...createWild('normal', 5, 100), cells: 6, elapsedMs: 3000, timeLeftMs: 4000, correct: 3 };
+    const r = throwCapsule(q, seq(0.5), 5, 2)!;
+    expect(r.outcome).toBe('healed');
+    expect(r.state).toMatchObject({ cells: 2, phase: 'pick', elapsedMs: 0, timeLeftMs: 7000, correct: 3, allyHp: 100, throwTries: 1 });
+  });
+  it('고르는 중에 던져도 된다: 잡힘·도망은 끝, 화남은 강력이 되어 새 문제', () => {
+    const p = { ...createWild('normal', 5, 100, 2), cells: 7 };
+    expect(throwCapsule(p, r0, 5, 2)).toEqual({ state: { ...p, phase: 'caught' }, outcome: 'caught' });
+    expect(throwCapsule(p, seq(0.9), 5, 2)!.state.phase).toBe('escaped');
+    expect(throwCapsule(p, seq(0.999, 0), 10, 2)!.state).toMatchObject({ tier: 'mighty', cells: 0, phase: 'pick', throwTries: 1 });
+  });
+});
+
+describe('wildBattle: 실패할수록 잘 잡힌다 (throwTries)', () => {
+  const d = (over: Partial<WildState> = {}) => ({ ...dizzyOf(createWild('normal', 5, 100)), ...over });
+  it('빠져나옴·화남이면 실패 수 +1, 같은 야생에게 쌓인다', () => {
+    let s = d();
+    s = throwCapsule(s, seq(0.5), 5)!.state;
+    expect(s.throwTries).toBe(1);
+    s = dizzyOf(s);
+    s = throwCapsule(s, seq(0.999, 0), 5)!.state;
+    expect(s.throwTries).toBe(2);
+  });
+  it('실패 3번이면 잡힘 0.38: 0.37은 잡힘, 0.39는 빠져나옴', () => {
+    expect(throwOdds('normal', 3).caught).toBeCloseTo(0.38);
+    expect(throwCapsule(d({ throwTries: 3 }), seq(0.37), 5)!.outcome).toBe('caught');
+    expect(throwCapsule(d({ throwTries: 3 }), seq(0.39), 5)!.outcome).toBe('healed');
+    expect(throwCapsule(d({ throwTries: 0 }), seq(0.37), 5)!.outcome).toBe('healed');
+  });
+  it('야생이 기절(스턴)해 있으면 +10%p', () => {
+    expect(throwCapsule(d({ stun: true }), seq(0.17), 5)!.outcome).toBe('caught');
+    expect(throwCapsule(d({ stun: false }), seq(0.17), 5)!.outcome).toBe('healed');
+  });
+  it('상한 70%: 실패를 많이 해도 0.70부터는 안 잡힌다', () => {
+    expect(throwCapsule(d({ throwTries: 20, stun: true }), seq(0.6999), 5)!.outcome).toBe('caught');
+    expect(throwCapsule(d({ throwTries: 20, stun: true }), seq(0.7001), 5)!.outcome).not.toBe('caught');
+  });
+  it('처음 만난 야생은 실패 수 0', () => expect(createWild('weak', 2, 100).throwTries).toBe(0));
 });

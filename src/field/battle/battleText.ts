@@ -43,15 +43,13 @@ export const battleText = {
   tierName: (name: string, tier: Tier) => `${TIER_WORD[tier]}${name}`,
   appear: (name: string, legend: boolean) => `${legend ? '전설의' : '야생'} ${josa(name, '이', '가')} 나타났다!`,
   choose: '어떤 기술을 쓸까?',
-  /** 특수 버튼을 고른 뒤 문제가 뜰 때 ("새싹 쑥쑥 준비! 4초 안에 풀면 회복!") */
-  ready: (move: string, sec: number, special?: SpecialKind) => `${move} 준비! ${battleText.condition(sec, special)}`,
-  /** 주속성 버튼 (단계가 둘 이상이면 빨리 풀수록 센 기술) */
-  readyMain: (move: string, stages: boolean) => (stages ? `${move} 준비! 빨리 풀수록 센 기술이 나가요!` : `${move} 준비!`),
-  /** 부속성 버튼 */
-  readySub: (move: string, sec: number) => `${move} 준비! ${sec}초 안에 풀어요!`,
-  /** 특수 버튼의 짧은 발동 조건 ("4초 안에 풀면 회복!") */
+  /** 문제가 뜰 때 ("잎사귀 톡 준비!", 특수 버튼은 "새싹 쑥쑥 준비! 빨리 풀면 회복!") — 몇 초 안인지는 시간 막대가 보여 준다 */
+  ready: (move: string, special?: SpecialKind) => (special ? `${move} 준비! ${battleText.quickFor(special)}!` : `${move} 준비!`),
+  /** 특수 버튼의 짧은 조건 ("빨리 풀면 회복") */
+  quickFor: (special: SpecialKind) => `빨리 풀면 ${SPECIAL_WORD[special]}`,
+  /** 특수 버튼의 발동 조건 ("4초 안에 풀면 회복!") — 화면 읽기 도구용 숨김 글 */
   condition: (sec: number, special?: SpecialKind): string => `${sec}초 안에 풀면 ${special ? SPECIAL_WORD[special] : '센 기술'}!`,
-  /** 지금 쓰는 기술 줄: 주속성 단계 ("4초 안 2번"), 부속성 ("4초 안에 풀어요") */
+  /** 지금 쓰는 기술 숨김 글: 주속성 단계 ("4초 안 2번"), 부속성 ("4초 안에 풀어요") */
   nowStage: (sec: number, n: 2 | 3) => `${sec}초 안 ${n}번`,
   nowSub: (sec: number) => `${sec}초 안에 풀어요`,
   hit: (move: string) => `${move}! 명중!`,
@@ -91,12 +89,26 @@ export const battleText = {
   /** 위력 범위 (주속성 버튼: 가진 단계 중 가장 약한 것 ~ 가장 센 것) */
   powerRange: (min: number, max: number) => (min === max ? stars(min) : `${stars(min)}~${stars(max)}`),
   hintInstruction: '빛나는 답을 눌러 보세요',
-  miss: (move: string) => `${move}! …빗나갔다. 힌트를 보자!`,
+  /** 틀렸을 때 (적의 공격 뒤) — 회피 "빗나갔어요"와 헷갈리지 않게 */
+  miss: '아쉬워! 힌트를 보자!',
+  /** 크리티컬 (크게) */
+  crit: '💥 크리티컬!',
+  /** 공격이 빗나감 (회피) */
+  dodge: '빗나갔어요!',
+  /** 내 기술이 빗나감 */
+  dodgedHit: (move: string) => `${move}! …빗나갔어요!`,
+  /** 특수효과가 확률에 져서 실패함 (공격 칸은 그대로 들어감) */
+  effectFailed: '효과가 실패했어요…',
+  /** 캡슐 버튼 (문제를 푸는 동안, 남은 수) */
+  capsuleButton: (left: number) => `캡슐 (${left})`,
+  /** 캡슐 버튼이 꺼져 있을 때 한 줄 */
+  capsuleLocked: '체력이 1/4 이하일 때 던질 수 있어요',
   timeUp: '시간이 지났어!',
   foeAttack: (name: string, move: string) => `${name}의 ${move}!`,
   fainted: (name: string) => `${josa(name, '이', '가')} 쓰러졌다… 태초마을로 돌아가자`,
   dizzy: (name: string) => `${josa(name, '이', '가')} 어지러워한다! 지금이야!`,
-  retry: '좋아, 다시 해 보자!',
+  /** 힌트의 빛나는 답을 누른 뒤 (다른 문제로 넘어감, 틀린 문제는 몇 문제 뒤에 다시) */
+  retry: '좋아, 다음 문제!',
   throwCapsule: '캡슐을 던졌다!',
   caught: (name: string, newSpecies = false) => `${josa(name, '을', '를')} 잡았다!${newSpecies ? ' 새로 만났어!' : ''}`,
   /** 캡슐에서 빠져나옴: 체력을 조금 되찾고 다시 싸운다 */
