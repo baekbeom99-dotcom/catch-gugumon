@@ -1,44 +1,131 @@
 import { describe, expect, it } from 'vitest';
-import { answerDanQuiz, createDanQuiz, danQuizFact, leaveDanHint, practiceDans } from '../../src/domain/field/shopQuiz';
+import { getFact, FACTS, type Dan } from '../../src/domain/facts';
+import { FIELDS, LEGEND_DAN } from '../../src/domain/field/fields';
+import {
+  answerShopQuiz,
+  createShopQuiz,
+  leaveShopHint,
+  planShopQuestions,
+  shopQuizItem,
+} from '../../src/domain/field/shopQuiz';
+import { FIELD_TYPES } from '../../src/domain/field/fieldQuestions';
+import { initialFactStats, type Box } from '../../src/domain/mastery';
+import { seededRng } from '../../src/domain/random';
+import { EXPLORATION_SIZE, type LearnerSnapshot } from '../../src/domain/scheduler';
 
-describe('상점 한 단 연습', () => {
-  it('2단 연습은 2x1 … 2x9 차례대로 9문제', () => {
-    let q = createDanQuiz(2);
-    const ids: string[] = [];
-    while (!q.done) {
-      ids.push(danQuizFact(q)!);
-      q = answerDanQuiz(q, true);
+const NOW = new Date(2026, 9, 15, 10).getTime();
+
+function learner(challengeUnlocked: boolean): LearnerSnapshot {
+  const facts = initialFactStats();
+  for (const f of FACTS) {
+    const s = facts[f.id];
+    s.box = ((f.a * 5 + f.b * 3) % 6) as Box;
+    s.dueAt = s.box === 0 ? null : NOW - 86400000;
+  }
+  return { facts, danRecent: {}, challengeUnlocked, boosted: {} };
+}
+
+describe('상점 캡슐 랜덤 출제', () => {
+  it('캡슐 지역의 단에서만 나온다 (다른 단은 안 나옴)', () => {
+    for (const type of ['meadow', 'waterside'] as const) {
+      for (let seed = 1; seed <= 20; seed++) {
+        const plan = planShopQuestions(learner(true), type, NOW, seededRng(seed));
+        expect(plan).toHaveLength(EXPLORATION_SIZE);
+        for (const it of plan) expect(FIELDS[type].dans).toContain(getFact(it.factId).a);
+      }
     }
-    expect(ids).toEqual(['2x1', '2x2', '2x3', '2x4', '2x5', '2x6', '2x7', '2x8', '2x9']);
-    expect(q.index).toBe(9);
-    expect(answerDanQuiz(q, true)).toBe(q);
   });
-  it('끝난 퀴즈는 문제가 없고(null), x0·x10은 한 번도 안 나온다', () => {
-    let q = createDanQuiz(7);
-    const ids: string[] = [];
-    while (!q.done) {
-      ids.push(danQuizFact(q)!);
-      q = answerDanQuiz(q, true);
+  it('사막은 12단이 잠겨 있으면 5·7단만, 열리면 12단도', () => {
+    const locked = new Set<number>();
+    const open = new Set<number>();
+    for (let seed = 1; seed <= 40; seed++) {
+      planShopQuestions(learner(false), 'desert', NOW, seededRng(seed)).forEach((it) => locked.add(getFact(it.factId).a));
+      planShopQuestions(learner(true), 'desert', NOW, seededRng(seed)).forEach((it) => open.add(getFact(it.factId).a));
     }
-    expect(danQuizFact(q)).toBeNull();
-    expect(ids.some((f) => f.endsWith('x0') || f.endsWith('x10'))).toBe(false);
+    expect([...locked].sort()).toEqual([5, 7]);
+    expect(open.has(12)).toBe(true);
   });
-  it('틀리면 힌트, 같은 문제, 진도 안 나감', () => {
-    const q = answerDanQuiz(createDanQuiz(3), false);
+  it('황금 캡슐은 13단만 (그대로)', () => {
+    const plan = planShopQuestions(learner(true), 'legend', NOW, seededRng(3));
+    expect(plan.every((it) => getFact(it.factId).a === (LEGEND_DAN as Dan))).toBe(true);
+  });
+  it('같은 rng면 같은 문제 목록이고, 다른 rng면 달라진다 (무작위)', () => {
+    const a = planShopQuestions(learner(true), 'meadow', NOW, seededRng(5)).map((i) => i.factId);
+    const b = planShopQuestions(learner(true), 'meadow', NOW, seededRng(5)).map((i) => i.factId);
+    const c = planShopQuestions(learner(true), 'meadow', NOW, seededRng(6)).map((i) => i.factId);
+    expect(a).toEqual(b);
+    expect(a).not.toEqual(c);
+    // 차례대로 ×1~×9가 아니다
+    expect(a).not.toEqual(['2x1', '2x2', '2x3', '2x4', '2x5', '2x6', '2x7', '2x8', '2x9']);
+  });
+  it('자주 틀린 문제(틀려서 복습할 때가 된 것)는 반드시 목록에 들어온다 (오답 복습 슬롯)', () => {
+    const l = learner(true);
+    const s = l.facts['4x7'];
+    s.box = 1;
+    s.lastWrongAt = NOW - 1000;
+    s.dueAt = NOW - 1000;
+    for (let seed = 1; seed <= 10; seed++) {
+      const plan = planShopQuestions(l, 'meadow', NOW, seededRng(seed));
+      expect(plan.map((i) => i.factId)).toContain('4x7');
+    }
+  });
+  it('문제 모양은 필드 모양(답 구하기·앞 수·뒤 수)만', () => {
+    const plan = planShopQuestions(learner(true), 'waterside', NOW, seededRng(9));
+    for (const it of plan) expect(FIELD_TYPES).toContain(it.type);
+  });
+});
+
+describe('상점 연습 진행', () => {
+  const plan = () => planShopQuestions(learner(true), 'meadow', NOW, seededRng(2));
+  it('모두 맞히면 목록 길이만큼 풀고 끝난다 (9문제)', () => {
+    let q = createShopQuiz(plan());
+    let n = 0;
+    while (!q.done) {
+      expect(shopQuizItem(q)).not.toBeNull();
+      q = answerShopQuiz(q, true);
+      n++;
+    }
+    expect(n).toBe(EXPLORATION_SIZE);
+    expect(shopQuizItem(q)).toBeNull();
+    expect(answerShopQuiz(q, true)).toBe(q);
+  });
+  it('틀리면 힌트, 같은 자리 (연타해도 그대로)', () => {
+    const q = answerShopQuiz(createShopQuiz(plan()), false);
     expect(q).toMatchObject({ index: 0, hint: true });
-    expect(answerDanQuiz(q, true)).toEqual(q);
-    expect(leaveDanHint(q)).toMatchObject({ index: 0, hint: false });
+    expect(answerShopQuiz(q, true)).toBe(q);
   });
-  it('12·13단은 해금 전 잠김', () => {
-    expect(practiceDans('desert', false)).toEqual([
-      { dan: 5, locked: false },
-      { dan: 7, locked: false },
-      { dan: 12, locked: true },
-    ]);
-    expect(practiceDans('desert', true)[2]).toEqual({ dan: 12, locked: false });
-    expect(practiceDans('legend', true)).toEqual([{ dan: 13, locked: false }]);
-    expect(practiceDans('legend', false)).toEqual([{ dan: 13, locked: true }]);
-    expect(practiceDans('meadow', false).map((d) => d.dan)).toEqual([2, 4, 8]);
-    expect(practiceDans('waterside', false).map((d) => d.dan)).toEqual([3, 6, 9]);
+  it('힌트를 닫으면 다음 카드로 넘어가고, 틀린 문제는 2~3장 뒤에 다시 나온다', () => {
+    for (let seed = 1; seed <= 20; seed++) {
+      const first = createShopQuiz(plan());
+      const wrongId = shopQuizItem(first)!.factId;
+      const q = leaveShopHint(answerShopQuiz(first, false), seededRng(seed));
+      expect(q.hint).toBe(false);
+      expect(q.index).toBe(1);
+      expect(q.plan).toHaveLength(EXPLORATION_SIZE + 1);
+      expect(shopQuizItem(q)!.factId).not.toBe(wrongId === shopQuizItem(q)!.factId ? '' : wrongId);
+      const at = q.plan.findIndex((it, i) => i > 0 && it.isRetry && it.factId === wrongId);
+      expect([3, 4]).toContain(at); // 지금(0) + 1 + 틈 2~3
+      expect(FIELD_TYPES).toContain(q.plan[at].type);
+    }
+  });
+  it('틀린 문제를 다시 맞혀야 끝난다 (10장)', () => {
+    let q = leaveShopHint(answerShopQuiz(createShopQuiz(plan()), false), seededRng(1));
+    let n = 1;
+    while (!q.done) {
+      q = answerShopQuiz(q, true);
+      n++;
+    }
+    expect(n).toBe(EXPLORATION_SIZE + 1);
+  });
+  it('힌트 중이 아니면 leaveShopHint는 그대로', () => {
+    const q = createShopQuiz(plan());
+    expect(leaveShopHint(q, seededRng(1))).toBe(q);
+  });
+  it('마지막 문제를 틀리면 맨 뒤에 다시 붙고 끝나지 않는다', () => {
+    let q = createShopQuiz(plan());
+    while (q.index < EXPLORATION_SIZE - 1) q = answerShopQuiz(q, true);
+    q = leaveShopHint(answerShopQuiz(q, false), seededRng(4));
+    expect(q.done).toBe(false);
+    expect(shopQuizItem(q)!.isRetry).toBe(true);
   });
 });

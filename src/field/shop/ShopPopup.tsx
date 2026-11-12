@@ -1,11 +1,10 @@
 /** 태초마을 상점 팝업 — 필드 위에 겹쳐 뜬다. 탭: 캡슐·회복약·준비 중. 닫기 버튼과 Escape로 닫힌다 */
 import { useEffect, useState } from 'react';
-import type { Dan } from '../../domain/facts';
 import type { CapsuleType } from '../../domain/field/capsules';
 import { setUpdateBusy } from '../../pwa/autoUpdate';
 import type { SpeciesId } from '../../store/fieldData';
 import { CapsuleTab } from './CapsuleTab';
-import { DanPractice } from './DanPractice';
+import { CapsulePractice } from './CapsulePractice';
 import { HealPractice } from './HealPractice';
 import { PotionTab } from './PotionTab';
 import { shopText } from './shopText';
@@ -19,7 +18,7 @@ export const SHOP_TABS: { id: ShopTabId; label: string; ready: boolean }[] = [
   { id: 'soon', label: '준비 중', ready: false },
 ];
 
-type View = { kind: 'tabs' } | { kind: 'dan'; type: CapsuleType; dan: Dan } | { kind: 'heal'; species: SpeciesId };
+type View = { kind: 'tabs' } | { kind: 'capsule'; type: CapsuleType } | { kind: 'heal'; species: SpeciesId };
 
 export function ShopPopup({ onClose }: { onClose(): void }) {
   const [tab, setTab] = useState<ShopTabId>('capsule');
@@ -55,7 +54,7 @@ export function ShopPopup({ onClose }: { onClose(): void }) {
             {shopText.close}
           </button>
         </header>
-        {view.kind === 'dan' && <DanPractice dan={view.dan} type={view.type} onDone={toTabs} onQuit={toTabs} />}
+        {view.kind === 'capsule' && <CapsulePractice type={view.type} onDone={toTabs} onQuit={toTabs} />}
         {view.kind === 'heal' && <HealPractice species={view.species} onDone={toTabs} onQuit={toTabs} />}
         {view.kind === 'tabs' && (
           <>
@@ -83,7 +82,7 @@ export function ShopPopup({ onClose }: { onClose(): void }) {
                 {shopText.soon}
               </p>
             )}
-            {tab === 'capsule' && <CapsuleTab onPractice={(type, dan) => setView({ kind: 'dan', type, dan })} />}
+            {tab === 'capsule' && <CapsuleTab onPractice={(type) => setView({ kind: 'capsule', type })} />}
             {tab === 'potion' && <PotionTab onPractice={(species) => setView({ kind: 'heal', species })} />}
           </>
         )}

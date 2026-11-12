@@ -167,21 +167,6 @@
   background: var(--lime);
 }
 
-.fshop-dans {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 8px;
-}
-
-.fshop-dan {
-  min-height: 56px;
-  font-size: 20px;
-}
-
-.fshop-dan:disabled {
-  opacity: 0.5;
-}
-
 /* 연습 문제 */
 .practice-wrap {
   display: flex;

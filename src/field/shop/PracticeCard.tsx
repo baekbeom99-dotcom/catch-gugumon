@@ -1,4 +1,4 @@
-/** 상점 연습 문제 한 장 — 한 단 연습과 회복 연습이 같이 쓴다. 문제·보기·힌트와 학습 기록을 맡는다 */
+/** 상점 연습 문제 한 장 — 캡슐 연습과 회복 연습이 같이 쓴다. 문제·보기·힌트와 학습 기록을 맡는다 */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { HintPanel } from '../../components/HintPanel';
 import { QuestionView } from '../../components/QuestionView';
@@ -13,7 +13,7 @@ import './shop.css';
 interface Props {
   factId: FactId;
   type: QuestionType;
-  /** 문제가 바뀌는 때마다 달라지는 값. 같은 문제를 힌트 뒤에 다시 낼 때는 그대로 (R22: 보기도 그대로) */
+  /** 문제가 바뀌는 때마다 달라지는 값. 같은 문제를 다시 낼 때도 새 자리면 달라진다 (힌트를 보는 동안은 그대로 — R22: 보기도 그대로) */
   qkey: string;
   /** 틀려서 힌트를 보여 주는 중 */
   hint: boolean;

@@ -1,7 +1,7 @@
 /** 구구몬 체력·상처 목록 — 설계서 6-4·6-5. 순수 계산(React 없음) */
 import type { FactId } from '../facts';
 import type { QuestionType } from '../questionGen';
-import { shuffle, type Rng } from '../random';
+import { randomInt, shuffle, type Rng } from '../random';
 import { COMPANION_MAX_HP, HEAL_ROUNDS, WOUNDS_MAX } from './tuning';
 
 /** 상처: 우리 구구몬이 맞게 한 문제 (같은 사실·같은 모양이면 한 개) */
@@ -67,7 +67,15 @@ export function answerHeal(run: HealRun, correct: boolean, rng: Rng): HealRun {
   return { ...run, order, round, index: 0 };
 }
 
-/** 힌트를 닫으면 같은 문제를 다시 푼다 */
-export function leaveHealHint(run: HealRun): HealRun {
-  return run.hint ? { ...run, hint: false } : run;
+/**
+ * 힌트를 닫으면 다음 상처로 넘어간다. 틀린 상처는 2~3장 뒤로 보내 다시 낸다
+ * (남은 상처가 모자라면 이번 바퀴 맨 뒤). 맞힌 수에는 안 세니 다시 맞혀야 바퀴가 끝난다
+ */
+export function leaveHealHint(run: HealRun, rng: Rng): HealRun {
+  if (!run.hint) return run;
+  const wrong = run.order[run.index];
+  if (!wrong) return { ...run, hint: false };
+  const rest = run.order.filter((_, i) => i !== run.index);
+  const at = Math.min(run.index + randomInt(rng, 2, 3), rest.length);
+  return { ...run, order: [...rest.slice(0, at), wrong, ...rest.slice(at)], hint: false };
 }

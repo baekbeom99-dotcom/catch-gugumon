@@ -795,18 +795,17 @@ async function solveShop(page: Page) {
   await choice(page, answer).click();
 }
 
-test('마을 문에 부딪히면 상점 팝업이 뜨고, 캡슐 탭에 네 줄이 있다 (황금 캡슐의 13단은 잠김)', async ({ page }) => {
+test('마을 문에 부딪히면 상점 팝업이 뜨고, 캡슐 탭에 네 줄이 있다 (13단이 잠겨 있으면 황금 캡슐은 못 얻음)', async ({ page }) => {
   await standAtShopDoor(page);
   await openShop(page);
   const shop = page.getByRole('dialog', { name: '상점' });
   await expect(shop.getByText('초원 캡슐')).toBeVisible();
   await expect(shop.getByText('물가 캡슐')).toBeVisible();
   await expect(shop.getByText('사막 캡슐')).toBeVisible();
-  await expect(shop.getByText('황금 캡슐')).toBeVisible();
-  await shop.getByRole('button', { name: '황금 캡슐 얻기' }).click();
-  await expect(shop.getByRole('button', { name: /13단/ })).toBeDisabled();
-  await shop.getByRole('button', { name: '← 뒤로' }).click();
-  await expect(shop.getByText('초원 캡슐')).toBeVisible();
+  await expect(shop.getByText('황금 캡슐', { exact: true })).toBeVisible();
+  await expect(shop.getByRole('button', { name: '황금 캡슐 얻기' })).toBeDisabled();
+  await expect(shop.getByText('13단 도전이 열리면 황금 캡슐을 얻을 수 있어요')).toBeVisible();
+  await expect(shop.getByRole('button', { name: '초원 캡슐 얻기' })).toBeEnabled();
 });
 
 test('상점이 열려 있는 동안은 걷지 않고, 닫기·Escape로 닫으면 문 앞 칸 그대로', async ({ page }) => {
@@ -826,45 +825,55 @@ test('상점이 열려 있는 동안은 걷지 않고, 닫기·Escape로 닫으�
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '8,25');
 });
 
-test('초원 캡슐 얻기: 2단 9문제 (첫 문제는 틀려 힌트 → 같은 문제), 캡슐 3개와 학습 기록', async ({ page }) => {
+/** 지금 문제의 사실 번호 (예: '4x7') */
+async function practiceFact(page: Page): Promise<string> {
+  const id = await page.getByRole('dialog', { name: '상점' }).locator('.practice').getAttribute('data-fact');
+  return id!;
+}
+
+test('초원 캡슐 얻기: 단 선택 없이 바로 문제 (초원 단만), 틀리면 힌트 → 다음 카드 → 잠시 뒤 다시, 끝나면 캡슐 5개', async ({ page }) => {
   await standAtShopDoor(page);
   await openShop(page);
   const shop = page.getByRole('dialog', { name: '상점' });
   const before = await totalAttempts(page);
   const rewardBefore = await starsAndGrowth(page);
   await shop.getByRole('button', { name: '초원 캡슐 얻기' }).click();
-  await shop.getByRole('button', { name: '2단' }).click();
-  // 첫 문제 2 × 1: 일부러 틀린다
+  // 단 고르는 화면 없이 바로 첫 문제
+  await expect(shop.getByRole('button', { name: /^\d+단$/ })).toHaveCount(0);
+  await expect(shop.locator('.practice__q .question')).toBeVisible();
+  await expect(shop.locator('.practice-head__title')).toHaveText('초원 캡슐 얻기 (1/9)');
+  // 첫 문제: 일부러 틀린다
+  const wrongFact = await practiceFact(page);
   const answer = await practiceAnswer(page);
-  expect(answer).toBe(2);
-  const boardBefore = await shop.locator('.fshop-choice').allTextContents();
   await choice(page, await wrongChoice(page, answer)).click();
   await expect(shop.locator('.fshop-choice--glow')).toHaveCount(1);
   await expect(shop.locator('.practice__hint')).toBeVisible();
   await shop.locator('.fshop-choice--glow').click();
-  // 같은 문제, 같은 보기
+  // 힌트를 닫으면 다음 카드 (번호 2, 길이는 10으로 늘어남)
   await expect(shop.locator('.practice__hint')).toHaveCount(0);
-  expect(await practiceAnswer(page)).toBe(2);
-  expect(await shop.locator('.fshop-choice').allTextContents()).toEqual(boardBefore);
-  await solveShop(page);
-  for (let i = 2; i <= 9; i++) {
-    expect(await practiceAnswer(page)).toBe(2 * i);
+  await expect(shop.locator('.practice-head__title')).toHaveText('초원 캡슐 얻기 (2/10)');
+  // 끝까지 풀며, 지역(초원 2·4·8단) 밖의 단이 안 나오고 틀린 문제가 다시 나오는지 본다
+  let reappeared = 0;
+  let solved = 0;
+  while (!(await shop.getByText('초원 캡슐 5개를 받았어요!').isVisible())) {
+    const id = await practiceFact(page);
+    expect([2, 4, 8]).toContain(Number(id.split('x')[0]));
+    if (id === wrongFact) reappeared++;
     await solveShop(page);
+    solved++;
+    expect(solved).toBeLessThan(30);
   }
-  await expect(shop.getByText('초원 캡슐 3개를 받았어요!')).toBeVisible();
-  expect((await savedField(page)).capsules.meadow).toBe(6);
+  expect(reappeared).toBeGreaterThanOrEqual(1);
+  expect(solved).toBe(9); // 처음 틀린 1장 빼고 9장을 맞혔다
+  expect((await savedField(page)).capsules.meadow).toBe(8);
   expect(await totalAttempts(page)).toBe(before + 10);
   // 상점 연습은 별도 성장 점수도 주지 않는다
   expect(await starsAndGrowth(page)).toEqual(rewardBefore);
-  // 틀린 적 없는 사실을 맞히면 지금처럼 상자가 오른다 (다음 복습은 미래)
-  const ok = await savedFact(page, '2x5');
-  expect(ok.box).toBe(1);
-  expect(ok.dueAt!).toBeGreaterThan(Date.now());
-  // 틀렸다가 힌트 뒤 맞힌 사실(2x1)은 지금 복습 대상
-  expect((await savedFact(page, '2x1')).dueAt!).toBeLessThanOrEqual(Date.now());
+  // 틀렸다가 다시 맞힌 사실은 지금 복습 대상
+  expect((await savedFact(page, wrongFact)).dueAt!).toBeLessThanOrEqual(Date.now());
   await shop.getByRole('button', { name: '확인' }).click();
-  await expect(shop.getByLabel('초원 캡슐 6개')).toBeVisible();
-  expect((await savedField(page)).capsules.meadow).toBe(6);
+  await expect(shop.getByLabel('초원 캡슐 8개')).toBeVisible();
+  expect((await savedField(page)).capsules.meadow).toBe(8);
 });
 
 test('연습 도중에 나가면 캡슐은 그대로 (그만하기·Escape)', async ({ page }) => {
@@ -872,7 +881,6 @@ test('연습 도중에 나가면 캡슐은 그대로 (그만하기·Escape)', as
   await openShop(page);
   const shop = page.getByRole('dialog', { name: '상점' });
   await shop.getByRole('button', { name: '초원 캡슐 얻기' }).click();
-  await shop.getByRole('button', { name: '4단' }).click();
   await solveShop(page);
   await solveShop(page);
   await shop.getByRole('button', { name: '그만하기' }).click();
@@ -880,7 +888,6 @@ test('연습 도중에 나가면 캡슐은 그대로 (그만하기·Escape)', as
   expect((await savedField(page)).capsules.meadow).toBe(3);
   // Escape는 연습만 그만두고 상점은 그대로
   await shop.getByRole('button', { name: '초원 캡슐 얻기' }).click();
-  await shop.getByRole('button', { name: '8단' }).click();
   await solveShop(page);
   await page.keyboard.press('Escape');
   await expect(shop).toBeVisible();
@@ -911,7 +918,7 @@ test('회복약: 쓰러진 구구몬을 상처 문제 3바퀴로 회복한다', 
   await expect(page.getByRole('dialog', { name: '상점' })).toHaveCount(0);
 });
 
-test('회복약: 틀리면 힌트 뒤 같은 문제, 틀린 답도 학습 기록에 남는다', async ({ page }) => {
+test('회복약: 틀리면 힌트를 보고 넘어가고 그 문제를 다시, 틀린 답도 학습 기록에 남는다', async ({ page }) => {
   await standAtShopDoor(page, {
     species: { cloud: { ...STARTER_FIELD.species.cloud, hp: 40, wounds: [{ factId: '7x8', type: 'product' }] } },
   });

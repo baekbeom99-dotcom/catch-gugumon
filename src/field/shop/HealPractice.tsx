@@ -1,4 +1,4 @@
-/** 회복약: 그 구구몬의 상처 문제를 HEAL_ROUNDS바퀴 풀면 다 낫는다. 시간 제한 없음, 틀리면 힌트 뒤 같은 문제. 중간에 나가면 그대로 */
+/** 회복약: 그 구구몬의 상처 문제를 HEAL_ROUNDS바퀴 풀면 다 낫는다. 시간 제한 없음, 틀리면 힌트를 보고 다음 상처로(그 문제는 잠시 뒤 다시). 중간에 나가면 그대로 */
 import { useRef, useState } from 'react';
 import { displayName } from '../../domain/field/growth';
 import type { SpeciesId } from '../../domain/field/creatures';
@@ -57,7 +57,7 @@ export function HealPractice({ species, onDone, onQuit }: Props) {
         qkey={`h${run.round}:${run.index}:${wound.factId}:${wound.type}`}
         hint={run.hint}
         onAnswer={onAnswer}
-        onHintPick={() => setRun(leaveHealHint(run))}
+        onHintPick={() => setRun(leaveHealHint(run, Math.random))}
       />
     </div>
   );

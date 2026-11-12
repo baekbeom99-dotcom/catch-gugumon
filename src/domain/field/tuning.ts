@@ -115,15 +115,12 @@ export const WOUNDS_MAX = 10;
 // ── 캡슐 (설계서 4절·5절) ──
 /** 처음 갖고 시작하는 캡슐 (옛 저장도 업데이트 때 같은 개수) */
 export const CAPSULE_START = { meadow: 3, waterside: 3, desert: 3, legend: 0 } as const;
-/** 상점에서 한 단을 끝까지 풀면 받는 캡슐 수 (Task 17) */
-export const CAPSULE_REWARD = 3;
+/** 상점에서 캡슐 연습(문제 9개)을 끝까지 풀면 받는 캡슐 수 (Task 17: 3 → 5) */
+export const CAPSULE_REWARD = 5;
 /** 캡슐은 한 종류에 이만큼까지만 (손으로 고친 저장의 터무니없는 수를 막는다) */
 export const CAPSULE_MAX = 999;
 
 // ── 상점 연습 (설계서 5절·7절) ──
-/** 한 단 연습은 ×1부터 ×9까지 차례대로 */
-export const DAN_PRACTICE_FIRST = 1;
-export const DAN_PRACTICE_LAST = 9;
 /** 회복약: 상처 문제를 하나하나 이만큼 바퀴 동안 맞혀야 낫는다 */
 export const HEAL_ROUNDS = 3;
 /** 새 문제가 뜬 뒤 이 시간 동안은 보기가 눌리지 않는다 (연타로 다음 문제까지 답해 버리는 것을 막는다) */

@@ -49,21 +49,43 @@ describe('구구몬 체력·상처', () => {
 
 describe('회복 연습', () => {
   const w = (f: string): Wound => ({ factId: f as FactId, type: 'product' });
-  it('상처 2개 → 정답 6번에 끝, 바퀴마다 다시 섞음, 오답은 셈 안 함', () => {
+  it('상처 2개 → 정답 6번에 끝, 바퀴마다 다시 섞음', () => {
     const ws = [w('2x3'), w('7x8')];
     let run = createHealRun(ws, seededRng(3));
     let n = 0;
     const seen: string[] = [];
     while (!run.done) {
       seen.push(healRunWound(run)!.factId);
-      run = leaveHealHint(answerHeal(run, false, seededRng(n)));
-      expect(run.index + run.round * 2).toBe(n);
       run = answerHeal(run, true, seededRng(n++));
     }
     expect(n).toBe(6);
     expect(seen.filter((f) => f === '2x3')).toHaveLength(3);
     expect(seen.filter((f) => f === '7x8')).toHaveLength(3);
     expect(healRunWound(run)).toBeNull();
+  });
+  it('틀리면 힌트 → 닫으면 다음 상처로 넘어가고, 틀린 상처는 몇 장 뒤에 다시 나온다 (맞힌 수에 안 셈)', () => {
+    const ws = [w('2x3'), w('3x4'), w('4x5'), w('5x6'), w('6x7')];
+    let run = createHealRun(ws, seededRng(3));
+    const wrong = healRunWound(run)!.factId;
+    run = leaveHealHint(answerHeal(run, false, seededRng(1)), seededRng(1));
+    expect(run.hint).toBe(false);
+    expect(run.index).toBe(0); // 다음 상처가 그 자리로 올라옴
+    expect(healRunWound(run)!.factId).not.toBe(wrong);
+    expect(run.order).toHaveLength(5);
+    const at = run.order.findIndex((x) => x.factId === wrong);
+    expect([2, 3]).toContain(at); // 지금 자리 + 틈 2~3
+    // 5개를 다 맞혀야 첫 바퀴 끝 (틀린 것도 다시 맞혀야 함)
+    let n = 0;
+    while (run.round === 0) {
+      run = answerHeal(run, true, seededRng(n++));
+    }
+    expect(n).toBe(5);
+  });
+  it('상처가 하나뿐이어도 틀리면 힌트 뒤 같은 문제가 다시 나온다', () => {
+    let run = createHealRun([w('7x8')], seededRng(1));
+    run = leaveHealHint(answerHeal(run, false, seededRng(1)), seededRng(1));
+    expect(healRunWound(run)!.factId).toBe('7x8');
+    expect(run.round).toBe(0);
   });
   it('상처가 없으면 바로 done', () => {
     const run = createHealRun([], seededRng(1));
@@ -74,7 +96,7 @@ describe('회복 연습', () => {
     const run = answerHeal(createHealRun([w('2x3')], seededRng(1)), false, seededRng(1));
     expect(run.hint).toBe(true);
     expect(answerHeal(run, true, seededRng(1))).toBe(run);
-    expect(leaveHealHint(run)).toMatchObject({ hint: false, index: 0, round: 0 });
+    expect(leaveHealHint(run, seededRng(1))).toMatchObject({ hint: false, index: 0, round: 0 });
     const done = createHealRun([], seededRng(1));
     expect(answerHeal(done, true, seededRng(1))).toBe(done);
   });
