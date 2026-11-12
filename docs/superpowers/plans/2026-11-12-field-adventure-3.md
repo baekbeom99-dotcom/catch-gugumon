@@ -361,3 +361,22 @@
 - [ ] **Step 1: 실패하는 테스트** — `tuning.test.ts` 단계 시간 고정표(합 ≈3000ms), E2E: 단계 속성이 `throw→hit→absorb→fall→bounce→shake→result` 순서로 나타남(MutationObserver 기록, 고정 sleep 금지), `bounce`는 `fall` 뒤에만, `capsuleBounce` 소리가 `fall` 끝(바닥에 닿는 순간)에, 잡힘·`healed`·`escaped`·`angry` 모두 기존 결과 유지.
 - [ ] **Step 2: 실패 확인** → **Step 3: 구현** → **Step 4:** `npx tsc --noEmit -p .`, `npx vitest run`, `E2E_PORT=5191 npx playwright test e2e/field.spec.ts e2e/skills.spec.ts e2e/title.spec.ts`(혼자), 375px에서 단계별 스크린샷(맞음·빨려듦·낙하·바닥·흔들림·잡힘)을 `.superpowers/sdd/2026-11-12-field-adventure-3/task-14-shots/`에 저장하고 "머리에 맞고 바닥으로 떨어지는 느낌"이 나는지 한 줄씩 보고서에 적는다.
 - [ ] **Step 5: Commit** — `git commit -m "캡슐이 머리에 맞고 바닥으로 떨어진 뒤 흔들리는 연출"`
+
+---
+
+### Task 15: 전투 UI 간결화 — 버튼 3개 나란히, 게이지는 눈금과 색만 (Sonnet)
+
+**담당:** Sonnet, 이후 Sonnet 검토 (Task 13 뒤, Task 14 앞에 한다 — 같은 전투 화면·CSS를 만지므로 동시에 하지 않는다)
+
+**Files:**
+- Modify: `src/field/battle/SkillPicker.tsx`, `src/field/battle/BattleBars.tsx`(`TimerBar`·구간 계산), `src/field/battle/skillUse.ts`(`buttonLines`/`skillLines`를 화면용 짧은 이름·숨김 설명으로 분리), `src/field/battle/battleText.ts`(빠르다 글), `src/field/battle/WildBattleScreen.tsx`, 전투 CSS(`wildBattle.css`), `tests/field/skillUse.test.ts`, `e2e/field.spec.ts`(글을 찾는 곳)
+
+**Interfaces (설계서 0-1절 "UI 간결화" — 사용자 지시, 기존 UI 문구보다 우선):**
+- 공격 버튼: `SkillPicker`는 버튼 최대 3개를 **한 줄에 나란히**(각 1/3 폭, 375px에서 안 잘리게 글자 크기·말줄임), 버튼 내용은 **속성 색 표시 + 짧은 스킬 이름 + 상성 ▲▼**만(한 줄 또는 두 줄 이내). 위력 별·단계별 시간 문구·특수 설명 문구는 **화면에서 제거**하고 `aria-label`/숨김 글(`sr-only`)에만 유지. 특수 버튼은 별 모양 등 모양만 다르게. 고르기 단계 위(또는 아래)에 한 줄 안내 "빨리 풀면 더 세져요 ⚡"(가진 버튼이 2개 이상일 때만, 문구는 `battleText.ts`).
+- 시간 게이지: `TimerBar`는 **눈금과 구간 색 변경만**. ①②③ 글자·버튼별 미리보기 막대·게이지 위 글자 제거. `data-tier`·`gaugeStops`/`tierAt`/`gaugeZones` 순수 함수와 판정 일치 테스트는 유지(눈금 위치·색은 그대로 판정과 일치). 눈금이 번호 없이도 단계 구분이 되도록 눈금 굵기·구간 색 대비를 충분히(색만 의존하지 않게 눈금 자체가 보이게). 고르기 단계에서는 게이지가 고른 버튼 기준으로 눈금·색을 미리 보이게 하던 것은 **버튼 선택 전에는 가장 많은 단계를 가진 주속성 기준 기본 눈금**만(작은 막대 제거).
+- 빠르게 풀었을 때: 글은 **"⚡ 빠르다!"** 한 줄(스킬 이름·단계 번호 나열 없음, 기존 `fxPower` 소리·더 센 스킬 효과 그림은 그대로), 스턴·회복·방어 같은 특수효과 글은 기존처럼 한 줄 유지(길면 줄임).
+- 규칙·판정·저장은 **건드리지 않는다**(표시만 바꿈).
+
+- [ ] **Step 1: 실패하는 테스트** — `skillUse.test.ts`: 화면용 짧은 이름 함수(주속성 버튼은 가진 단계와 무관하게 M1 이름, 부속성·특수는 그 기술 이름, 최대 길이)·숨김 설명이 단계별 조건 문구를 유지, E2E: 버튼 3개가 한 줄에(같은 `top`·각 폭이 비슷, 375px에서 `scrollWidth` 넘침 없음), 버튼 안에 "초 안" 문구가 **보이지 않음**(숨김 글은 있음), 게이지에 ①②③ 글자가 없고 눈금 요소와 `data-tier`가 있음, 윗단계 발동 글이 "⚡ 빠르다!"로 바뀜(기존 글을 찾던 E2E 갱신).
+- [ ] **Step 2: 실패 확인** → **Step 3: 구현** → **Step 4:** `npx tsc --noEmit -p .`, `npx vitest run`, `E2E_PORT=5191 npx playwright test e2e/field.spec.ts e2e/skills.spec.ts e2e/title.spec.ts`(혼자), 375px 스크린샷(버튼 3개 나란히·게이지 기점 전후 색·빠르다 글)을 `.superpowers/sdd/2026-11-12-field-adventure-3/task-15-shots/`에 저장하고 "정보가 줄었는지" 한 줄씩 보고서에 적는다.
+- [ ] **Step 5: Commit** — `git commit -m "전투 화면 간결화: 공격 버튼 3개 나란히, 시간 게이지는 눈금과 색만"`
