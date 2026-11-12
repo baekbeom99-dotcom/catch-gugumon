@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ELEMENT_FX, SPECIAL_FX, STRONG_FX } from '../../src/domain/field/elements';
-import { skillDef } from '../../src/domain/field/skills';
+import { skillButtons, skillDef, type SkillButton } from '../../src/domain/field/skills';
 import { TIER_RULES } from '../../src/domain/field/tuning';
 import { createWild, type WildState } from '../../src/domain/field/wildBattle';
 import { answerWithSkill, foeSkill, heldSkills, hitMessage, skillFxName, skillMatchup, skillSfxPlan } from '../../src/field/battle/skillUse';
@@ -8,6 +8,10 @@ import { answerWithSkill, foeSkill, heldSkills, hitMessage, skillFxName, skillMa
 const k = (id: string) => skillDef(id);
 /** 보통 단계(7초) 문제 하나: 경과 시간만 정해 둔다 */
 const at = (elapsedMs: number, over: Partial<WildState> = {}): WildState => ({ ...createWild('normal', 5, 100), elapsedMs, ...over });
+/** 구름몬이 held를 가졌을 때의 kind 버튼 */
+const btn = (held: string[], kind: SkillButton['kind'] = 'main') => skillButtons(held, 'cloud').find((b) => b.kind === kind)!;
+const M12 = ['cloud-1', 'cloud-2'];
+const SP = ['cloud-1', 'cloud-3'];
 
 describe('전투 기술: 가진 기술과 고르기 단계', () => {
   it('저장된 기술 목록을 기술 표로 바꾼다 (없으면 그 레벨의 기본 기술)', () => {
@@ -25,43 +29,44 @@ describe('전투 기술: 가진 기술과 고르기 단계', () => {
 
 describe('전투 기술: answerWithSkill (빠르게 스위치·문제 시간)', () => {
   it('스위치가 없으면 실제 경과 시간으로 판정', () => {
-    // 잎사귀 톡: 7초 × 0.6 → 4초
-    expect(answerWithSkill(at(4000), k('cloud-1'), ['cloud-1'], 'light', null).fast).toBe(true);
-    expect(answerWithSkill(at(4001), k('cloud-1'), ['cloud-1'], 'light', null).fast).toBe(false);
+    // 새싹 휙(주②): 7초 × 0.5 → 4초
+    expect(answerWithSkill(at(4000), btn(M12), M12, 'light', null).upper).toBe(true);
+    expect(answerWithSkill(at(4001), btn(M12), M12, 'light', null).upper).toBe(false);
   });
-  it('빠르게 스위치 true면 늘 강력, false면 늘 평소 (경과 시간은 그대로 둔다)', () => {
-    const slow = answerWithSkill(at(6500), k('cloud-1'), ['cloud-1'], 'light', true);
-    expect(slow.fast).toBe(true);
-    expect(slow.state).toMatchObject({ cells: 3, elapsedMs: 6500 });
-    const quick = answerWithSkill(at(0), k('cloud-1'), ['cloud-1'], 'light', false);
-    expect(quick.fast).toBe(false);
+  it('빠르게 스위치 true면 늘 가장 높은 단계, false면 늘 주① (경과 시간은 그대로 둔다)', () => {
+    const slow = answerWithSkill(at(6500), btn(M12), M12, 'light', true);
+    expect(slow).toMatchObject({ upper: true, fired: { id: 'cloud-2' }, special: 'stun' });
+    expect(slow.state).toMatchObject({ cells: 2, elapsedMs: 6500, stun: true });
+    const quick = answerWithSkill(at(0), btn(M12), M12, 'light', false);
+    expect(quick).toMatchObject({ upper: false, fired: { id: 'cloud-1' } });
     expect(quick.state).toMatchObject({ cells: 2, elapsedMs: 0 });
   });
   it('특수: 스위치 true면 발동, false면 약한 기술이 대신', () => {
-    expect(answerWithSkill(at(6500), k('cloud-3'), ['cloud-1', 'cloud-3'], 'light', true).special).toBe('heal');
-    const late = answerWithSkill(at(0), k('cloud-3'), ['cloud-1', 'cloud-3'], 'light', false);
-    expect(late).toMatchObject({ usedFallback: true, fast: false });
+    expect(answerWithSkill(at(6500), btn(SP, 'special'), SP, 'light', true).special).toBe('heal');
+    const late = answerWithSkill(at(0), btn(SP, 'special'), SP, 'light', false);
+    expect(late).toMatchObject({ usedFallback: true, upper: false });
     expect(late.fired.id).toBe('cloud-1');
   });
-  it('강력 기준은 그 단계 문제 시간(TIER_RULES)만 — 여유로 늘어난 시간은 넣지 않는다', () => {
-    // 여유로 10초가 된 문제에서 4.5초 걸림: 7초 기준 4초를 넘었으니 강력 아님 (10초 기준이면 6초라 강력이 된다)
+  it('단계 기준은 그 단계 문제 시간(TIER_RULES)만 — 여유로 늘어난 시간은 넣지 않는다', () => {
+    // 여유로 10초가 된 문제에서 4.5초 걸림: 7초 기준 4초를 넘었으니 주① (10초 기준이면 5초라 주②가 된다)
     const s = at(4500, { timeLeftMs: 5500 });
-    expect(answerWithSkill(s, k('cloud-1'), ['cloud-1'], 'light', null).fast).toBe(false);
-    // 화나서 강력(5초)이 되면 그 단계 시간으로: 5초 × 0.6 = 3초
+    expect(answerWithSkill(s, btn(M12), M12, 'light', null).upper).toBe(false);
+    // 화나서 강력(5초)이 되면 그 단계 시간으로: 5초 × 0.5 = 2.5 → 3초
     const m = { ...createWild('mighty', 15, 100), elapsedMs: 3000 };
     expect(TIER_RULES.mighty.timeMs).toBe(5000);
-    expect(answerWithSkill(m, k('cloud-1'), ['cloud-1'], 'light', null).fast).toBe(true);
-    expect(answerWithSkill({ ...m, elapsedMs: 3001 }, k('cloud-1'), ['cloud-1'], 'light', null).fast).toBe(false);
+    expect(answerWithSkill(m, btn(M12), M12, 'light', null).upper).toBe(true);
+    expect(answerWithSkill({ ...m, elapsedMs: 3001 }, btn(M12), M12, 'light', null).upper).toBe(false);
   });
-  it('빠르게 스위치 true는 틀린 뒤 같은 문제(missed)여도 이긴다, 상태의 missed는 그대로', () => {
-    const r = answerWithSkill(at(0, { missed: true }), k('cloud-1'), ['cloud-1'], 'light', true);
-    expect(r.fast).toBe(true);
+  it('틀린 뒤 같은 문제(missed)여도 빠르면 윗단계 (스위치 없이도), 상태의 missed는 그대로', () => {
+    const r = answerWithSkill(at(0, { missed: true }), btn(M12), M12, 'light', true);
+    expect(r.upper).toBe(true);
     expect(r.state.missed).toBe(true);
-    expect(answerWithSkill(at(0, { missed: true }), k('cloud-1'), ['cloud-1'], 'light', null).fast).toBe(false);
+    expect(answerWithSkill(at(0, { missed: true }), btn(M12), M12, 'light', null).upper).toBe(true);
+    expect(answerWithSkill(at(0, { missed: true }), btn(M12), M12, 'light', false).upper).toBe(false);
   });
   it('문제 단계가 아니면 상태 그대로 (스위치가 있어도)', () => {
     const p = at(0, { phase: 'pick' });
-    expect(answerWithSkill(p, k('cloud-1'), ['cloud-1'], 'light', true).state).toBe(p);
+    expect(answerWithSkill(p, btn(M12), M12, 'light', true).state).toBe(p);
   });
 });
 
@@ -95,15 +100,15 @@ describe('전투 기술: 상성·효과 이름·적의 기술', () => {
 
 describe('전투 기술: 정답 글 hitMessage', () => {
   it('회복 특수는 실제로 늘어난 체력만 쓰고, 0이면 이미 가득', () => {
-    const heal = answerWithSkill(at(0, { allyHp: 90 }), k('cloud-3'), ['cloud-1', 'cloud-3'], 'light', true);
+    const heal = answerWithSkill(at(0, { allyHp: 90 }), btn(SP, 'special'), SP, 'light', true);
     expect(hitMessage(heal, 'light', 10)).toBe('새싹 쑥쑥! 체력을 10 되찾았어요!');
     expect(hitMessage(heal, 'light', 25)).toBe('새싹 쑥쑥! 체력을 25 되찾았어요!');
     expect(hitMessage(heal, 'light', 0)).toBe('새싹 쑥쑥! 체력이 이미 가득해요!');
   });
-  it('강력·대신 나감·상성 줄', () => {
-    expect(hitMessage(answerWithSkill(at(0), k('cloud-1'), ['cloud-1'], 'water', true), 'water', 0)).toBe('잎사귀 톡! 강력!\n효과가 커요! ▲');
-    expect(hitMessage(answerWithSkill(at(0), k('cloud-1'), ['cloud-1'], 'light', false), 'light', 0)).toBe('잎사귀 톡! 명중!');
-    expect(hitMessage(answerWithSkill(at(0), k('cloud-3'), ['cloud-1', 'cloud-3'], 'fire', false), 'fire', 0)).toBe(
+  it('윗단계(강력)·대신 나감·상성 줄 (글은 Task 12에서 바뀐다)', () => {
+    expect(hitMessage(answerWithSkill(at(0), btn(M12), M12, 'water', true), 'water', 0)).toBe('새싹 휙! 강력!\n효과가 커요! ▲');
+    expect(hitMessage(answerWithSkill(at(0), btn(M12), M12, 'light', false), 'light', 0)).toBe('잎사귀 톡! 명중!');
+    expect(hitMessage(answerWithSkill(at(0), btn(SP, 'special'), SP, 'fire', false), 'fire', 0)).toBe(
       '시간이 지나서 약한 기술이 나갔어요. 잎사귀 톡!\n별로예요… ▼',
     );
   });

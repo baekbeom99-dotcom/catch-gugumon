@@ -10,7 +10,7 @@ const particle = (word: string, withFinal: string, withoutFinal: string) => josa
 const TIER_WORD: Record<Tier, string> = { weak: '약한 ', normal: '', strong: '강한 ', mighty: '강력한 ', legend: '' };
 
 /** 특수 기술 한 낱말 (고르기 버튼의 발동 조건·내 구구몬 상태 표시) */
-const SPECIAL_WORD: Record<SpecialKind, string> = { heal: '회복', guard: '방어', clue: '힌트', calm: '여유', charge: '충전' };
+const SPECIAL_WORD: Record<SpecialKind, string> = { heal: '회복', guard: '방어', clue: '힌트', calm: '여유', charge: '충전', stun: '스턴' };
 
 /** 특수 기술이 발동했을 때 글 */
 const SPECIAL_DONE: Record<SpecialKind, string> = {
@@ -19,6 +19,7 @@ const SPECIAL_DONE: Record<SpecialKind, string> = {
   clue: '다음 문제에서 틀린 답 하나가 사라져요!',
   calm: `다음 문제 시간이 ${CALM_BONUS_MS / 1000}초 늘어나요!`,
   charge: '다음 기술이 더 세져요!',
+  stun: '기절해서 다음 공격을 못 해요!', // 글은 Task 12에서 다듬는다
 };
 
 export const battleText = {

@@ -48,7 +48,7 @@ import {
   type ThrowOutcome,
   type WildState,
 } from '../../domain/field/wildBattle';
-import { fastSeconds, type SkillDef } from '../../domain/field/skills';
+import { buttonFace, fastSeconds, skillButtons, type SkillButton, type SkillDef } from '../../domain/field/skills';
 import type { FactId } from '../../domain/facts';
 import { forcedThrowRng } from '../../domain/field/strength';
 import type { Rng } from '../../domain/random';
@@ -139,9 +139,13 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   // 가진 기술은 전투를 시작할 때 정해 두고 전투 중에는 바뀌지 않는다
   const [held] = useState(() => heldSkills(companion, useGameStore.getState().field.species[companion]));
   const heldIds = useMemo(() => held.map((d) => d.id), [held]);
-  /** 지금 쓰는 기술 (기술이 하나면 그것). 틀려서 힌트 뒤 같은 문제를 다시 풀 때도 그대로 */
-  const pickedRef = useRef<SkillDef>(held[0]);
-  const [picked, setPicked] = useState<SkillDef>(held[0]);
+  // 기술 버튼 최대 3개 (주속성·부속성·특수). Task 11 임시: 고르기 화면은 버튼마다 대표 기술(buttonFace) 하나를 보인다 — 자세한 글은 Task 12
+  const buttons = useMemo(() => skillButtons(heldIds, companion), [heldIds, companion]);
+  const faces = useMemo(() => buttons.map(buttonFace), [buttons]);
+  /** 지금 쓰는 버튼 (버튼이 하나면 그것). 틀려서 힌트 뒤 같은 문제를 다시 풀 때도 그대로 */
+  const buttonRef = useRef<SkillButton>(buttons[0]);
+  const pickedRef = useRef<SkillDef>(faces[0]);
+  const [picked, setPicked] = useState<SkillDef>(faces[0]);
 
   const { item, fact, question, key, next } = useQuestionFeed(encounter, rng);
   const itemRef = useRef(item);
@@ -153,7 +157,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       encounter.tier,
       encounter.level,
       useGameStore.getState().field.species[companion]?.hp ?? COMPANION_MAX_HP,
-      held.length,
+      buttons.length,
     );
   }
   const [wild, setWildState] = useState<WildState>(wildRef.current);
@@ -445,6 +449,8 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const onPickSkill = (def: SkillDef) => {
     const w = wildRef.current!;
     if (intro || confirmQuit || throwing || w.phase !== 'pick') return;
+    const i = faces.findIndex((f) => f.id === def.id);
+    buttonRef.current = buttons[Math.max(0, i)];
     pickedRef.current = def;
     setPicked(def);
     setWild(pickSkill(w));
@@ -465,7 +471,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       onStruck(after);
       return;
     }
-    const r = answerWithSkill(w, pickedRef.current, heldIds, wildElement, debugFlags().fast);
+    const r = answerWithSkill(w, buttonRef.current, heldIds, wildElement, debugFlags().fast);
     let after = r.state;
     let healed = 0;
     if (r.special === 'heal') {
@@ -477,8 +483,8 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     setWild(after);
     record(true, ms, w.missed);
     setHitCount((n) => n + 1);
-    // 강력 효과는 속성 기술이 빠르게 맞았을 때만 (특수 발동·대신 나간 기술은 평소 효과)
-    moveFx('ally', r.fired, r.fast && !r.usedFallback && r.fired.kind !== 'special', skillMatchup(r.fired, wildElement));
+    // 윗단계(주②·주③·부속성)가 나가면 fxPower 소리 (특수 발동·대신 나간 기술은 평소). Task 11 임시: 그림도 아직 강력 효과 — Task 12에서 ELEMENT_FX로
+    moveFx('ally', r.fired, r.upper && !r.usedFallback && r.fired.kind !== 'special', skillMatchup(r.fired, wildElement));
     const text = hitMessage(r, wildElement, healed);
     // 이 문제에서 틀렸었으면 다음으로 넘어갈 때 틀린 사실을 몇 문제 뒤에 다시 넣는다
     const retryWrong = w.missed;
@@ -487,7 +493,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       later(() => {
         if (settledRef.current) return;
         // 다음 문제: 기술이 2개 이상이면 고르기부터 (글은 방금 맞힌 글을 그대로 둔다)
-        setWild(resumeWild(wildRef.current!, held.length));
+        setWild(resumeWild(wildRef.current!, buttons.length));
         next(retryWrong);
       }, WILD_HIT_ANIM_MS);
     } else if (after.phase === 'dizzy') {
@@ -510,7 +516,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     // 결과는 던지는 순간 정해 두고, 연출은 거기에 맞춰 보여 준다 (E2E 만남 스위치면 언제나 잡히고, 결과 스위치가 있으면 그 결과)
     const flags = debugFlags();
     const roll = flags.throwOutcome ? forcedThrowRng(flags.throwOutcome, w.tier) : flags.encounter ? () => 0 : rng;
-    const thrown = throwCapsule(w, roll, companionLevel, held.length);
+    const thrown = throwCapsule(w, roll, companionLevel, buttons.length);
     if (!thrown) return;
     // 맞는 캡슐 1개를 던지는 순간 바로 저장해 쓴다 (결과와 상관없이). 없으면 돌려보낸다
     if (!useGameStore.getState().spendCapsule(capsuleType)) {
@@ -693,7 +699,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
             <CapsuleBall type={capsuleType} size={28} /> {battleText.throwButton(capsulesLeft)}
           </button>
         ) : ending ? null : picking ? (
-          <SkillPicker skills={held} timeMs={timeMs} wildMain={wildElement} disabled={confirmQuit} onPick={onPickSkill} />
+          <SkillPicker skills={faces} timeMs={timeMs} wildMain={wildElement} disabled={confirmQuit} onPick={onPickSkill} />
         ) : (
           <>
             {inHint ? (

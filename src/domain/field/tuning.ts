@@ -133,8 +133,12 @@ export const MAX_SKILLS = 5;
 export const COPY_CHANCE = 0.02;
 /** 야생 체력 한 칸 단위: 정답 한 번(위력 2칸)이 예전의 "한 번 깎임" */
 export const CELLS_PER_HIT = 2;
-/** 빨리 풀어 강력이 되면 더 깎는 칸 */
-export const FAST_BONUS_CELLS = 1;
+/**
+ * 부속성 자리 기술의 "빨리 풀기" 비율 (설계서 0-1절): 이 시간 안에 풀면 부속성 기술, 넘으면 주속성 1번.
+ * 복사해 부속성 자리에 넣은 다른 종 기술도 원래 비율 대신 이 값을 쓴다.
+ * (개정 3에서 "빨리 풀면 +1칸"은 없어졌다 — 빨리 풀면 윗단계 기술이 나가는 것이 그 몫)
+ */
+export const SUB_FAST_RATIO = 0.5;
 /** 정답 한 번에 깎는 칸의 위쪽 한계 */
 export const MAX_CHIP_CELLS = 4;
 /** 특수 기술: 회복 체력 / 여유로 늘어나는 문제 시간 */

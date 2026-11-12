@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from 'vitest';
-import { initialField, legacySlots, mergeField, newSpeciesEntry, normalizeSkills, SPECIES_IDS, type SpeciesEntry, type SpeciesId } from '../../src/store/fieldData';
-import { defaultSkills, skillDef } from '../../src/domain/field/skills';
+import { initialField, isValidSkills, legacyCarrySkills, legacySlots, mergeField, newSpeciesEntry, normalizeSkills, SPECIES_IDS, type SpeciesEntry, type SpeciesId } from '../../src/store/fieldData';
+import { defaultSkills, seatOf, skillDef } from '../../src/domain/field/skills';
 import { MAX_SKILLS } from '../../src/domain/field/tuning';
 import { useGameStore } from '../../src/store/useGameStore';
 import { createInitialSave, mergeSave } from '../../src/store/saveData';
@@ -28,26 +28,31 @@ const oldEntry = (level: number) => ({ level, exp: 0, stage: 1, caught: 1, first
 const merged = (species: SpeciesId, raw: unknown): SpeciesEntry | undefined =>
   mergeField(initialField(), { species: { [species]: raw } }).species[species];
 
-describe('옛 저장 이월 (기술 칸 없음)', () => {
-  const cases: [number, number[]][] = [
+describe('옛 저장 이월 (기술 칸 없음) — 새 체계 적용: 이월 ∪ 그 레벨에서 익힌 기술 전부', () => {
+  const legacy: [number, number[]][] = [
     [1, [1]], [2, [1]], [3, [1, 2]], [7, [1, 2]], [8, [1, 2, 5]], [14, [1, 2, 5]], [20, [1, 2, 5]],
   ];
-
-  it.each(cases)('레벨 %i → 슬롯 %j', (level, slots) => {
+  it.each(legacy)('옛 이월 슬롯: 레벨 %i → %j', (level, slots) => {
     expect(legacySlots(level)).toEqual(slots);
+  });
+
+  const carry: [number, number[]][] = [
+    [0, [1]], [1, [1]], [2, [1]], [3, [1, 2]], [7, [1, 2]], [8, [1, 2, 3, 5]], [13, [1, 2, 3, 5]],
+    [14, [1, 2, 3, 4, 5]], [19, [1, 2, 3, 4, 5]], [20, [1, 2, 3, 4, 5]], [30, [1, 2, 3, 4, 5]],
+  ];
+  it.each(carry)('불러오면: 레벨 %i → 슬롯 %j', (level, slots) => {
     for (const sp of SPECIES_IDS) {
-      const e = merged(sp, oldEntry(level))!;
-      expect(e.skills).toEqual(slots.map((n) => `${sp}-${n}`));
+      expect(legacyCarrySkills(sp, level)).toEqual(slots.map((n) => `${sp}-${n}`));
+      expect(merged(sp, oldEntry(level))!.skills).toEqual(slots.map((n) => `${sp}-${n}`));
     }
   });
 
-  it('종마다 기술 이름이 예전 이름과 같다 (기술이 줄지 않음)', () => {
+  it('종마다 예전에 쓰던 기술 이름이 모두 남는다 (기술이 줄지 않음)', () => {
     for (const sp of SPECIES_IDS) {
       const at = (level: number) => merged(sp, oldEntry(level))!.skills.map((id) => skillDef(id).name);
       expect(at(1)).toEqual(OLD_MOVES[sp].slice(0, 1));
       expect(at(3)).toEqual(OLD_MOVES[sp].slice(0, 2));
-      expect(at(8)).toEqual(OLD_MOVES[sp]);
-      expect(at(30)).toEqual(OLD_MOVES[sp]);
+      for (const lv of [8, 14, 20, 30]) for (const name of OLD_MOVES[sp]) expect(at(lv)).toContain(name);
     }
   });
 
@@ -59,7 +64,7 @@ describe('옛 저장 이월 (기술 칸 없음)', () => {
   it('mergeSave를 지나도 이월된다', () => {
     const save = createInitialSave(NOW);
     const raw = { ...save, field: { ...save.field, species: { horn: oldEntry(9) } } };
-    expect(mergeSave(createInitialSave(NOW), raw).field.species.horn!.skills).toEqual(['horn-1', 'horn-2', 'horn-5']);
+    expect(mergeSave(createInitialSave(NOW), raw).field.species.horn!.skills).toEqual(['horn-1', 'horn-2', 'horn-3', 'horn-5']);
   });
 });
 
@@ -75,8 +80,8 @@ describe('normalizeSkills: 이상한 값 거르기', () => {
   it('레벨이 모자란 자기 종 기술은 버린다 (옛 이월 슬롯은 허용)', () => {
     // 레벨 2: 슬롯 2(Lv3)·슬롯 5(Lv20, 이월은 Lv8부터) 모두 안 됨
     expect(normalizeSkills('cloud', 2, ['cloud-1', 'cloud-2', 'cloud-5'])).toEqual(['cloud-1']);
-    // 레벨 8: 슬롯 5는 옛 이월로 허용, 슬롯 4(Lv14)는 안 됨
-    expect(normalizeSkills('cloud', 8, ['cloud-5', 'cloud-4', 'cloud-3'])).toEqual(['cloud-5', 'cloud-3']);
+    // 레벨 8: 슬롯 5는 옛 이월로 허용, 슬롯 4(Lv14)는 안 됨 (주①이 없으면 맨 앞에 넣는다)
+    expect(normalizeSkills('cloud', 8, ['cloud-5', 'cloud-4', 'cloud-3'])).toEqual(['cloud-1', 'cloud-5', 'cloud-3']);
   });
 
   it('프로토타입 이름(constructor·__proto__ 등)은 id로 안 받는다', () => {
@@ -88,9 +93,11 @@ describe('normalizeSkills: 이상한 값 거르기', () => {
     expect(normalizeSkills('cloud', 5, ['cloud-1', 'cloud-1', 'cloud-2', 'cloud-1'])).toEqual(['cloud-1', 'cloud-2']);
   });
 
-  it(`${MAX_SKILLS + 1}개면 앞 ${MAX_SKILLS}개`, () => {
+  it(`${MAX_SKILLS + 1}개면 자리가 겹치는 쪽이 빠져 ${MAX_SKILLS}개`, () => {
     const six = ['cloud-1', 'cloud-2', 'cloud-3', 'cloud-4', 'cloud-5', 'jelly-1'];
     expect(normalizeSkills('cloud', 30, six)).toEqual(six.slice(0, MAX_SKILLS));
+    const sixMixed = ['jelly-1', 'cloud-1', 'cloud-2', 'cloud-3', 'cloud-4', 'cloud-5'];
+    expect(normalizeSkills('cloud', 30, sixMixed)).toEqual(['jelly-1', 'cloud-1', 'cloud-2', 'cloud-3', 'cloud-5']);
   });
 
   it('빈 목록·남는 게 없으면 defaultSkills', () => {
@@ -107,12 +114,63 @@ describe('normalizeSkills: 이상한 값 거르기', () => {
 
   it('다른 종 기술(따라 배운 것)은 레벨과 상관없이 허용', () => {
     expect(normalizeSkills('cloud', 1, ['cloud-1', 'horn-5', 'legend-ghost-3'])).toEqual(['cloud-1', 'horn-5', 'legend-ghost-3']);
-    expect(merged('cloud', { ...oldEntry(1), skills: ['horn-5'] })!.skills).toEqual(['horn-5']);
+    // 주①이 없으면 맨 앞에 넣는다 (주속성 버튼이 비지 않게, 기술은 줄지 않음)
+    expect(merged('cloud', { ...oldEntry(1), skills: ['horn-5'] })!.skills).toEqual(['cloud-1', 'horn-5']);
   });
 
   it('mergeEntry도 같은 규칙 (깨진 칸만 걸러지고 나머지 기록은 그대로)', () => {
     const e = merged('cloud', { ...oldEntry(2), exp: 7, skills: ['cloud-1', 'cloud-1', 'cloud-5', 'x'] })!;
     expect(e).toEqual({ ...oldEntry(2), exp: 7, skills: ['cloud-1'] });
+  });
+});
+
+describe('normalizeSkills: 자리 규칙 (개정 3 — 주속성 사슬·부속성 자리 1·특수 자리 1)', () => {
+  it('부속성 자리는 하나만: 앞에서부터 하나 남긴다 (자기 종 4번·복사한 속성 기술)', () => {
+    expect(normalizeSkills('cloud', 20, ['cloud-1', 'horn-1', 'jelly-2', 'cloud-4'])).toEqual(['cloud-1', 'horn-1']);
+    expect(normalizeSkills('cloud', 20, ['cloud-1', 'cloud-4', 'horn-1'])).toEqual(['cloud-1', 'cloud-4']);
+  });
+  it('다른 종의 주속성 사슬 기술(1·2·5번)은 부속성 자리로 본다', () => {
+    expect(normalizeSkills('cloud', 5, ['cloud-1', 'horn-1', 'horn-2'])).toEqual(['cloud-1', 'horn-1']);
+    expect(normalizeSkills('cloud', 5, ['cloud-1', 'horn-5', 'cloud-2'])).toEqual(['cloud-1', 'horn-5', 'cloud-2']);
+  });
+  it('특수 자리는 하나만: 자기 종 3번이든 복사한 특수든 앞의 것', () => {
+    expect(normalizeSkills('cloud', 8, ['cloud-1', 'cloud-3', 'jelly-3'])).toEqual(['cloud-1', 'cloud-3']);
+    expect(normalizeSkills('cloud', 8, ['cloud-1', 'jelly-3', 'cloud-3'])).toEqual(['cloud-1', 'jelly-3']);
+  });
+  it('주①이 없으면 맨 앞에 넣는다 (남은 기술은 그대로)', () => {
+    expect(normalizeSkills('cloud', 8, ['cloud-2', 'cloud-3'])).toEqual(['cloud-1', 'cloud-2', 'cloud-3']);
+    expect(normalizeSkills('cloud', 8, ['jelly-3'])).toEqual(['cloud-1', 'jelly-3']);
+  });
+  it('어떤 목록이 와도: 최대 5개, 주① 있음, 부속성·특수 자리 각각 1개 이하, 다시 다듬어도 그대로', () => {
+    const ids = SPECIES_IDS.flatMap((sp) => [1, 2, 3, 4, 5].map((n) => `${sp}-${n}`));
+    let seed = 7;
+    const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+    for (let i = 0; i < 400; i++) {
+      const owner = SPECIES_IDS[Math.floor(rnd() * SPECIES_IDS.length)];
+      const level = 1 + Math.floor(rnd() * 30);
+      const list = Array.from({ length: Math.floor(rnd() * 9) }, () => ids[Math.floor(rnd() * ids.length)]);
+      const out = normalizeSkills(owner, level, list);
+      expect(out.length).toBeGreaterThanOrEqual(1);
+      expect(out.length).toBeLessThanOrEqual(MAX_SKILLS);
+      expect(out).toContain(`${owner}-1`);
+      const seats = out.map((id) => seatOf(skillDef(id), owner));
+      expect(seats.filter((x) => x === 'sub').length).toBeLessThanOrEqual(1);
+      expect(seats.filter((x) => x === 'special').length).toBeLessThanOrEqual(1);
+      expect(normalizeSkills(owner, level, out)).toEqual(out);
+      expect(isValidSkills(owner, level, out)).toBe(true);
+    }
+  });
+  it('옛 저장 이월(슬롯 1·2·5)과 새 체계 적용 결과는 모든 종·레벨에서 그대로 유효 (기술이 줄지 않음)', () => {
+    for (const sp of SPECIES_IDS) {
+      for (let level = 0; level <= 30; level++) {
+        const legacy = legacySlots(level).map((n) => `${sp}-${n}`);
+        expect(normalizeSkills(sp, level, legacy)).toEqual(legacy);
+        expect(isValidSkills(sp, level, legacy)).toBe(true);
+        const carried = merged(sp, oldEntry(level))!.skills;
+        for (const id of legacy) expect(carried).toContain(id);
+        expect(isValidSkills(sp, level, carried)).toBe(true);
+      }
+    }
   });
 });
 
@@ -161,20 +219,29 @@ describe('기술 바꾸기 액션', () => {
   });
 
   describe('replaceSkill', () => {
-    it('가진 기술을 잊고 익힌 자기 기술로 바꾼다 (자리 그대로)', () => {
-      put('cloud', 8, ['cloud-1', 'cloud-2']);
-      expectOneSet(() => useGameStore.getState().replaceSkill('cloud', 'cloud-1', 'cloud-3'));
-      expect(held('cloud')).toEqual(['cloud-3', 'cloud-2']);
+    it('부속성 자리끼리: 복사한 기술을 잊고 익힌 자기 종 4번으로 (자리 그대로)', () => {
+      put('cloud', 14, ['cloud-1', 'cloud-2', 'horn-1', 'cloud-3']);
+      expectOneSet(() => useGameStore.getState().replaceSkill('cloud', 'horn-1', 'cloud-4'));
+      expect(held('cloud')).toEqual(['cloud-1', 'cloud-2', 'cloud-4', 'cloud-3']);
+      // 다시 다른 종 속성 기술로 (어느 종의 1·2·4·5번이든 부속성 자리)
+      expect(useGameStore.getState().replaceSkill('cloud', 'cloud-4', 'horn-5')).toBe(true);
+      expect(held('cloud')).toEqual(['cloud-1', 'cloud-2', 'horn-5', 'cloud-3']);
     });
 
-    it('다른 종 기술(따라 배우기)로 바꿀 수 있다', () => {
-      expect(useGameStore.getState().replaceSkill('cloud', 'cloud-2', 'horn-5')).toBe(true);
-      expect(held('cloud')).toEqual(['cloud-1', 'horn-5', 'cloud-3']);
+    it('특수 자리끼리: 자기 종 특수를 복사한 특수로', () => {
+      expectOneSet(() => useGameStore.getState().replaceSkill('cloud', 'cloud-3', 'jelly-3'));
+      expect(held('cloud')).toEqual(['cloud-1', 'cloud-2', 'jelly-3']);
     });
 
-    it('옛 이월 슬롯(레벨 8의 슬롯 5)으로 바꿀 수 있다', () => {
-      expect(useGameStore.getState().replaceSkill('cloud', 'cloud-3', 'cloud-5')).toBe(true);
-      expect(held('cloud')).toEqual(['cloud-1', 'cloud-2', 'cloud-5']);
+    it('거부: 자리가 다르면(특수↔부속성), 주속성 사슬은 바꾸기 대상이 아님 (레벨로만 생김)', () => {
+      const g = () => useGameStore.getState();
+      expectUnchanged(() => g().replaceSkill('cloud', 'cloud-3', 'horn-1')); // 특수 → 부속성
+      expectUnchanged(() => g().replaceSkill('cloud', 'cloud-2', 'cloud-5')); // 주② → 주③ (옛 이월 슬롯이어도)
+      expectUnchanged(() => g().replaceSkill('cloud', 'cloud-1', 'horn-1')); // 주① → 복사
+      put('cloud', 14, ['cloud-1', 'cloud-2', 'horn-1', 'cloud-3']);
+      expectUnchanged(() => g().replaceSkill('cloud', 'horn-1', 'jelly-3')); // 부속성 → 특수
+      expectUnchanged(() => g().replaceSkill('cloud', 'horn-1', 'cloud-5')); // 부속성 → 자기 종 주③
+      expect(held('cloud')).toEqual(['cloud-1', 'cloud-2', 'horn-1', 'cloud-3']);
     });
 
     it('거부: 안 가진 기술 잊기, 이미 가진 기술·모르는 기술·레벨 모자란 기술 배우기, 같은 기술, 없는 종', () => {
@@ -192,8 +259,8 @@ describe('기술 바꾸기 액션', () => {
 
   describe('setSkills', () => {
     it('검증을 지나면 한 번에 바꾼다 (순서도 그대로)', () => {
-      expectOneSet(() => useGameStore.getState().setSkills('cloud', ['cloud-3', 'jelly-2']));
-      expect(held('cloud')).toEqual(['cloud-3', 'jelly-2']);
+      expectOneSet(() => useGameStore.getState().setSkills('cloud', ['cloud-3', 'cloud-1', 'jelly-2']));
+      expect(held('cloud')).toEqual(['cloud-3', 'cloud-1', 'jelly-2']);
       expect(useGameStore.getState().setSkills('cloud', ['cloud-1'])).toBe(true);
       expect(held('cloud')).toEqual(['cloud-1']);
     });
@@ -216,6 +283,14 @@ describe('기술 바꾸기 액션', () => {
       expectUnchanged(() => g().setSkills('horn', ['horn-1']));
       expect(held('cloud')).toEqual(['cloud-1', 'cloud-2', 'cloud-3']);
     });
+
+    it('거부: 자리가 겹침(부속성 2개·특수 2개), 주① 없음', () => {
+      const g = () => useGameStore.getState();
+      expectUnchanged(() => g().setSkills('cloud', ['cloud-1', 'horn-1', 'jelly-1']));
+      expectUnchanged(() => g().setSkills('cloud', ['cloud-1', 'cloud-3', 'jelly-3']));
+      expectUnchanged(() => g().setSkills('cloud', ['cloud-2', 'cloud-3']));
+      expect(held('cloud')).toEqual(['cloud-1', 'cloud-2', 'cloud-3']);
+    });
   });
 
   describe('addSkill', () => {
@@ -236,6 +311,14 @@ describe('기술 바꾸기 액션', () => {
       expectUnchanged(() => g().addSkill('cloud', 'horn-1'));
       expect(held('cloud')).toHaveLength(MAX_SKILLS);
     });
+
+    it('거부: 그 자리가 이미 차 있으면 (부속성·특수)', () => {
+      const g = () => useGameStore.getState();
+      put('cloud', 8, ['cloud-1', 'cloud-2', 'cloud-3', 'horn-1']);
+      expectUnchanged(() => g().addSkill('cloud', 'jelly-1'));
+      expectUnchanged(() => g().addSkill('cloud', 'jelly-3'));
+      expect(held('cloud')).toEqual(['cloud-1', 'cloud-2', 'cloud-3', 'horn-1']);
+    });
   });
 });
 
@@ -243,20 +326,20 @@ describe('기술 저장 왕복', () => {
   beforeEach(() => {
     useGameStore.getState().resetAll();
     useGameStore.getState().chooseStarter('cloud', NOW);
-    useGameStore.getState().setSkills('cloud', ['cloud-2', 'pebble-4']);
+    expect(useGameStore.getState().setSkills('cloud', ['cloud-1', 'cloud-2', 'pebble-4'])).toBe(true);
   });
 
   it('저장 대상(partialize)과 백업 currentSave()에 skills가 들어간다', () => {
     const persisted = useGameStore.persist.getOptions().partialize!(useGameStore.getState()) as { field: { species: { cloud: SpeciesEntry } } };
-    expect(persisted.field.species.cloud.skills).toEqual(['cloud-2', 'pebble-4']);
-    expect(currentSave().field.species.cloud!.skills).toEqual(['cloud-2', 'pebble-4']);
+    expect(persisted.field.species.cloud.skills).toEqual(['cloud-1', 'cloud-2', 'pebble-4']);
+    expect(currentSave().field.species.cloud!.skills).toEqual(['cloud-1', 'cloud-2', 'pebble-4']);
   });
 
   it('저장 → 다시 읽기(mergeSave·replaceSave)에서 값이 그대로', () => {
     const json = JSON.parse(JSON.stringify(currentSave()));
-    expect(mergeSave(createInitialSave(NOW), json).field.species.cloud!.skills).toEqual(['cloud-2', 'pebble-4']);
+    expect(mergeSave(createInitialSave(NOW), json).field.species.cloud!.skills).toEqual(['cloud-1', 'cloud-2', 'pebble-4']);
     useGameStore.getState().resetAll();
     useGameStore.getState().replaceSave(json);
-    expect(useGameStore.getState().field.species.cloud!.skills).toEqual(['cloud-2', 'pebble-4']);
+    expect(useGameStore.getState().field.species.cloud!.skills).toEqual(['cloud-1', 'cloud-2', 'pebble-4']);
   });
 });

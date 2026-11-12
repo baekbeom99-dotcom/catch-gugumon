@@ -6,7 +6,7 @@
  */
 import type { Rng } from '../random';
 import { matchup, type Element } from './elements';
-import { fastSeconds, weakestSkill, type SkillDef, type SkillId, type SpecialKind } from './skills';
+import { buttonFace, pickFired, type SkillButton, type SkillDef, type SkillId, type SpecialKind } from './skills';
 import { rollTierLevel, throwOdds, type Tier } from './strength';
 import {
   CALM_BONUS_MS,
@@ -14,7 +14,6 @@ import {
   CELLS_PER_HIT,
   CHARGE_BONUS_CELLS,
   COMPANION_MAX_HP,
-  FAST_BONUS_CELLS,
   MAX_CHIP_CELLS,
   TIER_RULES,
 } from './tuning';
@@ -45,12 +44,14 @@ export interface WildState {
   correct: number;
   /** 마지막 피격이 시간 초과였나 */
   timedOut: boolean;
-  /** 이 문제에서 이미 틀렸나 (시간 초과 포함). 틀린 뒤 힌트를 보고 같은 문제를 다시 풀면 강력·특수 발동이 없다. 새 문제로 넘어갈 때만 꺼진다 */
+  /** 이 문제에서 이미 틀렸나 (시간 초과 포함). 학습 기록의 "다시 푼 문제(isRetry)" 표시에 쓴다 (발동 판정에는 안 씀). 새 문제로 넘어갈 때만 꺼진다 */
   missed: boolean;
   /** 충전: 다음 속성 기술에 더할 칸 (쓰면 0) */
   charge: number;
   /** 방어: 다음 적 공격 피해를 절반(올림)으로 (맞으면 false) */
   guard: boolean;
+  /** 스턴(기절): 다음 적 공격 한 번을 막는다 — 틀리거나 시간이 지나도 피해 0 (막으면 false, 방어는 남는다) */
+  stun: boolean;
   /** 여유: 다음 문제 시간에 더할 ms (문제 시계를 새로 시작할 때 더하고 0) */
   calmMs: number;
   /** 힌트: 다음 문제(맞힐 때까지)에서 틀린 보기 하나를 숨긴다. 어느 보기인지는 hiddenChoice */
@@ -73,7 +74,7 @@ function newQuestion(s: WildState): WildState {
   return { ...freshClock(s), missed: false };
 }
 
-/** 가진 기술이 2개 이상이면 문제 전에 기술을 고른다 */
+/** 기술 버튼이 2개 이상이면 문제 전에 기술을 고른다 (heldCount = 버튼 수 — 이름은 예전 그대로) */
 function askPhase(heldCount: number): 'pick' | 'question' {
   return heldCount >= 2 ? 'pick' : 'question';
 }
@@ -95,6 +96,7 @@ export function createWild(tier: Tier, level: number, allyHp: number, heldCount 
     missed: false,
     charge: 0,
     guard: false,
+    stun: false,
     calmMs: 0,
     hideChoice: false,
   };
@@ -105,6 +107,10 @@ export function createWild(tier: Tier, level: number, allyHp: number, heldCount 
  * 체력이 0이 되면 힌트 없이 바로 끝 (R9). 적이 쓰는 기술 이름은 화면이 고른다(난수를 쓰지 않음)
  */
 function strike(s: WildState, timedOut: boolean, timeLeftMs: number): WildState {
+  if (s.stun) {
+    // 적이 기절해서 못 움직인다: 피해 0, 스턴만 쓴다 (방어는 다음 공격을 위해 남긴다). 틀린 표시는 그대로 켠다
+    return { ...s, timeLeftMs, timedOut, missed: true, stun: false, phase: 'struck' };
+  }
   const allyHp = applyDamage(s.allyHp, damageOf(s));
   return { ...s, allyHp, timeLeftMs, timedOut, missed: true, guard: false, phase: allyHp <= 0 ? 'fainted' : 'struck' };
 }
@@ -132,10 +138,9 @@ export function pickSkill(s: WildState): WildState {
   return { ...s, phase: 'question', elapsedMs: 0 };
 }
 
-/** 정답 한 번에 깎는 칸 = 위력 + 강력 + 충전 + 상성, 1~MAX_CHIP_CELLS */
-export function chipCells(skill: SkillDef, fast: boolean, m: -1 | 0 | 1, charge: number): number {
-  const raw = skill.basePower + (fast ? FAST_BONUS_CELLS : 0) + charge + m;
-  return Math.min(MAX_CHIP_CELLS, Math.max(1, raw));
+/** 정답 한 번에 깎는 칸 = 위력 + 충전 + 상성, 1~MAX_CHIP_CELLS (개정 3: "빨리 풀면 +1칸"은 없어짐) */
+export function chipCells(power: number, m: -1 | 0 | 1, charge: number): number {
+  return Math.min(MAX_CHIP_CELLS, Math.max(1, power + charge + m));
 }
 
 /** 정답 피해를 넣는다: 칸은 최대에서 멈추고, 다 깎이면 어지러움. 이 문제의 숨긴 보기는 여기서 끝 */
@@ -152,6 +157,8 @@ function specialEffect(kind: SpecialKind): Partial<WildState> {
       return { charge: CHARGE_BONUS_CELLS };
     case 'guard':
       return { guard: true };
+    case 'stun':
+      return { stun: true };
     case 'calm':
       return { calmMs: CALM_BONUS_MS };
     case 'clue':
@@ -163,50 +170,48 @@ function specialEffect(kind: SpecialKind): Partial<WildState> {
 
 export interface AnswerResult {
   state: WildState;
-  /** 실제로 나간 기술 (특수 기술이 늦으면 가장 약한 속성 기술) */
+  /** 실제로 나간 기술 (속도에 따라 고른 단계, 특수가 늦으면 가장 약한 속성 기술) */
   fired: SkillDef;
-  /** 빠르게 풀었나 (속성 기술은 강력, 특수는 발동 조건) */
-  fast: boolean;
+  /** 단계: 주①·느림 1, 주②·부속성 2, 주③ 3 */
+  tier: 1 | 2 | 3;
+  /** 속성 기술의 윗단계(주②·주③·부속성)가 나갔나 — 예전 fast(강력)의 자리 */
+  upper: boolean;
   /** 특수 기술이 늦어서 다른 기술이 대신 나갔나 */
   usedFallback: boolean;
-  /** 성공한 특수 기술 (heal이면 호출하는 쪽이 내 구구몬 체력을 채운다) */
+  /** 발동한 특수 효과: 특수 버튼 성공이나 주②의 효과 (heal이면 호출하는 쪽이 내 구구몬 체력을 채운다) */
   special?: SpecialKind;
 }
 
 /**
  * 정답 하나를 판정한다 (정답 한 번당 한 번). question이 아니면 상태를 그대로(같은 객체) 돌려준다(연타).
- * timeMs는 이 단계 문제 제한 시간(여유로 늘어난 시간은 넣지 않는다) — "빠르게"의 기준.
+ * 어떤 기술이 나가는지는 pickFired(버튼·경과 시간·틀린 표시)가 정한다 — 설계서 0-1절.
+ * timeMs는 이 단계 문제 제한 시간(여유로 늘어난 시간은 넣지 않는다) — 단계 조건의 기준.
  */
 export function resolveAnswer(
   s: WildState,
-  picked: SkillDef,
-  held: SkillId[],
+  button: SkillButton,
+  held: readonly SkillId[],
   wildMainElement: Element,
   timeMs: number,
 ): AnswerResult {
-  if (s.phase !== 'question') return { state: s, fired: picked, fast: false, usedFallback: false };
-  // 틀린 뒤 힌트를 보고 같은 문제를 다시 풀 때는 빠르게 풀어도 강력·특수 발동이 없다
-  const fast = !s.missed && s.elapsedMs <= fastSeconds(picked, timeMs) * 1000;
+  if (s.phase !== 'question') return { state: s, fired: buttonFace(button), tier: 1, upper: false, usedFallback: false };
+  // 틀린 뒤 힌트를 보고 같은 문제를 다시 풀 때도 시계가 처음부터라 같은 규칙 (윗단계·특수 발동 가능)
+  const p = pickFired(button, held, s.elapsedMs, timeMs);
+  const base: Omit<AnswerResult, 'state'> = { fired: p.fired, tier: p.tier, upper: p.upper, usedFallback: p.usedFallback };
+  if (p.special) base.special = p.special;
 
-  if (picked.kind === 'special' && picked.special) {
-    if (fast) {
-      // 위력 그대로, 상성·강력·충전 없음. 충전은 다음 속성 기술을 위해 남겨 둔다
-      const state = landHit(s, chipCells(picked, false, 0, 0), specialEffect(picked.special));
-      return { state, fired: picked, fast: true, usedFallback: false, special: picked.special };
+  if (p.fired.kind === 'special') {
+    if (p.special) {
+      // 특수 버튼 성공: 위력 그대로, 상성·충전 없음. 충전은 다음 속성 기술을 위해 남겨 둔다
+      return { ...base, state: landHit(s, chipCells(p.fired.basePower, 0, 0), specialEffect(p.special)) };
     }
-    const weak = weakestSkill(held);
-    if (!weak) {
-      // 가진 속성 기술이 없으면 위력 1 기본 타격
-      return { state: landHit(s, 1), fired: picked, fast: false, usedFallback: true };
-    }
-    const m = weak.element ? matchup(weak.element, wildMainElement) : 0;
-    const state = landHit(s, chipCells(weak, false, m, s.charge), { charge: 0 });
-    return { state, fired: weak, fast: false, usedFallback: true };
+    // 가진 속성 기술이 없으면(깨진 목록) 위력 1 기본 타격
+    return { ...base, state: landHit(s, 1) };
   }
-
-  const m = picked.element ? matchup(picked.element, wildMainElement) : 0;
-  const state = landHit(s, chipCells(picked, fast, m, s.charge), { charge: 0 });
-  return { state, fired: picked, fast, usedFallback: false };
+  // 속성 기술이 나가면 상성을 보고 충전을 쓴다 (윗단계든, 특수가 늦어 대신 나갔든). 주②면 효과도 붙는다
+  const m = p.fired.element ? matchup(p.fired.element, wildMainElement) : 0;
+  const extra = { charge: 0, ...(p.special ? specialEffect(p.special) : {}) };
+  return { ...base, state: landHit(s, chipCells(p.fired.basePower, m, s.charge), extra) };
 }
 
 /**

@@ -47,7 +47,7 @@ describe('속성 표', () => {
   });
 
   it('특수 기술 효과 5종이 모두 EFFECTS에 있다', () => {
-    expect(Object.keys(SPECIAL_FX).sort()).toEqual(['calm', 'charge', 'clue', 'guard', 'heal']);
+    expect(Object.keys(SPECIAL_FX).sort()).toEqual(['calm', 'charge', 'clue', 'guard', 'heal', 'stun']);
     for (const n of Object.values(SPECIAL_FX)) expect(FX_NAMES).toContain(n);
   });
 
@@ -64,7 +64,12 @@ describe('속성 표', () => {
   });
 });
 
-const ELEMENT_EFFECTS = [...Object.values(ELEMENT_FX).flat(), ...Object.values(STRONG_FX).flat(), ...Object.values(SPECIAL_FX)];
+// stun은 Task 11 자리표시(여유 그림 재사용) — Task 12가 새 그림을 넣으면 여기서 빼지 않는다
+const ELEMENT_EFFECTS = [
+  ...Object.values(ELEMENT_FX).flat(),
+  ...Object.values(STRONG_FX).flat(),
+  ...Object.entries(SPECIAL_FX).flatMap(([k, v]) => (k === 'stun' ? [] : [v])),
+];
 
 describe('기술 효과 61개', () => {
   it('평소 28 + 강력 28 + 특수 5 = 61개, 서로 겹치지 않고 기존 3개와 합쳐 64개', () => {

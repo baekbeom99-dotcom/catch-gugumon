@@ -5,7 +5,9 @@ import {
   type WildState,
 } from '../../src/domain/field/wildBattle';
 import type { Rng } from '../../src/domain/random';
-import { skillDef } from '../../src/domain/field/skills';
+import { skillButtons, skillDef, type SkillButton } from '../../src/domain/field/skills';
+import type { SpeciesId } from '../../src/domain/field/creatures';
+import type { Element } from '../../src/domain/field/elements';
 import { CALM_BONUS_MS, CHARGE_BONUS_CELLS, TIER_RULES } from '../../src/domain/field/tuning';
 
 const r0 = () => 0;
@@ -40,7 +42,7 @@ describe('wildBattle: 문제 시간·정답', () => {
   it('처음 상태', () => {
     expect(createWild('strong', 8, 60)).toEqual({
       tier: 'strong', level: 8, cells: 0, timeLeftMs: 5000, limitMs: 5000, elapsedMs: 0, allyHp: 60, phase: 'question', correct: 0, timedOut: false,
-      missed: false, charge: 0, guard: false, calmMs: 0, hideChoice: false,
+      missed: false, charge: 0, guard: false, stun: false, calmMs: 0, hideChoice: false,
     });
   });
   it('시작부터 체력 0이면 쓰러진 채(전투가 열리지 않게)', () => {
@@ -217,70 +219,126 @@ describe('wildBattle: 던지기', () => {
   });
 });
 
-// ── 필드 모험 3차: 칸 체력·위력·강력·특수·상성 (설계서 2-6) ──
+// ── 필드 모험 3차: 칸 체력·위력·단계 발동·특수·상성 (설계서 0-1절이 2-6절보다 우선) ──
 const k = (id: string) => skillDef(id);
+/** 기술 id의 종 (예: 'legend-horn-3' → 'legend-horn') */
+const ownerOf = (id: string) => id.replace(/-\d$/, '') as SpeciesId;
+/** 가진 기술로 만든 버튼 중 kind 버튼 (주인은 첫 기술의 종) */
+const btn = (held: string[], kind: SkillButton['kind'] = 'main'): SkillButton => {
+  const b = skillButtons(held, ownerOf(held[0])).find((x) => x.kind === kind);
+  if (!b) throw new Error(`버튼 없음: ${kind}`);
+  return b;
+};
 /** 보통 단계 문제 하나: 경과 시간만 정해 둔다 */
 const at = (elapsedMs: number, over: Partial<WildState> = {}): WildState => ({ ...createWild('normal', 5, 100), elapsedMs, ...over });
 const NORMAL_MS = 7000;
+/** 가진 기술 held로 kind 버튼을 눌러 정답 */
+const answer = (s: WildState, held: string[], kind: SkillButton['kind'], wild: Element, timeMs = NORMAL_MS) =>
+  resolveAnswer(s, btn(held, kind), held, wild, timeMs);
 
 describe('wildBattle: 칸 체력과 깎는 칸', () => {
   it('maxCells = 어지러워지는 정답 수 × 2', () => {
     expect((['weak', 'normal', 'strong', 'mighty', 'legend'] as const).map(maxCells)).toEqual([6, 8, 8, 12, 8]);
   });
-  it('chipCells 경계: 1 아래로도, 4 위로도 안 간다', () => {
-    expect(chipCells({ ...k('cloud-1'), basePower: 1 }, false, -1, 0)).toBe(1);
-    expect(chipCells(k('cloud-5'), true, 1, 0)).toBe(4); // 3 + 1 + 1 = 5 → 4
-    expect(chipCells(k('cloud-1'), false, 0, 0)).toBe(2);
-    expect(chipCells(k('cloud-1'), true, 0, 0)).toBe(3);
-    expect(chipCells(k('cloud-1'), false, -1, 0)).toBe(1);
-    expect(chipCells(k('cloud-1'), false, 0, 1)).toBe(3); // 충전 +1
-    expect(chipCells(k('cloud-1'), true, 1, 1)).toBe(4);
+  it('chipCells = 위력 + 충전 + 상성, 1 아래로도 4 위로도 안 간다 (빠르면 +1칸은 없어짐)', () => {
+    expect(chipCells(1, -1, 0)).toBe(1);
+    expect(chipCells(2, -1, 0)).toBe(1);
+    expect(chipCells(2, 0, 0)).toBe(2);
+    expect(chipCells(2, 0, 1)).toBe(3); // 충전 +1
+    expect(chipCells(3, 0, 0)).toBe(3);
+    expect(chipCells(3, 1, 1)).toBe(4); // 5 → 4
+    expect(chipCells(4, 1, 0)).toBe(4); // 5 → 4
+    expect(chipCells(4, 1, 1)).toBe(4);
+    expect(chipCells(4, -1, 0)).toBe(3);
   });
-  it.each(['weak', 'normal', 'strong', 'mighty', 'legend'] as const)('%s: 가장 센 한 방(4칸)으로도 한 번에 안 끝난다', (t) => {
+  it.each(['weak', 'normal', 'strong', 'mighty', 'legend'] as const)('%s: 가장 센 한 방(주③ 3 + 충전 + 상성 → 4칸)으로도 한 번에 안 끝난다', (t) => {
     const s = { ...createWild(t, 5, 100), charge: 1 };
-    const r = resolveAnswer(s, k('cloud-5'), ['cloud-5'], 'water', TIER_RULES[t].timeMs);
-    expect(r.fast).toBe(true);
+    const held = ['cloud-1', 'cloud-2', 'cloud-5'];
+    const r = resolveAnswer(s, btn(held), held, 'water', TIER_RULES[t].timeMs);
+    expect(r).toMatchObject({ upper: true, tier: 3, fired: { id: 'cloud-5' } });
     expect(r.state).toMatchObject({ cells: 4, phase: 'hit' });
   });
   it('어지러워지면 칸은 최대에서 멈춘다', () => {
-    const r = resolveAnswer(at(0, { cells: 7 }), k('cloud-5'), ['cloud-5'], 'water', NORMAL_MS);
+    const held = ['cloud-1', 'cloud-2', 'cloud-5'];
+    const r = answer(at(0, { cells: 7 }), held, 'main', 'water');
     expect(r.state).toMatchObject({ cells: 8, phase: 'dizzy', correct: 1 });
   });
-  it('answerWild(옛 호출)은 위력 2·보통·강력 아님, 충전은 더한다', () => {
+  it('answerWild(옛 호출)은 위력 2·보통, 충전은 더한다', () => {
     expect(answerWild(at(0), true, r0).cells).toBe(2);
     expect(answerWild(at(0, { charge: 1 }), true, r0)).toMatchObject({ cells: 3, charge: 0 });
   });
 });
 
-describe('wildBattle: resolveAnswer — 강력·상성', () => {
-  it('정확히 제한 초면 강력, 1ms 넘으면 아님', () => {
-    // 잎사귀 톡: 7초 × 0.6 = 4.2 → 4초
-    const fast = resolveAnswer(at(4000), k('cloud-1'), ['cloud-1'], 'light', NORMAL_MS);
-    expect(fast).toMatchObject({ fast: true, usedFallback: false });
-    expect(fast.fired.id).toBe('cloud-1');
-    expect(fast.state).toMatchObject({ cells: 3, correct: 1, phase: 'hit' });
-    const slow = resolveAnswer(at(4001), k('cloud-1'), ['cloud-1'], 'light', NORMAL_MS);
-    expect(slow.fast).toBe(false);
-    expect(slow.state.cells).toBe(2);
+describe('wildBattle: resolveAnswer — 주속성 단계·부속성·상성', () => {
+  it('주속성 버튼: 주② 조건(4초) 이내면 주②(2칸 + 스턴), 1ms 넘으면 주①(2칸)', () => {
+    const held = ['cloud-1', 'cloud-2'];
+    const fast = answer(at(4000), held, 'main', 'light');
+    expect(fast).toMatchObject({ upper: true, tier: 2, usedFallback: false, fired: { id: 'cloud-2' }, special: 'stun' });
+    expect(fast.state).toMatchObject({ cells: 2, correct: 1, phase: 'hit', stun: true });
+    const slow = answer(at(4001), held, 'main', 'light');
+    expect(slow).toMatchObject({ upper: false, tier: 1, fired: { id: 'cloud-1' } });
+    expect(slow.special).toBeUndefined();
+    expect(slow.state).toMatchObject({ cells: 2, stun: false });
+  });
+  it('주① 하나뿐이면 빨라도 2칸 (빠르면 +1칸 없음)', () => {
+    const r = answer(at(0), ['cloud-1'], 'main', 'light');
+    expect(r).toMatchObject({ upper: false, tier: 1 });
+    expect(r.state.cells).toBe(2);
+  });
+  it('주③: 2초 이내면 3칸 (효과 없음), 넘으면 주② 2칸', () => {
+    const held = ['cloud-1', 'cloud-2', 'cloud-5'];
+    const m3 = answer(at(2000), held, 'main', 'light');
+    expect(m3.state).toMatchObject({ cells: 3, stun: false });
+    expect(m3.special).toBeUndefined();
+    expect(answer(at(2001), held, 'main', 'light').state.cells).toBe(2);
+  });
+  it('주②는 속성 기술이라 상성을 보고 충전을 쓴다, 효과도 함께', () => {
+    // 새싹 휙(풀) → 물 +1, 충전 +1 → 2 + 1 + 1 = 4
+    const r = answer(at(0, { charge: 1 }), ['cloud-1', 'cloud-2'], 'main', 'water');
+    expect(r.state).toMatchObject({ cells: 4, charge: 0, stun: true });
+  });
+  it('주② 효과: 회복(방울무몬)은 special만 알려 주고 체력은 그대로, 방어(왕관몬)는 guard', () => {
+    const heal = answer(at(0, { allyHp: 40 }), ['mushroom-1', 'mushroom-2'], 'main', 'light');
+    expect(heal).toMatchObject({ special: 'heal', fired: { id: 'mushroom-2' }, state: { allyHp: 40, cells: 2 } });
+    const guard = answer(at(0), ['fluff-1', 'fluff-2'], 'main', 'water');
+    expect(guard).toMatchObject({ special: 'guard', state: { guard: true } });
+  });
+  it('부속성 버튼: 빠르면 부속성(3칸), 느리면 주①(2칸)', () => {
+    const held = ['cloud-1', 'cloud-2', 'cloud-4'];
+    expect(answer(at(4000), held, 'sub', 'water')).toMatchObject({ fired: { id: 'cloud-4' }, upper: true, state: { cells: 3 } }); // 빛 → 물 보통
+    expect(answer(at(4001), held, 'sub', 'water')).toMatchObject({ fired: { id: 'cloud-1' }, upper: false, state: { cells: 3 } }); // 풀 → 물 +1
+  });
+  it('부속성 자리의 복사 기술은 원래 속성으로 상성, 위력은 3', () => {
+    // horn-5(물) → 불: +1 → 3 + 1 = 4
+    const r = answer(at(0), ['cloud-1', 'horn-5'], 'sub', 'fire');
+    expect(r).toMatchObject({ fired: { id: 'horn-5', basePower: 3 }, upper: true });
+    expect(r.state.cells).toBe(4);
   });
   it('상성: 강하면 +1칸, 약하면 −1칸', () => {
-    expect(resolveAnswer(at(6000), k('cloud-1'), ['cloud-1'], 'water', NORMAL_MS).state.cells).toBe(3); // 풀 → 물
-    expect(resolveAnswer(at(6000), k('cloud-1'), ['cloud-1'], 'fire', NORMAL_MS).state.cells).toBe(1); // 풀 → 불
-    expect(resolveAnswer(at(6000), k('cloud-4'), ['cloud-4'], 'poison', NORMAL_MS).state.cells).toBe(2); // 빛 ↔ 독 보통
+    expect(answer(at(6000), ['cloud-1'], 'main', 'water').state.cells).toBe(3); // 풀 → 물
+    expect(answer(at(6000), ['cloud-1'], 'main', 'fire').state.cells).toBe(1); // 풀 → 불
+    expect(answer(at(0), ['cloud-1', 'cloud-4'], 'sub', 'poison').state.cells).toBe(3); // 빛 ↔ 독 보통
   });
-  it('tickWild는 경과 시간을 센다, 여유로 늘어난 시간은 강력 판정에 안 들어간다', () => {
+  it('충전은 나간 속성 기술에 더하고 0이 된다 (윗단계여도)', () => {
+    const r = answer(at(0, { charge: 1 }), ['cloud-1', 'cloud-4'], 'sub', 'light');
+    expect(r.state).toMatchObject({ cells: 4, charge: 0 });
+  });
+  it('tickWild는 경과 시간을 센다, 여유로 늘어난 시간은 단계 판정에 안 들어간다', () => {
+    const held = ['cloud-1', 'cloud-2'];
     let s = resumeWild({ ...at(0), phase: 'hit', calmMs: CALM_BONUS_MS });
     expect(s).toMatchObject({ phase: 'question', timeLeftMs: 10000, elapsedMs: 0, calmMs: 0 });
     for (let i = 0; i < 16; i++) s = tickWild(s, 250, r0);
     expect(s).toMatchObject({ elapsedMs: 4000, timeLeftMs: 6000 });
-    expect(resolveAnswer(s, k('cloud-1'), ['cloud-1'], 'light', NORMAL_MS).fast).toBe(true);
+    expect(answer(s, held, 'main', 'light').upper).toBe(true);
     s = tickWild(s, 1, r0);
-    expect(resolveAnswer(s, k('cloud-1'), ['cloud-1'], 'light', NORMAL_MS).fast).toBe(false);
+    expect(answer(s, held, 'main', 'light').upper).toBe(false);
   });
   it('question이 아니면 상태 그대로(연타)', () => {
     for (const phase of ['pick', 'hit', 'struck', 'hint', 'dizzy', 'caught', 'escaped', 'released', 'fainted'] as const) {
       const s = at(0, { phase });
-      expect(resolveAnswer(s, k('cloud-1'), ['cloud-1'], 'light', NORMAL_MS).state).toBe(s);
+      const r = answer(s, ['cloud-1', 'cloud-2'], 'main', 'light');
+      expect(r.state).toBe(s);
+      expect(r).toMatchObject({ upper: false, usedFallback: false, fired: { id: 'cloud-1' } });
     }
   });
 });
@@ -288,30 +346,31 @@ describe('wildBattle: resolveAnswer — 강력·상성', () => {
 describe('wildBattle: resolveAnswer — 특수 기술', () => {
   it('조건 안에 풀면 위력 2칸 + 특수 (상성 없음)', () => {
     // 특수: 7초 × 0.5 = 3.5 → 4초
-    const r = resolveAnswer(at(4000), k('cloud-3'), ['cloud-1', 'cloud-3'], 'water', NORMAL_MS);
-    expect(r).toMatchObject({ fast: true, usedFallback: false, special: 'heal' });
+    const r = answer(at(4000), ['cloud-1', 'cloud-3'], 'special', 'water');
+    expect(r).toMatchObject({ upper: false, usedFallback: false, special: 'heal' });
     expect(r.fired.id).toBe('cloud-3');
     expect(r.state.cells).toBe(2);
   });
-  it('시간을 넘기면 가장 약한 속성 기술이 대신 (평소 위력·상성, 강력 아님)', () => {
-    const r = resolveAnswer(at(4001), k('cloud-3'), ['cloud-5', 'cloud-1', 'cloud-3'], 'water', NORMAL_MS);
-    expect(r).toMatchObject({ fast: false, usedFallback: true });
+  it('시간을 넘기면 가장 약한 속성 기술이 대신 (그 기술 위력·상성)', () => {
+    const r = answer(at(4001), ['cloud-5', 'cloud-1', 'cloud-3'], 'special', 'water');
+    expect(r).toMatchObject({ upper: false, usedFallback: true });
     expect(r.special).toBeUndefined();
     expect(r.fired.id).toBe('cloud-1');
     expect(r.state.cells).toBe(3); // 2 + 풀→물 1
   });
-  it('대신 나가는 기술: 위력이 같으면 슬롯 번호가 작은 것', () => {
-    expect(resolveAnswer(at(6000), k('cloud-3'), ['cloud-2', 'cloud-4', 'cloud-1', 'cloud-3'], 'light', NORMAL_MS).fired.id).toBe('cloud-1');
-    expect(resolveAnswer(at(6000), k('cloud-3'), ['cloud-5', 'cloud-4', 'cloud-3'], 'light', NORMAL_MS).fired.id).toBe('cloud-4');
+  it('대신 나가는 기술: 위력이 가장 낮은 것 (보통 주①), 같으면 슬롯 번호가 작은 것', () => {
+    expect(answer(at(6000), ['cloud-2', 'cloud-4', 'cloud-1', 'cloud-3'], 'special', 'light').fired.id).toBe('cloud-1');
+    // 복사한 다른 종 1번(부속성 자리 위력 3)보다 내 주①(2)
+    expect(answer(at(6000), ['cloud-1', 'cloud-3', 'horn-1'], 'special', 'light').fired.id).toBe('cloud-1');
   });
   it('늦어서 약한 기술이 대신 나가면 충전을 쓰고 0이 된다', () => {
-    const r = resolveAnswer(at(6000, { charge: 1 }), k('cloud-3'), ['cloud-1', 'cloud-3'], 'light', NORMAL_MS);
+    const r = answer(at(6000, { charge: 1 }), ['cloud-1', 'cloud-3'], 'special', 'light');
     expect(r).toMatchObject({ usedFallback: true });
     expect(r.fired.id).toBe('cloud-1');
     expect(r.state).toMatchObject({ cells: 3, charge: 0 }); // 2 + 충전 1, 풀→빛 보통
   });
   it('특수가 성공해도 이미 있던 방어·여유는 그대로', () => {
-    const r = resolveAnswer(at(1000, { guard: true, calmMs: CALM_BONUS_MS }), k('antenna-3'), ['antenna-1', 'antenna-3'], 'light', NORMAL_MS);
+    const r = answer(at(1000, { guard: true, calmMs: CALM_BONUS_MS }), ['antenna-1', 'antenna-3'], 'special', 'light');
     expect(r.special).toBe('charge');
     expect(r.state).toMatchObject({ guard: true, calmMs: CALM_BONUS_MS, charge: CHARGE_BONUS_CELLS });
   });
@@ -321,24 +380,26 @@ describe('wildBattle: resolveAnswer — 특수 기술', () => {
     const full = at(0);
     expect(healAlly(full, 25)).toBe(full); // 이미 가득이면 그대로
   });
-  it('특수만 가졌으면 늦을 때 위력 1 기본 타격', () => {
-    const r = resolveAnswer(at(6000), k('cloud-3'), ['cloud-3'], 'water', NORMAL_MS);
-    expect(r).toMatchObject({ fast: false, usedFallback: true });
+  it('(깨진 목록 대비) 특수만 가졌으면 늦을 때 위력 1 기본 타격', () => {
+    const b: SkillButton = { kind: 'special', owner: 'cloud', skill: k('cloud-3') };
+    const r = resolveAnswer(at(6000), b, ['cloud-3'], 'water', NORMAL_MS);
+    expect(r).toMatchObject({ upper: false, usedFallback: true });
     expect(r.fired.id).toBe('cloud-3');
     expect(r.special).toBeUndefined();
     expect(r.state.cells).toBe(1);
   });
-  it('충전: 다음 속성 기술 +1칸 뒤 사라짐 (특수 성공에는 안 씀)', () => {
-    let s = resolveAnswer(at(1000), k('antenna-3'), ['antenna-1', 'antenna-3'], 'light', NORMAL_MS).state;
+  it('충전: 다음 속성 기술 +1칸 뒤 사라짐 (특수 성공에는 안 쓰고 남김)', () => {
+    const held = ['antenna-1', 'antenna-3'];
+    let s = answer(at(1000), held, 'special', 'light').state;
     expect(s).toMatchObject({ charge: CHARGE_BONUS_CELLS, cells: 2 });
     s = resumeWild(s);
-    s = resolveAnswer({ ...s, elapsedMs: 6000 }, k('antenna-1'), ['antenna-1', 'antenna-3'], 'fire', NORMAL_MS).state;
+    s = answer({ ...s, elapsedMs: 6000 }, held, 'main', 'fire').state;
     expect(s).toMatchObject({ charge: 0, cells: 5 }); // 2 + 2 + 충전 1
-    const g = resolveAnswer(at(1000, { charge: 1 }), k('mushroom-3'), ['mushroom-3'], 'light', NORMAL_MS).state;
+    const g = answer(at(1000, { charge: 1 }), ['mushroom-1', 'mushroom-3'], 'special', 'light').state;
     expect(g).toMatchObject({ charge: 1, cells: 2 });
   });
   it('방어: 다음 적 공격 절반(올림) 뒤 사라짐', () => {
-    const s = resolveAnswer(at(1000), k('mushroom-3'), ['mushroom-3'], 'light', NORMAL_MS).state;
+    const s = answer(at(1000), ['mushroom-1', 'mushroom-3'], 'special', 'light').state;
     expect(s.guard).toBe(true);
     const q = resumeWild(s);
     expect(damageOf(q)).toBe(13); // 25 → 12.5 → 13
@@ -353,35 +414,68 @@ describe('wildBattle: resolveAnswer — 특수 기술', () => {
     expect(s).toMatchObject({ phase: 'struck', allyHp: 87, guard: false, timedOut: true });
   });
   it('여유: 다음 문제 시간 +3초, 고르기를 거쳐도', () => {
-    const s = resolveAnswer(at(1000), k('jelly-3'), ['jelly-1', 'jelly-3'], 'light', NORMAL_MS).state;
+    const s = answer(at(1000), ['jelly-1', 'jelly-3'], 'special', 'light').state;
     expect(s.calmMs).toBe(CALM_BONUS_MS);
     const p = resumeWild(s, 2);
     expect(p).toMatchObject({ phase: 'pick', timeLeftMs: 10000, calmMs: 0 });
     expect(pickSkill(p)).toMatchObject({ phase: 'question', timeLeftMs: 10000, elapsedMs: 0 });
   });
   it('힌트: 다음 문제에서 틀린 보기 하나를 숨긴다', () => {
-    const s = resolveAnswer(at(1000), k('fluff-3'), ['fluff-1', 'fluff-3'], 'light', NORMAL_MS).state;
+    const s = answer(at(1000), ['fluff-1', 'fluff-3'], 'special', 'light').state;
     expect(s.hideChoice).toBe(true);
     const q = resumeWild(s);
     expect(q.hideChoice).toBe(true);
     // 틀려서 같은 문제를 다시 풀 때도 숨긴 채
     expect(resumeWild(resumeWild(answerWild(q, false, r0))).hideChoice).toBe(true);
     // 그 문제를 맞히면 사라짐
-    expect(resolveAnswer(at(6000, { hideChoice: true }), k('fluff-1'), ['fluff-1'], 'light', NORMAL_MS).state.hideChoice).toBe(false);
+    expect(answer(at(6000, { hideChoice: true }), ['fluff-1'], 'main', 'light').state.hideChoice).toBe(false);
     expect(hiddenChoice([3, 6, 9], 6, r0)).toBe(0);
     expect(hiddenChoice([3, 6, 9], 6, () => 0.99)).toBe(2);
     expect(hiddenChoice([6, 3, 9], 6, r0)).toBe(1);
     expect(hiddenChoice([6], 6, r0)).toBeNull();
   });
   it('회복: special만 알려 주고 내 체력은 그대로', () => {
-    const r = resolveAnswer(at(1000, { allyHp: 40 }), k('cloud-3'), ['cloud-3'], 'light', NORMAL_MS);
+    const r = answer(at(1000, { allyHp: 40 }), ['cloud-1', 'cloud-3'], 'special', 'light');
     expect(r.special).toBe('heal');
     expect(r.state.allyHp).toBe(40);
+  });
+  it('복사한 특수: 그 특수 종류로 발동', () => {
+    const r = answer(at(1000), ['cloud-1', 'jelly-3'], 'special', 'light');
+    expect(r).toMatchObject({ special: 'calm', fired: { id: 'jelly-3' }, state: { calmMs: CALM_BONUS_MS, cells: 2 } });
+  });
+});
+
+describe('wildBattle: 스턴 (다음 적 공격 1회 무효)', () => {
+  const stunned = () => answer(at(0), ['cloud-1', 'cloud-2'], 'main', 'light').state;
+  it('오답이면 피해 0, 스턴은 쓰고 방어는 남는다', () => {
+    const q = { ...resumeWild(stunned()), guard: true };
+    expect(q.stun).toBe(true);
+    const hit = answerWild(q, false, r0);
+    expect(hit).toMatchObject({ phase: 'struck', allyHp: 100, stun: false, guard: true, missed: true });
+    // 그 다음 공격은 방어로 절반
+    expect(answerWild(resumeWild(resumeWild(hit)), false, r0)).toMatchObject({ allyHp: 87, guard: false });
+  });
+  it('시간 초과 공격도 막는다', () => {
+    const q = { ...resumeWild(stunned()), timeLeftMs: 250 };
+    expect(tick(q, 250, r0)).toMatchObject({ phase: 'struck', allyHp: 100, stun: false, timedOut: true });
+  });
+  it('체력이 거의 없어도 스턴이면 쓰러지지 않는다', () => {
+    const q = { ...resumeWild(stunned()), allyHp: 5 };
+    expect(answerWild(q, false, r0)).toMatchObject({ phase: 'struck', allyHp: 5 });
+  });
+  it('맞히는 동안·빠져나옴·화남 뒤에도 남는다 (방어·충전과 같이)', () => {
+    let s = resumeWild(stunned());
+    s = answer({ ...s, elapsedMs: 6000 }, ['cloud-1', 'cloud-2'], 'main', 'light').state; // 주①
+    expect(s.stun).toBe(true);
+    const d = { ...dizzyOf(s), stun: true };
+    expect(throwCapsule(d, seq(0.5), 5)!.state.stun).toBe(true);
+    expect(throwCapsule(d, seq(0.999, 0), 10)!.state.stun).toBe(true);
+    expect(createWild('normal', 5, 100).stun).toBe(false);
   });
 });
 
 describe('wildBattle: 기술 고르기(pick)', () => {
-  it('기술이 2개 이상이면 첫 문제도 고르기부터', () => {
+  it('버튼이 2개 이상이면 첫 문제도 고르기부터', () => {
     expect(createWild('normal', 5, 100, 2).phase).toBe('pick');
     expect(createWild('normal', 5, 100, 1).phase).toBe('question');
     expect(createWild('normal', 5, 0, 2).phase).toBe('fainted');
@@ -395,7 +489,7 @@ describe('wildBattle: 기술 고르기(pick)', () => {
     expect(tickWild(q, 250, r0)).toMatchObject({ elapsedMs: 250, timeLeftMs: 6750 });
     expect(pickSkill(q)).toBe(q);
   });
-  it('명중 뒤: 기술 1개면 고르기를 건너뛴다', () => {
+  it('명중 뒤: 버튼 1개면 고르기를 건너뛴다', () => {
     const h = answerWild(at(0), true, r0);
     expect(resumeWild(h, 1).phase).toBe('question');
     expect(resumeWild(h, 2).phase).toBe('pick');
@@ -408,31 +502,33 @@ describe('wildBattle: 기술 고르기(pick)', () => {
   });
 });
 
-describe('wildBattle: 틀린 뒤 같은 문제는 강력·특수 발동 없음 (missed)', () => {
+describe('wildBattle: 틀린 뒤 같은 문제도 다시 빨리 풀면 윗단계 (missed는 기록용)', () => {
   /** 보통 단계 문제에서 틀리고 힌트를 본 뒤 같은 문제로 돌아온 상태 */
   const retried = (over: Partial<WildState> = {}) => resumeWild(resumeWild(answerWild({ ...at(500), ...over }, false, r0)));
   it('오답·시간 초과면 missed가 켜진다', () => {
     expect(answerWild(at(500), false, r0).missed).toBe(true);
     expect(tick({ ...at(0), timeLeftMs: 100 }, 250, r0)).toMatchObject({ phase: 'struck', missed: true });
   });
-  it('틀림 → 힌트 → 같은 문제 정답: 아무리 빨라도 강력 아님 (평소 위력)', () => {
+  it('틀림 → 힌트 → 같은 문제: 시계가 처음부터라 빨리 풀면 주③', () => {
     const q = retried();
     expect(q).toMatchObject({ phase: 'question', missed: true, elapsedMs: 0 });
-    const r = resolveAnswer(q, k('cloud-1'), ['cloud-1'], 'light', NORMAL_MS);
-    expect(r.fast).toBe(false);
-    expect(r.state.cells).toBe(2);
+    const r = answer(q, ['cloud-1', 'cloud-2', 'cloud-5'], 'main', 'light');
+    expect(r).toMatchObject({ upper: true, tier: 3, fired: { id: 'cloud-5' } });
+    expect(r.state.cells).toBe(3);
+    // 다시 푼 문제에서도 느리면 주①
+    expect(answer({ ...q, elapsedMs: 4001 }, ['cloud-1', 'cloud-2', 'cloud-5'], 'main', 'light').fired.id).toBe('cloud-1');
   });
-  it('틀림 → 힌트 → 같은 문제: 특수 기술은 조건 실패 → 가장 약한 기술', () => {
-    const r = resolveAnswer(retried(), k('cloud-3'), ['cloud-1', 'cloud-3'], 'light', NORMAL_MS);
-    expect(r).toMatchObject({ usedFallback: true, fast: false });
-    expect(r.special).toBeUndefined();
-    expect(r.fired.id).toBe('cloud-1');
+  it('틀림 → 힌트 → 같은 문제: 부속성·특수도 빨리 풀면 발동', () => {
+    expect(answer(retried(), ['cloud-1', 'cloud-4'], 'sub', 'light').fired.id).toBe('cloud-4');
+    const r = answer(retried(), ['cloud-1', 'cloud-3'], 'special', 'light');
+    expect(r).toMatchObject({ usedFallback: false, special: 'heal', fired: { id: 'cloud-3' } });
   });
-  it('맞힌 뒤 새 문제에서는 다시 강력 가능 (고르기를 거쳐도)', () => {
-    const hit = resolveAnswer(retried(), k('cloud-1'), ['cloud-1'], 'light', NORMAL_MS).state;
+  it('맞힌 뒤 새 문제에서는 missed가 꺼지고 윗단계 가능 (고르기를 거쳐도)', () => {
+    const held = ['cloud-1', 'cloud-2'];
+    const hit = answer(retried(), held, 'main', 'light').state;
     const next = resumeWild(hit, 1);
     expect(next.missed).toBe(false);
-    expect(resolveAnswer(next, k('cloud-1'), ['cloud-1'], 'light', NORMAL_MS).fast).toBe(true);
+    expect(answer(next, held, 'main', 'light').upper).toBe(true);
     const picked = pickSkill(resumeWild(hit, 2));
     expect(picked.missed).toBe(false);
   });
@@ -449,7 +545,7 @@ describe('wildBattle: 시간 한도 limitMs (시간 막대 기준)', () => {
     const s = resumeWild({ ...at(0), phase: 'hit', calmMs: CALM_BONUS_MS });
     expect(s).toMatchObject({ limitMs: 10000, timeLeftMs: 10000, calmMs: 0 });
     // 그 다음 새 문제는 다시 7초
-    const h = resolveAnswer(s, k('cloud-1'), ['cloud-1'], 'light', NORMAL_MS).state;
+    const h = answer(s, ['cloud-1'], 'main', 'light').state;
     expect(resumeWild(h).limitMs).toBe(7000);
   });
   it('화나서 강력이 되면 강력 시간(5초)', () => {

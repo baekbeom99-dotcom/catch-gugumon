@@ -230,6 +230,8 @@ export const SPECIAL_SFX: Record<SpecialKind, Sfx> = {
   clue: 'skillClue',
   calm: 'skillCalm',
   charge: 'skillCharge',
+  // 스턴 소리는 Task 12에서 skillStun으로 바꾼다 (지금은 자리표시로 방어 소리)
+  stun: 'skillGuard',
 };
 
 /** 효과음이 다 끝나는 시간(초) */

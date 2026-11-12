@@ -57,6 +57,7 @@ import {
   type FieldNotice,
   isAllowedSkill,
   isValidSkills,
+  seatOfId,
   newSpeciesEntry,
   type SkillOffer,
   SPECIES_IDS,
@@ -124,10 +125,10 @@ function commitSkills(
 }
 
 /**
- * 레벨이 from에서 entry.level로 올랐을 때 기술 배우기 (순수 계산).
- * 그 레벨까지 아는 자기 종 기술 중 아직 안 가진 것을 슬롯 순서로, 가진 수가 MAX_SKILLS보다 적은 동안 자동으로 가진다
- * (스타터의 슬롯 2, 옛 저장의 빈 슬롯도 이때 채워진다). 가득 차면 이번 레벨업으로 새로 익힌 것만 제안한다
- * — 예전에 익히고 안 가진 기술은 기술 관리 화면에서 다시 배운다 (매번 다시 묻지 않게)
+ * 레벨이 from에서 entry.level로 올랐을 때 기술 배우기 (순수 계산, 설계서 0-1절 "레벨 습득").
+ * 그 레벨까지 아는 자기 종 기술 중 아직 안 가진 것을 슬롯 순서로, 자리 규칙에 맞으면(isValidSkills) 자동으로 가진다:
+ * 주속성(슬롯 1·2·5)은 늘, 부속성(4)·특수(3)는 그 자리가 비어 있을 때. 자리가 복사 기술로 차 있으면
+ * 이번 레벨업으로 새로 익힌 것만 제안한다 — 예전에 익히고 안 가진 기술은 기술 관리 화면에서 다시 배운다 (매번 다시 묻지 않게)
  */
 function learnOnLevelUp(
   id: SpeciesId,
@@ -140,7 +141,7 @@ function learnOnLevelUp(
   const offers: SkillOffer[] = [];
   for (const k of learnedAt(id, entry.level)) {
     if (skills.includes(k.id)) continue;
-    if (skills.length < MAX_SKILLS) {
+    if (isValidSkills(id, entry.level, [...skills, k.id])) {
       skills.push(k.id);
       notices.push({ kind: 'skill', species: id, skillId: k.id, how: 'learned' });
     } else if (fresh.has(k.id)) {
@@ -240,13 +241,14 @@ interface GameActions {
   /** 필드 모험: 기술 제안을 받는다 — removeId를 잊고 그 자리에 새 기술 (replaceSkill과 같은 검사, 한 번의 set). 안 되면 false */
   acceptSkillOffer: (offer: SkillOffer, removeId: SkillId) => boolean;
   /**
-   * 필드 모험: 가진 기술 하나를 잊고 다른 기술을 그 자리에 배운다. 가진 기술을 잊고, 아직 안 가진 허용된 기술을 배울 때만 true.
+   * 필드 모험: 가진 기술 하나를 잊고 다른 기술을 그 자리에 배운다. **같은 자리끼리만**(부속성↔부속성, 특수↔특수 —
+   * 주속성 사슬은 레벨로만 생겨 대상이 아님), 아직 안 가진 허용된 기술일 때만 true.
    * 거부하면 아무것도 바꾸지 않는다 (상태 객체도 그대로)
    */
   replaceSkill: (species: SpeciesId, removeId: SkillId, addId: SkillId) => boolean;
-  /** 필드 모험: 가진 기술을 한 번에 바꾼다 (1~MAX_SKILLS개, 중복 없음, 모두 허용된 기술일 때만 true) */
+  /** 필드 모험: 가진 기술을 한 번에 바꾼다 (normalizeSkills가 그대로 두는 목록 — 자리 겹침 없음·주① 있음 — 일 때만 true) */
   setSkills: (species: SpeciesId, ids: SkillId[]) => boolean;
-  /** 필드 모험: 가진 기술이 MAX_SKILLS개보다 적으면 뒤에 하나 더한다 */
+  /** 필드 모험: 그 자리가 비어 있으면 뒤에 하나 더한다 (자리 규칙은 setSkills와 같은 검사) */
   addSkill: (species: SpeciesId, id: SkillId) => boolean;
   /** 전체 초기화 */
   resetAll: () => void;
@@ -528,7 +530,8 @@ export const useGameStore = create<GameStore>()(
               .map((k) => k.id)
               .filter((k) => mine.skills.includes(k) || !isAllowedSkill(companion, mine.level, k));
             const got = rollCopy(r.rng ?? Math.random, r.species, r.level, skip);
-            if (got && mine.skills.length < MAX_SKILLS) {
+            // 그 자리(속성 기술 → 부속성 자리, 특수 → 특수 자리)가 비어 있으면 바로 가지고, 차 있으면 제안
+            if (got && isValidSkills(companion, mine.level, [...mine.skills, got])) {
               species = { ...species, [companion]: { ...mine, skills: [...mine.skills, got] } };
               notices.push({ kind: 'skill', species: companion, skillId: got, how: 'copied', fromSpecies: r.species });
             } else if (got) {
@@ -559,6 +562,9 @@ export const useGameStore = create<GameStore>()(
       replaceSkill: (species, removeId, addId) => {
         const e = speciesEntry(get().field, species);
         if (!e || !e.skills.includes(removeId) || e.skills.includes(addId)) return false;
+        // 같은 자리끼리만 (부속성↔부속성, 특수↔특수). 주속성 사슬은 레벨로만 생기므로 바꾸기 대상이 아니다
+        const seat = seatOfId(species, removeId);
+        if (seat === null || seat === 'main' || seatOfId(species, addId) !== seat) return false;
         return commitSkills(get, set, species, e.skills.map((id) => (id === removeId ? addId : id)));
       },
       setSkills: (species, ids) => commitSkills(get, set, species, ids),

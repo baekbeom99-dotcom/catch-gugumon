@@ -26,7 +26,7 @@ describe('기술 글 (기술 표에서 계산)', () => {
 
   it('발동 조건 글: 실제 문구', () => {
     expect(skillText.condition(skillDef('cloud-1'))).toBe('문제 시간의 60% 안에 풀면 강력!');
-    expect(skillText.condition(skillDef('cloud-5'))).toBe('문제 시간의 40% 안에 풀면 강력!');
+    expect(skillText.condition(skillDef('cloud-5'))).toBe('문제 시간의 30% 안에 풀면 강력!');
     expect(skillText.condition(skillDef('cloud-3'))).toBe('문제 시간의 50% 안에 풀면 회복! 못 풀면 약한 기술이 나가요');
     expect(skillText.condition(skillDef('mushroom-3'))).toBe('문제 시간의 50% 안에 풀면 방어! 못 풀면 약한 기술이 나가요');
   });

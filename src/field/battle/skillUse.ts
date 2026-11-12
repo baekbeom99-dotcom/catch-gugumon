@@ -4,7 +4,7 @@
  */
 import type { SpeciesId } from '../../domain/field/creatures';
 import { ELEMENT_FX, MAIN_ELEMENT, SPECIAL_FX, STRONG_FX, matchup, type Element } from '../../domain/field/elements';
-import { defaultSkills, learnedAt, skillDef, type SkillDef, type SkillId } from '../../domain/field/skills';
+import { defaultSkills, learnedAt, skillDef, type SkillButton, type SkillDef, type SkillId } from '../../domain/field/skills';
 import { TIER_RULES } from '../../domain/field/tuning';
 import { resolveAnswer, type AnswerResult, type WildState } from '../../domain/field/wildBattle';
 import { battleText } from './battleText';
@@ -19,42 +19,44 @@ export function heldSkills(species: SpeciesId, entry: { level: number; skills?: 
 }
 
 /**
- * 정답 하나를 기술로 판정한다. 강력 기준 시간은 **그 단계 문제 시간(TIER_RULES[tier].timeMs)만** 넘긴다 —
- * 여유(calm)로 늘어난 남은 시간을 넘기면 강력 조건이 느슨해지므로 넣지 않는다.
- * fast(E2E 스위치 __GUGU_E2E_FAST__): true면 늘 빠르게(틀린 뒤 같은 문제여도), false면 늘 늦게, null이면 실제로 흐른 시간.
+ * 정답 하나를 기술 버튼으로 판정한다. 단계 기준 시간은 **그 단계 문제 시간(TIER_RULES[tier].timeMs)만** 넘긴다 —
+ * 여유(calm)로 늘어난 남은 시간을 넘기면 조건이 느슨해지므로 넣지 않는다.
+ * fast(E2E 스위치 __GUGU_E2E_FAST__): true면 늘 가장 빠르게, false면 늘 늦게, null이면 실제로 흐른 시간.
  */
 export function answerWithSkill(
   s: WildState,
-  picked: SkillDef,
+  button: SkillButton,
   held: readonly SkillId[],
   wildMain: Element,
   fast: boolean | null,
 ): AnswerResult {
   const timeMs = TIER_RULES[s.tier].timeMs;
-  if (fast === null) return resolveAnswer(s, picked, [...held], wildMain, timeMs);
-  // 판정할 때만 경과 시간·틀린 표시를 바꿔 넣고, 돌려줄 상태에는 원래 값을 둔다
-  const forced: WildState = { ...s, elapsedMs: fast ? 0 : timeMs + 1, missed: fast ? false : s.missed };
-  const r = resolveAnswer(forced, picked, [...held], wildMain, timeMs);
-  return { ...r, state: r.state === forced ? s : { ...r.state, elapsedMs: s.elapsedMs, missed: s.missed } };
+  if (fast === null) return resolveAnswer(s, button, held, wildMain, timeMs);
+  // 판정할 때만 경과 시간을 바꿔 넣고, 돌려줄 상태에는 원래 값을 둔다
+  const forced: WildState = { ...s, elapsedMs: fast ? 0 : timeMs + 1 };
+  const r = resolveAnswer(forced, button, held, wildMain, timeMs);
+  return { ...r, state: r.state === forced ? s : { ...r.state, elapsedMs: s.elapsedMs } };
 }
 
 /**
- * 정답 글: 나간 기술(강력·특수·대신 나감) 한 줄 + 상성 한 줄(보통이면 없음).
- * healed는 회복 특수로 실제로 늘어난 체력 (가득이었으면 0)
+ * 정답 글: 나간 기술(윗단계·특수·대신 나감) 한 줄 + 상성 한 줄(보통이면 없음).
+ * healed는 회복 특수로 실제로 늘어난 체력 (가득이었으면 0).
+ * (Task 11 임시: 주②의 효과 글·"2번 기술이 나갔어요" 글은 Task 12에서. 지금은 윗단계면 예전 "강력!" 글)
  */
 export function hitMessage(r: AnswerResult, wildMain: Element, healed: number): string {
   const name = r.fired.name;
+  const fromSpecial = r.fired.kind === 'special';
   const main = r.usedFallback
     ? battleText.fallback(name)
-    : r.special === 'heal'
+    : fromSpecial && r.special === 'heal'
       ? battleText.healSkill(name, healed)
-      : r.special
+      : fromSpecial && r.special
         ? battleText.special(name, r.special)
-        : r.fast
+        : r.upper
           ? battleText.strong(name)
           : battleText.hit(name);
-  // 특수 기술이 발동했으면 상성이 없다
-  const m = r.special ? null : skillMatchup(r.fired, wildMain);
+  // 특수 기술(속성 없음)은 상성이 없다
+  const m = skillMatchup(r.fired, wildMain);
   return m ? `${main}\n${battleText.matchup(m)}` : main;
 }
 

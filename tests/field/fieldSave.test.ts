@@ -157,7 +157,7 @@ describe('저장 데이터 field', () => {
       ...field,
       species: { horn: { ...entry, hp: 100, wounds: [], skills: ['horn-1', 'horn-2'] } },
     });
-    const hurt = { ...field, species: { horn: { ...entry, hp: 35, wounds: [{ factId: '6x7', type: 'product' }], skills: ['horn-2', 'jelly-5'] } } };
+    const hurt = { ...field, species: { horn: { ...entry, hp: 35, wounds: [{ factId: '6x7', type: 'product' }], skills: ['horn-1', 'horn-2', 'jelly-5'] } } };
     expect(mergeSave(createInitialSave(NOW), { ...oldSave(), field: hurt }).field).toEqual(hurt);
   });
 

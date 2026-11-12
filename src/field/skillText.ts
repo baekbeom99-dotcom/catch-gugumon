@@ -11,9 +11,10 @@ const SPECIAL_INFO: Record<SpecialKind, string> = {
   clue: '틀린 보기가 하나 사라져요',
   calm: '다음 문제 시간이 늘어요',
   charge: '다음 기술이 더 세져요',
+  stun: '다음 적 공격을 한 번 막아요',
 };
 
-const SPECIAL_WORD: Record<SpecialKind, string> = { heal: '회복', guard: '방어', clue: '힌트', calm: '여유', charge: '충전' };
+const SPECIAL_WORD: Record<SpecialKind, string> = { heal: '회복', guard: '방어', clue: '힌트', calm: '여유', charge: '충전', stun: '스턴' };
 
 export const skillText = {
   /** 위력 별 */

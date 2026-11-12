@@ -110,4 +110,6 @@ export const SPECIAL_FX: Record<SpecialKind, FxName> = {
   clue: 'rune-circle',
   calm: 'time-stop',
   charge: 'power-star',
+  // 스턴 효과 그림은 Task 12에서 바꾼다 (지금은 자리표시로 시간 멈춤 그림)
+  stun: 'time-stop',
 };

@@ -26,9 +26,9 @@ const NEW_SFX: Sfx[] = [
 ];
 
 describe('기술 효과음 15개', () => {
-  it('SKILL_SFX가 속성 7개, SPECIAL_SFX가 특수 5종을 모두 덮는다', () => {
+  it('SKILL_SFX가 속성 7개, SPECIAL_SFX가 특수 6종을 모두 덮는다', () => {
     expect(Object.keys(SKILL_SFX).sort()).toEqual(['earth', 'fire', 'grass', 'light', 'poison', 'thunder', 'water']);
-    expect(Object.keys(SPECIAL_SFX).sort()).toEqual(['calm', 'charge', 'clue', 'guard', 'heal']);
+    expect(Object.keys(SPECIAL_SFX).sort()).toEqual(['calm', 'charge', 'clue', 'guard', 'heal', 'stun']);
     for (const n of [...Object.values(SKILL_SFX), ...Object.values(SPECIAL_SFX)]) expect(NEW_SFX).toContain(n);
   });
 

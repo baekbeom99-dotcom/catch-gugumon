@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { SKILLS, SKILL_NAMES, SLOT_PATTERN, SPECIAL_OF_SPECIES, skillDef, speciesSkills } from '../../src/domain/field/skills';
+import { M2_EFFECT_OF_SPECIES, SKILLS, SKILL_NAMES, SLOT_PATTERN, SPECIAL_OF_SPECIES, fastSeconds, skillDef, speciesSkills } from '../../src/domain/field/skills';
+import { SUB_FAST_RATIO, TIER_RULES } from '../../src/domain/field/tuning';
 import { MAIN_ELEMENT, SUB_ELEMENT } from '../../src/domain/field/elements';
 import { SPECIES } from '../../src/domain/field/creatures';
 
@@ -27,14 +28,23 @@ describe('기술 고정표', () => {
     }
   });
 
-  it('슬롯 패턴 고정', () => {
+  it('슬롯 패턴 고정 (개정 3: 주① 2·주② 2+효과·주③ 3·부속성 3·특수 2)', () => {
     expect(SLOT_PATTERN).toEqual([
+      // 주①의 fastRatio는 판정에 쓰지 않는다 (주① = 느려도 나가는 기본)
       { slot: 1, kind: 'main', learnLevel: 1, basePower: 2, fastRatio: 0.6, fxIndex: 0 },
       { slot: 2, kind: 'main', learnLevel: 3, basePower: 2, fastRatio: 0.5, fxIndex: 1 },
       { slot: 3, kind: 'special', learnLevel: 8, basePower: 2, fastRatio: 0.5 },
-      { slot: 4, kind: 'sub', learnLevel: 14, basePower: 2, fastRatio: 0.5, fxIndex: 3 },
-      { slot: 5, kind: 'main', learnLevel: 20, basePower: 3, fastRatio: 0.4, fxIndex: 2 },
+      { slot: 4, kind: 'sub', learnLevel: 14, basePower: 3, fastRatio: SUB_FAST_RATIO, fxIndex: 3 },
+      { slot: 5, kind: 'main', learnLevel: 20, basePower: 3, fastRatio: 0.3, fxIndex: 2 },
     ]);
+    expect(SUB_FAST_RATIO).toBe(0.5);
+  });
+
+  it('주③의 조건 시간은 주②보다 짧다 (모든 단계의 문제 시간에서)', () => {
+    const times = new Set(Object.values(TIER_RULES).map((r) => r.timeMs));
+    for (const t of times) {
+      expect(fastSeconds(skillDef('cloud-5'), t)).toBeLessThan(fastSeconds(skillDef('cloud-2'), t));
+    }
   });
 
   it('각 기술의 값이 패턴과 같고 종류별 속성이 맞다', () => {
@@ -64,6 +74,25 @@ describe('기술 고정표', () => {
       expect(names).toHaveLength(5);
       expect([names[0], names[1], names[4]]).toEqual(old);
     }
+  });
+
+  it('주② 효과 배정표 (스턴·회복·방어, 그 종의 특수 슬롯 효과와 겹치지 않음)', () => {
+    expect(M2_EFFECT_OF_SPECIES).toEqual({
+      cloud: 'stun',
+      mushroom: 'heal',
+      fluff: 'guard',
+      jelly: 'stun',
+      antenna: 'heal',
+      horn: 'stun',
+      pebble: 'guard',
+      ghost: 'heal',
+      'legend-fluff': 'stun',
+      'legend-horn': 'guard',
+      'legend-ghost': 'heal',
+    });
+    for (const s of SPECIES) expect(M2_EFFECT_OF_SPECIES[s.id]).not.toBe(SPECIAL_OF_SPECIES[s.id]);
+    // 스턴은 주②에만 (특수 슬롯에는 배정하지 않는다)
+    expect(Object.values(SPECIAL_OF_SPECIES)).not.toContain('stun');
   });
 
   it('특수 배정표', () => {
