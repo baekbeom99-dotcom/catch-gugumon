@@ -1369,7 +1369,9 @@ test('기술 5개: 고르기 단계에 버튼 5개, 발동 조건과 상성 글�
   await expect(buttons).toHaveCount(5);
   // 고르는 동안은 문제가 안 보이고 시간도 안 간다
   await expect(page.locator('.wild__bubble')).toHaveCount(0);
-  await expect(page.getByRole('status')).toHaveText('어떤 기술을 쓸까?');
+  // "어떤 기술을 쓸까?"는 고르기 제목에 한 번만 (글 칸은 나타났다 글)
+  await expect(picker.locator('.skill-picker__title')).toHaveText('어떤 기술을 쓸까?');
+  await expect(page.getByText('어떤 기술을 쓸까?')).toHaveCount(1);
   await expect(buttons.nth(0)).toContainText('잎사귀 톡');
   await expect(buttons.nth(0)).toContainText('풀');
   await expect(buttons.nth(0)).toContainText('★★');
@@ -1397,23 +1399,34 @@ test('기술 5개: 고르기 단계에 버튼 5개, 발동 조건과 상성 글�
   await expect(page.locator('.wild__skill-now')).toHaveText('새싹 휙 · 4초 안에 풀면 강력!');
 });
 
-test('빠르게 풀면 "강력!" — 같은 기술이 더 많이 깎는다 (__GUGU_E2E_FAST__)', async ({ page }) => {
+/** 잎사귀 톡(풀) → 초원 야생 주속성 상성: 새싹몬(풀) 0, 버섯몬(독) −1, 왕관몬(빛) 0 */
+const LEAF_VS: Record<string, number> = { cloud: 0, mushroom: -1, fluff: 0 };
+
+test('빠르게 풀면 "강력!" — 같은 기술이 1칸 더 깎는다 (__GUGU_E2E_FAST__)', async ({ page }) => {
   await fixBattle(page, false);
-  await standBesideGrass(page, { tier: 'normal' });
+  await standBesideGrass(page, { tier: 'normal' }); // 보통: 8칸
   await stepIntoGrass(page);
+  const species = (await page.locator('.wild__stage').getAttribute('data-species'))!;
+  const m = LEAF_VS[species];
+  expect(m).toBeDefined();
+  const hpOf = (cells: number) => Math.round((1 - cells / 8) * 100);
   await page.getByRole('button', { name: '싸우자!' }).click();
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
+  // 평소: 위력 2 + 상성
   await moveButton(page, 56).click();
-  await expect(page.getByRole('status')).toContainText('잎사귀 톡!');
+  await expect(page.getByRole('status')).toContainText('잎사귀 톡! 명중!');
   await expect(page.getByRole('status')).not.toContainText('강력');
-  const hp1 = await wildHp(page);
+  const cells1 = 2 + m;
+  await expect(page.getByLabel(`야생 체력 ${hpOf(cells1)}`)).toBeVisible();
+  expect(await wildHp(page)).toBe(hpOf(cells1));
+  // 강력: 위력 2 + 강력 1 + 상성
   await setFast(page, true);
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
   await moveButton(page, 56).click();
   await expect(page.getByRole('status')).toContainText('잎사귀 톡! 강력!');
-  const hp2 = await wildHp(page);
-  // 같은 기술·같은 상성에서 강력은 1칸 더 (보통 8칸 중 1칸 = 12~13)
-  expect(hp1 - hp2).toBeGreaterThan(100 - hp1);
+  const cells2 = cells1 + 3 + m;
+  await expect(page.getByLabel(`야생 체력 ${hpOf(cells2)}`)).toBeVisible();
+  expect(await wildHp(page)).toBe(hpOf(cells2));
   await page.screenshot({ path: `${shotDir}/strong-375.png` });
 });
 
@@ -1439,22 +1452,30 @@ test('특수 회복: 빠르게 풀면 내 체력이 25 늘고, 늦으면 약한 
   expect((await savedCloud(page)).hp).toBe(75);
 });
 
-test('틀리면 힌트 뒤 같은 기술로 같은 문제를 다시 푼다 (고르기로 안 감)', async ({ page }) => {
-  await fixBattle(page, null);
+test('틀리면 힌트 뒤 같은 기술로 같은 문제를 다시 풀고(고르기로 안 감), 그때는 빨라도 강력이 아니다', async ({ page }) => {
+  // 문제를 고정하지 않는다: 처음 문제의 data-fact를 읽어 힌트 뒤와 비교. 시간이 멈춰 있어 평소라면 늘 "빠르게"
   await standBesideGrass(page, { tier: 'normal', cloud: { skills: ['cloud-1', 'cloud-2'] } });
   await stepIntoGrass(page);
   await page.getByRole('button', { name: '싸우자!' }).click();
   await skillPicker(page).locator('[data-skill="cloud-2"]').click();
-  await wrongMoveButton(page, 56).click();
+  const bubble = page.locator('.wild__bubble');
+  await expect(bubble).toBeVisible();
+  const fact = (await bubble.getAttribute('data-fact'))!;
+  const text = await bubble.locator('.question').textContent();
+  const answer = await solveWild(page);
+  await wrongMoveButton(page, answer).click();
   const glow = page.locator('.wild-move--glow');
   await expect(glow).toHaveCount(1);
   await expect(page.getByRole('status')).toContainText('새싹 휙! …빗나갔다');
   await glow.click();
   await expect(skillPicker(page)).toHaveCount(0);
-  await expect(page.locator('.wild__bubble')).toHaveAttribute('data-fact', '7x8');
+  await expect(page.locator('.wild__hint')).toHaveCount(0);
+  await expect(bubble).toHaveAttribute('data-fact', fact);
+  await expect(bubble.locator('.question')).toHaveText(text!);
   await expect(page.locator('.wild__skill-now')).toContainText('새싹 휙');
-  await moveButton(page, 56).click();
-  await expect(page.getByRole('status')).toContainText('새싹 휙!');
+  await moveButton(page, answer).click();
+  await expect(page.getByRole('status')).toContainText('새싹 휙! 명중!');
+  await expect(page.getByRole('status')).not.toContainText('강력');
   // 맞힌 뒤 다음 문제는 다시 고르기부터
   await expect(skillPicker(page)).toBeVisible();
 });

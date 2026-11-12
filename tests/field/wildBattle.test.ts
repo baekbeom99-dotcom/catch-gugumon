@@ -39,8 +39,8 @@ describe('wildBattle: 문제 시간·정답', () => {
     expect(createWild(t, 1, 100).timeLeftMs).toBe(ms));
   it('처음 상태', () => {
     expect(createWild('strong', 8, 60)).toEqual({
-      tier: 'strong', level: 8, cells: 0, timeLeftMs: 5000, elapsedMs: 0, allyHp: 60, phase: 'question', correct: 0, timedOut: false,
-      lastMove: null, charge: 0, guard: false, calmMs: 0, hideChoice: false,
+      tier: 'strong', level: 8, cells: 0, timeLeftMs: 5000, limitMs: 5000, elapsedMs: 0, allyHp: 60, phase: 'question', correct: 0, timedOut: false,
+      missed: false, charge: 0, guard: false, calmMs: 0, hideChoice: false,
     });
   });
   it('시작부터 체력 0이면 쓰러진 채(전투가 열리지 않게)', () => {
@@ -104,10 +104,12 @@ describe('wildBattle: 적의 공격', () => {
       expect(answerWild(s, true, r0)).toBe(s);
     }
   });
-  it('적 기술은 rng로 0~2', () => {
-    expect(answerWild(createWild('normal', 5, 100), false, () => 0.99).lastMove).toBe(2);
-    expect(answerWild(createWild('normal', 5, 100), false, () => 0.5).lastMove).toBe(1);
-    expect(answerWild(createWild('normal', 5, 100), false, r0).lastMove).toBe(0);
+  it('적의 공격은 난수를 쓰지 않는다 (적 기술 이름은 화면이 고른다)', () => {
+    const none: Rng = () => {
+      throw new Error('난수를 쓰면 안 됨');
+    };
+    expect(answerWild(createWild('normal', 5, 100), false, none).phase).toBe('struck');
+    expect(tick({ ...createWild('normal', 5, 100), timeLeftMs: 100 }, 250, none).phase).toBe('struck');
   });
   it('damageOf', () => {
     expect(damageOf(createWild('weak', 5, 100))).toBe(20);
@@ -403,5 +405,55 @@ describe('wildBattle: 기술 고르기(pick)', () => {
     const hint = resumeWild(struck, 3);
     expect(hint.phase).toBe('hint');
     expect(resumeWild(hint, 3)).toMatchObject({ phase: 'question', elapsedMs: 0, timeLeftMs: 7000 });
+  });
+});
+
+describe('wildBattle: 틀린 뒤 같은 문제는 강력·특수 발동 없음 (missed)', () => {
+  /** 보통 단계 문제에서 틀리고 힌트를 본 뒤 같은 문제로 돌아온 상태 */
+  const retried = (over: Partial<WildState> = {}) => resumeWild(resumeWild(answerWild({ ...at(500), ...over }, false, r0)));
+  it('오답·시간 초과면 missed가 켜진다', () => {
+    expect(answerWild(at(500), false, r0).missed).toBe(true);
+    expect(tick({ ...at(0), timeLeftMs: 100 }, 250, r0)).toMatchObject({ phase: 'struck', missed: true });
+  });
+  it('틀림 → 힌트 → 같은 문제 정답: 아무리 빨라도 강력 아님 (평소 위력)', () => {
+    const q = retried();
+    expect(q).toMatchObject({ phase: 'question', missed: true, elapsedMs: 0 });
+    const r = resolveAnswer(q, k('cloud-1'), ['cloud-1'], 'light', NORMAL_MS);
+    expect(r.fast).toBe(false);
+    expect(r.state.cells).toBe(2);
+  });
+  it('틀림 → 힌트 → 같은 문제: 특수 기술은 조건 실패 → 가장 약한 기술', () => {
+    const r = resolveAnswer(retried(), k('cloud-3'), ['cloud-1', 'cloud-3'], 'light', NORMAL_MS);
+    expect(r).toMatchObject({ usedFallback: true, fast: false });
+    expect(r.special).toBeUndefined();
+    expect(r.fired.id).toBe('cloud-1');
+  });
+  it('맞힌 뒤 새 문제에서는 다시 강력 가능 (고르기를 거쳐도)', () => {
+    const hit = resolveAnswer(retried(), k('cloud-1'), ['cloud-1'], 'light', NORMAL_MS).state;
+    const next = resumeWild(hit, 1);
+    expect(next.missed).toBe(false);
+    expect(resolveAnswer(next, k('cloud-1'), ['cloud-1'], 'light', NORMAL_MS).fast).toBe(true);
+    const picked = pickSkill(resumeWild(hit, 2));
+    expect(picked.missed).toBe(false);
+  });
+  it('빠져나옴·화남 뒤 새 문제는 missed가 꺼진다', () => {
+    const d = { ...dizzyOf(createWild('normal', 5, 100)), missed: true };
+    expect(throwCapsule(d, seq(0.5), 5)!.state.missed).toBe(false);
+    expect(throwCapsule(d, seq(0.999, 0), 10)!.state.missed).toBe(false);
+  });
+});
+
+describe('wildBattle: 시간 한도 limitMs (시간 막대 기준)', () => {
+  it('처음은 그 단계 시간, 여유가 있으면 새 문제의 한도에 더한다', () => {
+    expect(createWild('mighty', 5, 100).limitMs).toBe(5000);
+    const s = resumeWild({ ...at(0), phase: 'hit', calmMs: CALM_BONUS_MS });
+    expect(s).toMatchObject({ limitMs: 10000, timeLeftMs: 10000, calmMs: 0 });
+    // 그 다음 새 문제는 다시 7초
+    const h = resolveAnswer(s, k('cloud-1'), ['cloud-1'], 'light', NORMAL_MS).state;
+    expect(resumeWild(h).limitMs).toBe(7000);
+  });
+  it('화나서 강력이 되면 강력 시간(5초)', () => {
+    const d = dizzyOf(createWild('normal', 5, 100));
+    expect(throwCapsule(d, seq(0.999, 0), 10)!.state.limitMs).toBe(5000);
   });
 });

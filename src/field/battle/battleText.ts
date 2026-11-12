@@ -11,7 +11,7 @@ const SPECIAL_WORD: Record<SpecialKind, string> = { heal: '회복', guard: '방�
 
 /** 특수 기술이 발동했을 때 글 */
 const SPECIAL_DONE: Record<SpecialKind, string> = {
-  heal: `체력을 ${SPECIAL_HEAL} 되찾았어요!`,
+  heal: `체력을 ${SPECIAL_HEAL} 되찾았어요!`, // 화면은 실제로 늘어난 만큼을 쓰는 healed를 쓴다
   guard: '다음 공격은 반만 아파요!',
   clue: '다음 문제에서 틀린 답 하나가 사라져요!',
   calm: `다음 문제 시간이 ${CALM_BONUS_MS / 1000}초 늘어나요!`,
@@ -32,6 +32,8 @@ export const battleText = {
   strong: (move: string) => `${move}! 강력!`,
   /** 특수 기술 발동 */
   special: (move: string, kind: SpecialKind) => `${move}! ${SPECIAL_DONE[kind]}`,
+  /** 회복 특수: 실제로 늘어난 체력 (0이면 이미 가득) */
+  healSkill: (move: string, amount: number) => `${move}! ${amount > 0 ? `체력을 ${amount} 되찾았어요!` : '체력이 이미 가득해요!'}`,
   /** 특수 기술을 늦게 풀어 약한 기술이 대신 나감 */
   fallback: (move: string) => `시간이 지나서 약한 기술이 나갔어요. ${move}!`,
   /** 상성 (색에만 기대지 않게 ▲▼ 글자도) */

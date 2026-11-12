@@ -34,6 +34,8 @@ export interface WildState {
   cells: number;
   /** 이 문제 남은 시간 */
   timeLeftMs: number;
+  /** 이 문제의 시간 한도 (여유로 늘어난 시간 포함) — 시간 막대의 기준 */
+  limitMs: number;
   /** 이 문제를 시작한 뒤 흐른 시간 ("빠르게 풀면 강력" 판정. 여유로 늘어난 시간과 상관없이 실제로 흐른 시간) */
   elapsedMs: number;
   /** 우리 구구몬 체력 */
@@ -43,8 +45,8 @@ export interface WildState {
   correct: number;
   /** 마지막 피격이 시간 초과였나 */
   timedOut: boolean;
-  /** 적이 고른 기술 0~2 (피격 때) */
-  lastMove: number | null;
+  /** 이 문제에서 이미 틀렸나 (시간 초과 포함). 틀린 뒤 힌트를 보고 같은 문제를 다시 풀면 강력·특수 발동이 없다. 새 문제로 넘어갈 때만 꺼진다 */
+  missed: boolean;
   /** 충전: 다음 속성 기술에 더할 칸 (쓰면 0) */
   charge: number;
   /** 방어: 다음 적 공격 피해를 절반(올림)으로 (맞으면 false) */
@@ -60,9 +62,15 @@ export function maxCells(tier: Tier): number {
   return TIER_RULES[tier].hitsToDizzy * CELLS_PER_HIT;
 }
 
-/** 새 문제(또는 같은 문제 다시)의 시계: 시간을 처음부터, 여유가 있으면 더하고 써 버린다 */
+/** 새 문제(또는 같은 문제 다시)의 시계: 시간을 처음부터, 여유가 있으면 더하고 써 버린다. 틀린 표시(missed)는 건드리지 않는다 */
 function freshClock(s: WildState): WildState {
-  return { ...s, timeLeftMs: TIER_RULES[s.tier].timeMs + s.calmMs, elapsedMs: 0, calmMs: 0 };
+  const limitMs = TIER_RULES[s.tier].timeMs + s.calmMs;
+  return { ...s, timeLeftMs: limitMs, limitMs, elapsedMs: 0, calmMs: 0 };
+}
+
+/** 새 문제로 넘어간다: 시계를 새로 하고 틀린 표시를 끈다 (힌트 뒤 같은 문제는 freshClock만) */
+function newQuestion(s: WildState): WildState {
+  return { ...freshClock(s), missed: false };
 }
 
 /** 가진 기술이 2개 이상이면 문제 전에 기술을 고른다 */
@@ -77,13 +85,14 @@ export function createWild(tier: Tier, level: number, allyHp: number, heldCount 
     level,
     cells: 0,
     timeLeftMs: TIER_RULES[tier].timeMs,
+    limitMs: TIER_RULES[tier].timeMs,
     elapsedMs: 0,
     allyHp: hp,
     // 쓰러진 구구몬으로는 싸우지 않는다 (만남이 막지만 한 번 더 지킨다)
     phase: hp <= 0 ? 'fainted' : askPhase(heldCount),
     correct: 0,
     timedOut: false,
-    lastMove: null,
+    missed: false,
     charge: 0,
     guard: false,
     calmMs: 0,
@@ -91,21 +100,26 @@ export function createWild(tier: Tier, level: number, allyHp: number, heldCount 
   };
 }
 
-/** 적의 공격: 방어가 있으면 절반(올림)으로 줄이고 방어는 사라진다. 체력이 0이 되면 힌트 없이 바로 끝 (R9) */
-function strike(s: WildState, rng: Rng, timedOut: boolean, timeLeftMs: number): WildState {
+/**
+ * 적의 공격: 방어가 있으면 절반(올림)으로 줄이고 방어는 사라진다. 이 문제는 틀린 것으로 표시한다.
+ * 체력이 0이 되면 힌트 없이 바로 끝 (R9). 적이 쓰는 기술 이름은 화면이 고른다(난수를 쓰지 않음)
+ */
+function strike(s: WildState, timedOut: boolean, timeLeftMs: number): WildState {
   const allyHp = applyDamage(s.allyHp, damageOf(s));
-  const lastMove = Math.min(2, Math.max(0, Math.floor(rng() * 3)));
-  return { ...s, allyHp, timeLeftMs, timedOut, lastMove, guard: false, phase: allyHp <= 0 ? 'fainted' : 'struck' };
+  return { ...s, allyHp, timeLeftMs, timedOut, missed: true, guard: false, phase: allyHp <= 0 ? 'fainted' : 'struck' };
 }
 
-/** 문제가 떠 있는 동안에만 시간이 준다(기술 고르는 동안은 멈춤). 이상한 dt(NaN·음수·무한)는 0으로 본다 */
-export function tick(s: WildState, dtMs: number, rng: Rng): WildState {
+/**
+ * 문제가 떠 있는 동안에만 시간이 준다(기술 고르는 동안은 멈춤). 이상한 dt(NaN·음수·무한)는 0으로 본다.
+ * _rng는 예전에 적 기술 번호를 뽑던 자리 — 지금은 쓰지 않지만 부르는 쪽이 많아 자리만 남겨 둔다
+ */
+export function tick(s: WildState, dtMs: number, _rng: Rng): WildState {
   if (s.phase !== 'question') return s;
   const dt = Number.isFinite(dtMs) ? Math.min(Math.max(dtMs, 0), MAX_TICK_MS) : 0;
   if (dt === 0) return s;
   const timeLeftMs = Math.max(0, s.timeLeftMs - dt);
   const elapsedMs = s.elapsedMs + dt;
-  if (timeLeftMs === 0) return strike({ ...s, elapsedMs }, rng, true, 0);
+  if (timeLeftMs === 0) return strike({ ...s, elapsedMs }, true, 0);
   return { ...s, timeLeftMs, elapsedMs };
 }
 
@@ -171,7 +185,8 @@ export function resolveAnswer(
   timeMs: number,
 ): AnswerResult {
   if (s.phase !== 'question') return { state: s, fired: picked, fast: false, usedFallback: false };
-  const fast = s.elapsedMs <= fastSeconds(picked, timeMs) * 1000;
+  // 틀린 뒤 힌트를 보고 같은 문제를 다시 풀 때는 빠르게 풀어도 강력·특수 발동이 없다
+  const fast = !s.missed && s.elapsedMs <= fastSeconds(picked, timeMs) * 1000;
 
   if (picked.kind === 'special' && picked.special) {
     if (fast) {
@@ -198,9 +213,9 @@ export function resolveAnswer(
  * 답하기: 오답이면 적이 공격한다. 정답이면 위력 2·상성 보통·강력 아님으로 깎는다(기술을 모르는 옛 호출용 — 기술은 resolveAnswer).
  * question이 아니면 그대로(연타)
  */
-export function answerWild(s: WildState, correct: boolean, rng: Rng): WildState {
+export function answerWild(s: WildState, correct: boolean, _rng: Rng): WildState {
   if (s.phase !== 'question') return s;
-  if (!correct) return strike(s, rng, false, s.timeLeftMs);
+  if (!correct) return strike(s, false, s.timeLeftMs);
   return landHit(s, Math.min(MAX_CHIP_CELLS, Math.max(1, CELLS_PER_HIT + s.charge)), { charge: 0 });
 }
 
@@ -210,7 +225,8 @@ export function answerWild(s: WildState, correct: boolean, rng: Rng): WildState 
  */
 export function resumeWild(s: WildState, heldCount = 1): WildState {
   if (s.phase === 'struck') return { ...s, phase: 'hint' };
-  if (s.phase === 'hit') return { ...freshClock(s), phase: askPhase(heldCount) };
+  if (s.phase === 'hit') return { ...newQuestion(s), phase: askPhase(heldCount) };
+  // 힌트 뒤 같은 문제: 시계만 새로, 틀린 표시는 그대로 (강력·특수 발동 없음)
   if (s.phase === 'hint') return { ...freshClock(s), phase: 'question' };
   return s;
 }
@@ -233,7 +249,7 @@ export function throwCapsule(
     // 빠져나옴: 어지러움이 풀리고 깎인 칸에서 절반(올림)을 되찾아 다시 싸운다
     const heal = Math.ceil(maxCells(s.tier) * CAPTURE_FAIL_HEAL_RATIO);
     const cells = Math.max(0, s.cells - heal);
-    return { state: { ...freshClock(s), cells, phase: askPhase(heldCount) }, outcome: 'healed' };
+    return { state: { ...newQuestion(s), cells, phase: askPhase(heldCount) }, outcome: 'healed' };
   }
   if (r < 1 - odds.angry) return { state: { ...s, phase: 'escaped' }, outcome: 'escaped' };
   // 화남: 강력이 되어(이미 강력·황금이면 그대로) 체력을 다 채우고 다시 싸운다 (기술이 2개 이상이면 고르기부터)
@@ -242,7 +258,7 @@ export function throwCapsule(
   const tier: Tier = stays ? s.tier : 'mighty';
   const level = stays ? s.level : rollTierLevel(rng, 'mighty', companionLevel);
   return {
-    state: { ...freshClock({ ...s, tier }), level, cells: 0, phase: askPhase(heldCount) },
+    state: { ...newQuestion({ ...s, tier }), level, cells: 0, phase: askPhase(heldCount) },
     outcome: 'angry',
   };
 }

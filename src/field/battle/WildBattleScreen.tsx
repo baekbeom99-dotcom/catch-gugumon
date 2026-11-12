@@ -11,7 +11,7 @@ import { HintPanel } from '../../components/HintPanel';
 import { QuestionView } from '../../components/QuestionView';
 import { capsuleFor } from '../../domain/field/capsules';
 import { speciesDef } from '../../domain/field/creatures';
-import { ELEMENT_FX, elementOf, subElementOf, type Element } from '../../domain/field/elements';
+import { ELEMENT_FX, elementOf, subElementOf } from '../../domain/field/elements';
 import { createAnswerTimer, elapsedMs, pauseTimer, resumeTimer, startTimer } from '../../domain/field/answerTimer';
 import { displayName } from '../../domain/field/growth';
 import type { Encounter } from '../../domain/field/encounter';
@@ -39,7 +39,6 @@ import {
   throwCapsule,
   tick,
   wildHpRatio,
-  type AnswerResult,
   type WildState,
 } from '../../domain/field/wildBattle';
 import { fastSeconds, type SkillDef } from '../../domain/field/skills';
@@ -56,7 +55,7 @@ import { endWildBattle, useFieldSession } from '../useFieldSession';
 import { HpBar, TimerBar } from './BattleBars';
 import { battleText } from './battleText';
 import { SkillPicker } from './SkillPicker';
-import { answerWithSkill, foeSkill, heldSkills, skillFxName, skillMatchup } from './skillUse';
+import { answerWithSkill, foeSkill, heldSkills, hitMessage, skillFxName } from './skillUse';
 import { useQuestionFeed } from './useQuestionFeed';
 import '../../screens/battle.css';
 import './wildBattle.css';
@@ -69,21 +68,6 @@ function endOf(w: WildState, quit: boolean): WildEnd | null {
   if (quit) return 'quit';
   if (w.phase === 'caught' || w.phase === 'escaped' || w.phase === 'released' || w.phase === 'fainted') return w.phase;
   return null;
-}
-
-/** 정답 글: 나간 기술(강력·특수·대신 나감) 한 줄 + 상성 한 줄(보통이면 없음) */
-function hitMessage(r: AnswerResult, wildMain: Element): string {
-  const name = r.fired.name;
-  const main = r.usedFallback
-    ? battleText.fallback(name)
-    : r.special
-      ? battleText.special(name, r.special)
-      : r.fast
-        ? battleText.strong(name)
-        : battleText.hit(name);
-  // 특수 기술이 발동했으면 상성이 없다
-  const m = r.special ? null : skillMatchup(r.fired, wildMain);
-  return m ? `${main}\n${battleText.matchup(m)}` : main;
 }
 
 /** 지금 쓰는 기술의 짧은 발동 조건 ("4초 안에 풀면 강력!" / "4초 안에 풀면 회복!") */
@@ -223,8 +207,8 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   useEffect(() => {
     if (!intro) {
       const w = wildRef.current!;
-      if (w.phase === 'pick') setMessage(battleText.choose);
-      else if (w.phase === 'question') {
+      // 고르기면 고르기 제목("어떤 기술을 쓸까?")이 있으니 글 칸은 나타났다 글 그대로
+      if (w.phase === 'question') {
         const def = pickedRef.current;
         setMessage(battleText.ready(def.name, fastSeconds(def, TIER_RULES[w.tier].timeMs), def.special));
       }
@@ -236,7 +220,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
 
   /** 학습 기록: 고르는 순간(시간 초과는 그 순간) 바로 저장한다 (전투 중 앱을 닫아도 남게) */
   const record = useCallback(
-    (correct: boolean, ms: number) => {
+    (correct: boolean, ms: number, retryAfterHint = false) => {
       const it = itemRef.current;
       recordAnswer({
         factId: it.factId,
@@ -244,7 +228,8 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
         correct,
         ms,
         inputMode: 'choice',
-        isRetry: it.isRetry,
+        // 틀린 뒤 힌트를 보고 같은 문제를 다시 푼 답은 재출제처럼 센다 (빛나는 답을 보고 맞혀도 상자가 오르지 않게)
+        isRetry: it.isRetry || retryAfterHint,
         firstAttemptInBattle: !answeredFacts.current.has(it.factId),
         battleStartedAt,
         now: Date.now(),
@@ -302,11 +287,11 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       if (t === prev) return;
       wildRef.current = t;
       const fill = timerFillRef.current;
-      if (fill) fill.style.width = `${(t.timeLeftMs / TIER_RULES[t.tier].timeMs) * 100}%`;
+      if (fill) fill.style.width = `${(t.timeLeftMs / t.limitMs) * 100}%`;
       if (t.phase !== 'question') {
         // 시간 초과: 오답처럼 기록하고(R8) 적이 공격한다
         setWildState(t);
-        record(false, TIER_RULES[t.tier].timeMs);
+        record(false, TIER_RULES[t.tier].timeMs, prev.missed);
         onStruckRef.current(t);
         return;
       }
@@ -424,43 +409,47 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     if (!correct) {
       const after = answerWild(w, false, rng);
       setWild(after);
-      record(false, ms);
+      record(false, ms, w.missed);
       onStruck(after);
       return;
     }
     const r = answerWithSkill(w, pickedRef.current, heldIds, wildElement, debugFlags().fast);
     let after = r.state;
+    let healed = 0;
     if (r.special === 'heal') {
-      // 회복 특수: 내 구구몬 체력을 채우고 바로 저장한다 (스토어 한 번)
+      // 회복 특수: 내 구구몬 체력을 채우고 바로 저장한다 (스토어 한 번). 글에는 실제로 늘어난 만큼만
       after = healAlly(after, SPECIAL_HEAL);
+      healed = after.allyHp - r.state.allyHp;
       useGameStore.getState().restoreCompanionHp(companion, SPECIAL_HEAL);
     }
     setWild(after);
-    record(true, ms);
+    record(true, ms, w.missed);
     setHitCount((n) => n + 1);
     // 강력 효과는 속성 기술이 빠르게 맞았을 때만 (특수 발동·대신 나간 기술은 평소 효과)
     moveFx('ally', r.fired, r.fast && !r.usedFallback && r.fired.kind !== 'special');
-    const text = hitMessage(r, wildElement);
+    const text = hitMessage(r, wildElement, healed);
+    // 이 문제에서 틀렸었으면 다음으로 넘어갈 때 틀린 사실을 몇 문제 뒤에 다시 넣는다
+    const retryWrong = w.missed;
     setMessage(text);
     if (after.phase === 'hit') {
       later(() => {
         if (settledRef.current) return;
         // 다음 문제: 기술이 2개 이상이면 고르기부터 (글은 방금 맞힌 글을 그대로 둔다)
         setWild(resumeWild(wildRef.current!, held.length));
-        next(false);
+        next(retryWrong);
       }, WILD_HIT_ANIM_MS);
     } else if (after.phase === 'dizzy') {
       setMessage(`${text}\n${battleText.dizzy(battleText.tierName(wildDef.name, after.tier))}`);
-      next(false);
+      next(retryWrong);
       onDizzy(after);
     }
   };
 
+  /** 힌트의 빛나는 답을 누르면 같은 문제를 같은 기술로 다시 푼다 (설계 2-6). 틀린 사실은 맞힌 뒤 넘어갈 때 다시 넣는다 */
   const onHintPick = () => {
     if (wildRef.current!.phase !== 'hint') return;
     setWild(resumeWild(wildRef.current!));
     setMessage(battleText.retry);
-    next(true);
   };
 
   const onCapsule = () => {
@@ -514,7 +503,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const buffs = [
     wild.guard && battleText.buff.guard,
     wild.charge > 0 && battleText.buff.charge,
-    wild.calmMs > 0 && battleText.buff.calm,
+    (wild.calmMs > 0 || (asking && wild.limitMs > timeMs)) && battleText.buff.calm,
     wild.hideChoice && battleText.buff.clue,
   ].filter((b): b is string => !!b);
   const dizzy = wild.phase === 'dizzy';
@@ -547,7 +536,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       <section ref={stageRef} data-species={encounter.species} className={`wild__stage ${wildDef.legend ? 'wild__stage--legend' : ''} ${intro ? 'wild__stage--intro' : ''} ${intro && wildDef.legend ? 'wild__stage--sparkle' : ''}`}>
         {asking || inHint ? (
           <div className="wild__bubble" data-fact={item.factId}>
-            {asking && <TimerBar key={key} ms={wild.timeLeftMs} totalMs={TIER_RULES[wild.tier].timeMs} fillRef={timerFillRef} />}
+            {asking && <TimerBar key={key} ms={wild.timeLeftMs} totalMs={wild.limitMs} fillRef={timerFillRef} />}
             <QuestionView display={question.display} />
           </div>
         ) : null}

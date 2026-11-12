@@ -3,7 +3,7 @@ import { ELEMENT_FX } from '../../src/domain/field/elements';
 import { skillDef } from '../../src/domain/field/skills';
 import { TIER_RULES } from '../../src/domain/field/tuning';
 import { createWild, type WildState } from '../../src/domain/field/wildBattle';
-import { answerWithSkill, foeSkill, heldSkills, skillFxName, skillMatchup } from '../../src/field/battle/skillUse';
+import { answerWithSkill, foeSkill, heldSkills, hitMessage, skillFxName, skillMatchup } from '../../src/field/battle/skillUse';
 
 const k = (id: string) => skillDef(id);
 /** 보통 단계(7초) 문제 하나: 경과 시간만 정해 둔다 */
@@ -53,6 +53,12 @@ describe('전투 기술: answerWithSkill (빠르게 스위치·문제 시간)', 
     expect(answerWithSkill(m, k('cloud-1'), ['cloud-1'], 'light', null).fast).toBe(true);
     expect(answerWithSkill({ ...m, elapsedMs: 3001 }, k('cloud-1'), ['cloud-1'], 'light', null).fast).toBe(false);
   });
+  it('빠르게 스위치 true는 틀린 뒤 같은 문제(missed)여도 이긴다, 상태의 missed는 그대로', () => {
+    const r = answerWithSkill(at(0, { missed: true }), k('cloud-1'), ['cloud-1'], 'light', true);
+    expect(r.fast).toBe(true);
+    expect(r.state.missed).toBe(true);
+    expect(answerWithSkill(at(0, { missed: true }), k('cloud-1'), ['cloud-1'], 'light', null).fast).toBe(false);
+  });
   it('문제 단계가 아니면 상태 그대로 (스위치가 있어도)', () => {
     const p = at(0, { phase: 'pick' });
     expect(answerWithSkill(p, k('cloud-1'), ['cloud-1'], 'light', true).state).toBe(p);
@@ -84,5 +90,21 @@ describe('전투 기술: 상성·효과 이름·적의 기술', () => {
     for (let i = 0; i < 20; i++) seen.add(foeSkill('cloud', 20, () => i / 20).id);
     expect([...seen].sort()).toEqual(['cloud-1', 'cloud-2', 'cloud-4', 'cloud-5']);
     expect(foeSkill('legend-horn', 20, () => 0).name).toMatch(/^황금/);
+  });
+});
+
+describe('전투 기술: 정답 글 hitMessage', () => {
+  it('회복 특수는 실제로 늘어난 체력만 쓰고, 0이면 이미 가득', () => {
+    const heal = answerWithSkill(at(0, { allyHp: 90 }), k('cloud-3'), ['cloud-1', 'cloud-3'], 'light', true);
+    expect(hitMessage(heal, 'light', 10)).toBe('새싹 쑥쑥! 체력을 10 되찾았어요!');
+    expect(hitMessage(heal, 'light', 25)).toBe('새싹 쑥쑥! 체력을 25 되찾았어요!');
+    expect(hitMessage(heal, 'light', 0)).toBe('새싹 쑥쑥! 체력이 이미 가득해요!');
+  });
+  it('강력·대신 나감·상성 줄', () => {
+    expect(hitMessage(answerWithSkill(at(0), k('cloud-1'), ['cloud-1'], 'water', true), 'water', 0)).toBe('잎사귀 톡! 강력!\n효과가 커요! ▲');
+    expect(hitMessage(answerWithSkill(at(0), k('cloud-1'), ['cloud-1'], 'light', false), 'light', 0)).toBe('잎사귀 톡! 명중!');
+    expect(hitMessage(answerWithSkill(at(0), k('cloud-3'), ['cloud-1', 'cloud-3'], 'fire', false), 'fire', 0)).toBe(
+      '시간이 지나서 약한 기술이 나갔어요. 잎사귀 톡!\n별로예요… ▼',
+    );
   });
 });
