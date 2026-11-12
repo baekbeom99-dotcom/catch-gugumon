@@ -380,3 +380,38 @@
 - [ ] **Step 1: 실패하는 테스트** — `skillUse.test.ts`: 화면용 짧은 이름 함수(주속성 버튼은 가진 단계와 무관하게 M1 이름, 부속성·특수는 그 기술 이름, 최대 길이)·숨김 설명이 단계별 조건 문구를 유지, E2E: 버튼 3개가 한 줄에(같은 `top`·각 폭이 비슷, 375px에서 `scrollWidth` 넘침 없음), 버튼 안에 "초 안" 문구가 **보이지 않음**(숨김 글은 있음), 게이지에 ①②③ 글자가 없고 눈금 요소와 `data-tier`가 있음, 윗단계 발동 글이 "⚡ 빠르다!"로 바뀜(기존 글을 찾던 E2E 갱신).
 - [ ] **Step 2: 실패 확인** → **Step 3: 구현** → **Step 4:** `npx tsc --noEmit -p .`, `npx vitest run`, `E2E_PORT=5191 npx playwright test e2e/field.spec.ts e2e/skills.spec.ts e2e/title.spec.ts`(혼자), 375px 스크린샷(버튼 3개 나란히·게이지 기점 전후 색·빠르다 글)을 `.superpowers/sdd/2026-11-12-field-adventure-3/task-15-shots/`에 저장하고 "정보가 줄었는지" 한 줄씩 보고서에 적는다.
 - [ ] **Step 5: Commit** — `git commit -m "전투 화면 간결화: 공격 버튼 3개 나란히, 시간 게이지는 눈금과 색만"`
+
+---
+
+### Task 16: 전투 규칙 4 — 크리티컬·회피·주기 공격·캡슐 활성화·포획 상승·틀린 문제 흐름 되돌림 (Opus)
+
+**담당:** `opus-expert` (전투 흐름·타이머), 이후 Opus 검토. **Task 15 뒤에 한다**(같은 전투 화면 파일). 설계서 0-2절이 규칙의 기준이다.
+
+**Files:** `src/domain/field/wildBattle.ts`, `src/domain/field/tuning.ts`, `src/domain/field/strength.ts`(`throwOdds` 확장), `src/field/battle/WildBattleScreen.tsx`·`useQuestionFeed.ts`·`battleText.ts`·전투 CSS, `src/field/battle/skillUse.ts`(굴림 결과 글), 테스트(`wildBattle`·`tuning`·`strength` 등)·`e2e/field.spec.ts`, `src/field/debugFlags.ts`(굴림 고정 스위치가 필요하면 `__GUGU_E2E_COMBAT__`: `{crit?:boolean, dodge?:boolean}`, 단위 테스트 표 갱신)
+
+**Interfaces (수치는 `tuning.ts` 한 곳, 값은 `tuning.test.ts` 고정):**
+- `tuning.ts`: `CRIT_CHANCE=0.10`, `CRIT_MULT=2`, `MAX_CHIP_CRIT_CELLS=8`, `DODGE_CHANCE=0.05`, `ENEMY_ATTACK_EVERY=2`, `CAPSULE_ACTIVE_RATIO=0.25`, `CATCH_PER_FAIL=0.10`, `CATCH_STATUS_BONUS=0.10`, `CATCH_CAP=0.70`.
+- `WildState`에 `attackCount`(정답으로 때린 횟수, 주기 공격 뒤 0), `throwTries`(이 야생에게 실패한 던지기 수) 추가. `resolveAnswer(..., rng)`: 회피(야생, 5%) → 아니면 크리티컬(10%, 칸 ×2 최대 8), 반환에 `dodged`·`crit`; 회피 시 칸·특수효과 없음·충전 유지, `attackCount`는 증가. `enemyStrike(before, rng): { state; damage; dodged; crit; blocked }`가 **스턴(막힘, 굴림 없음)→회피(5%)→크리티컬(10%, 방어 절반 뒤 ×2)**를 한 번의 계산으로 하고, 오답·시간 초과·주기 공격 모두 이 함수를 쓰며 화면은 반환 `damage` 하나를 `damageCompanion`에 저장(`strikeDamage`는 이 함수의 내부로 흡수, 스턴 0·피해 0이면 저장 안 함 규칙 유지).
+- 주기 공격: 내 정답 공격이 끝나고 `attackCount >= ENEMY_ATTACK_EVERY`이며 야생이 어지럽지 않으면 적이 한 번 공격(`enemyStrike`), `attackCount=0`, **힌트 없이** 다음 문제(`pick`/`question`)로. 연출은 기존 적 공격 연출 재사용, 글은 "크리티컬!"·"빗나갔어요!" 한 줄.
+- 캡슐: `catchActive(s)` = `maxCells - cells <= maxCells * CAPSULE_ACTIVE_RATIO`; `throwCapsule`은 `pick`/`question`/`dizzy`에서 `catchActive`일 때 가능(문제 시계는 던지는 동안 멈춤, `healed`·`angry` 뒤 새 문제, 던질 때 풀던 문제는 틀린 것으로 치지 않음). `throwOdds(tier, tries, status)`: 잡힘 `= min(CATCH_CAP, 기준 + CATCH_PER_FAIL × tries + (status ? CATCH_STATUS_BONUS : 0))`, 나머지(회복·도망·화남)는 **기준 비율대로** `1 - 잡힘`을 나눔; `status` = `WildState.stun`. 난수는 한 번(R11)으로 유지. 실패(`healed`·`angry`) 때 `throwTries += 1`. 화면의 캡슐 버튼은 비활성일 때 한 줄 안내("체력이 1/4 이하일 때 던질 수 있어요").
+- **틀린 문제 흐름 되돌림**: 전투에서 오답 → 힌트(정답 보기 빛남) → 그 보기를 누르면 **다른 문제로 넘어가고**(피해·별·경험치·학습 기록 없음) 틀린 문제는 몇 문제 뒤 다시(`next(retryWrong)`). 기준 흐름은 `git show c507615:src/field/battle/WildBattleScreen.tsx`(Task 3 시점)와 2차(`git show d4fb5d1:…`)이며, T4 고치기 `ce5385e`의 "같은 문제로 복귀·isRetry 재답 기록"을 되돌리되 `WildState.missed`가 학습 기록 외에 쓰이던 곳을 정리하고 E2E·단위 테스트·설계서 문구를 맞춘다.
+
+- [ ] **Step 1: 실패하는 테스트** — 굴림 경계(0.0499/0.05 회피, 0.0999/0.10 크리티컬; 내 공격·적 공격 각각), 크리티컬 ×2 최대 8칸·회피 시 효과 없음·충전 유지, 스턴이 `enemyStrike`를 막음(굴림 안 함), 방어+크리티컬 순서(절반 뒤 ×2), 저장 피해 = 반환 `damage`, `attackCount` 2회마다 주기 공격·어지러우면 반격 없음·틀린 공격 적 공격은 카운터 불변, `catchActive` 경계(6·8·12칸 최대에서 남은 칸 수), 던지기 가능 단계, `throwOdds` 표(기준·`tries` 0~6·`status`·상한 0.70·나머지 비율 보존·합 1), 던지기 뒤 새 문제와 시계 정지, 힌트 뒤 다른 문제로 넘어가고 틀린 문제 재출제·힌트 탭은 기록·피해 없음, E2E(굴림 고정 스위치로 크리티컬·회피 글, 주기 공격이 2번째 정답 뒤 발생하고 체력 감소, 캡슐 버튼이 체력 1/4 이하에서만 활성, 힌트 뒤 다른 문제).
+- [ ] **Step 2: 실패 확인** → **Step 3: 구현** → **Step 4:** `npx tsc --noEmit -p .`, `npx vitest run`, `E2E_PORT=5191 npx playwright test e2e/field.spec.ts e2e/skills.spec.ts e2e/title.spec.ts`(혼자), 375px 스크린샷(크리티컬·빗나감·캡슐 비활성/활성)을 `.superpowers/sdd/2026-11-12-field-adventure-3/task-16-shots/`에.
+- [ ] **Step 5: Commit** — `git commit -m "전투 규칙 추가: 크리티컬·회피, 2번 공격마다 적 공격, 체력 1/4에서 캡슐, 포획 확률 상승, 틀린 문제는 잠시 뒤 다시"`
+
+---
+
+### Task 17: 상점 — 캡슐 랜덤 출제·1회 5개·틀린 문제 다시 (Sonnet)
+
+**담당:** Sonnet, 이후 Sonnet 검토. 설계서 0-2절 "상점". **Task 16 뒤에 한다**(`tuning.ts`를 같이 만지므로 동시에 하지 않는다).
+
+**Files:** `src/field/shop/CapsuleTab.tsx`·`DanPractice.tsx`·`PracticeCard.tsx`·`PotionTab.tsx`·`HealPractice.tsx`·`shopText.ts`, `src/domain/field/shopQuiz.ts`, `src/domain/field/tuning.ts`(1회 지급량 `CAPSULES_PER_PRACTICE` 3→5 — 실제 상수 이름은 코드를 읽어 확인), `tests/field/shopQuiz.test.ts`·`tuning.test.ts`, `e2e/field.spec.ts`(상점 글을 찾는 곳)
+
+**Interfaces:**
+- 캡슐 탭에서 캡슐(지역)을 누르면 **단 선택 없이** 그 캡슐 지역(`FIELDS[필드].dans`)의 단에서 **랜덤 출제**(자주 틀린 문제를 앞에 두는 기존 가중은 유지). 연습을 끝내면 지급량이 **5개**(문제 수는 지금 그대로). 레전드 캡슐(13단) 연습은 기존 규칙에 맞춰(레전드는 13단 고정이면 그대로 두고 지급량만 5개) 구현자가 코드를 읽고 결정해 보고서에 적는다.
+- 상점 연습에서 틀리면 **힌트를 보여 준 뒤 다음 카드로 넘어가고, 몇 장 뒤에 그 문제를 다시** 낸다(`PracticeCard`의 `missed`/`isRetry` 방식과 재출제 위치를 기존 코드를 읽고 맞춤; 상점 정답은 별·경험치 없음 유지(2차 후속), 학습 기록은 `source:'shop'`). 회복약 연습(`HealPractice`)도 같은 방식.
+
+- [ ] **Step 1: 실패하는 테스트** — `shopQuiz.test.ts`(지역 단에서만 출제·가중 유지·무작위라 `rng` 고정 테스트·단 선택 없음), 지급량 상수 고정표(5), 틀린 문제가 N장 뒤 다시 나옴·힌트 뒤 다음 카드, E2E: 캡슐 탭에서 단 선택 화면 없이 바로 문제, 완료 시 캡슐 +5, 틀린 문제 재출제.
+- [ ] **Step 2: 실패 확인** → **Step 3: 구현** → **Step 4:** `npx tsc --noEmit -p .`, `npx vitest run`, `E2E_PORT=5191 npx playwright test e2e/field.spec.ts e2e/skills.spec.ts e2e/title.spec.ts`(혼자), 375px 상점 스크린샷.
+- [ ] **Step 5: Commit** — `git commit -m "상점: 캡슐은 단 선택 없이 랜덤 출제, 1회 5개, 틀린 문제는 잠시 뒤 다시"`
