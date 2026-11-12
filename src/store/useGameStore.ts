@@ -52,8 +52,20 @@ import { addCapsules, type CapsuleType, takeCapsule } from '../domain/field/caps
 import { addWound, applyDamage, isFainted, type Wound } from '../domain/field/wounds';
 import { pickReplacement } from '../domain/field/companion';
 import { pickCompanion } from '../field/companion';
-import { type FieldData, type FieldNotice, isValidSkills, newSpeciesEntry, SPECIES_IDS, type SpeciesEntry, type SpeciesId, townStart } from './fieldData';
-import type { SkillId } from '../domain/field/skills';
+import {
+  type FieldData,
+  type FieldNotice,
+  isAllowedSkill,
+  isValidSkills,
+  newSpeciesEntry,
+  type SkillOffer,
+  SPECIES_IDS,
+  type SpeciesEntry,
+  type SpeciesId,
+  townStart,
+} from './fieldData';
+import { learnedAt, newlyLearned, rollCopy, type SkillId } from '../domain/field/skills';
+import type { Rng } from '../domain/random';
 import { createInitialSave, mergeSave, migrateSave, SAVE_KEY, type SaveData, SCHEMA_VERSION, type Settings } from './saveData';
 
 export interface PetChange {
@@ -71,6 +83,8 @@ export interface WildResult extends PetChange {
   /** 오른 펫 친밀도 */
   affection: number;
   notices: FieldNotice[];
+  /** 가진 기술이 가득 차서 바로 못 가진 새 기술 (화면이 useSessionStore.skillOffers에 넘긴다) */
+  offers: SkillOffer[];
 }
 
 /** 전투가 끝난 모양: 잡음 · 도망감 · 돌려보냄 · 우리 구구몬이 쓰러짐 · 그만하기 */
@@ -86,6 +100,8 @@ export interface WildBattleEnd {
   end: WildEnd;
   correct: number;
   now: number;
+  /** 기술 복사(2%) 난수. 없으면 Math.random (E2E __GUGU_E2E_COPY__는 화면이 () => 0을 넘긴다) */
+  rng?: Rng;
 }
 
 /** 저장된 종 기록 (모르는 종 id면 없음 — `constructor` 같은 이름이 끼어들지 않게) */
@@ -105,6 +121,33 @@ function commitSkills(
   if (!e || !isValidSkills(species, e.level, ids)) return false;
   set({ field: { ...field, species: { ...field.species, [species]: { ...e, skills: [...ids] } } } });
   return true;
+}
+
+/**
+ * 레벨이 from에서 entry.level로 올랐을 때 기술 배우기 (순수 계산).
+ * 그 레벨까지 아는 자기 종 기술 중 아직 안 가진 것을 슬롯 순서로, 가진 수가 MAX_SKILLS보다 적은 동안 자동으로 가진다
+ * (스타터의 슬롯 2, 옛 저장의 빈 슬롯도 이때 채워진다). 가득 차면 이번 레벨업으로 새로 익힌 것만 제안한다
+ * — 예전에 익히고 안 가진 기술은 기술 관리 화면에서 다시 배운다 (매번 다시 묻지 않게)
+ */
+function learnOnLevelUp(
+  id: SpeciesId,
+  entry: SpeciesEntry,
+  from: number,
+): { skills: SkillId[]; notices: FieldNotice[]; offers: SkillOffer[] } {
+  const fresh = new Set(newlyLearned(id, from, entry.level).map((k) => k.id));
+  const skills = [...entry.skills];
+  const notices: FieldNotice[] = [];
+  const offers: SkillOffer[] = [];
+  for (const k of learnedAt(id, entry.level)) {
+    if (skills.includes(k.id)) continue;
+    if (skills.length < MAX_SKILLS) {
+      skills.push(k.id);
+      notices.push({ kind: 'skill', species: id, skillId: k.id, how: 'learned' });
+    } else if (fresh.has(k.id)) {
+      offers.push({ species: id, skillId: k.id, source: 'level' });
+    }
+  }
+  return { skills, notices, offers };
 }
 
 /** 밥·먹이를 먹고 5% 확률로 식중독에 걸렸는가 */
@@ -194,6 +237,8 @@ interface GameActions {
   spendCapsule: (t: CapsuleType) => boolean;
   /** 필드 모험: 야생 전투 끝 — 잡기·기록·펫 친밀도 */
   finishWildBattle: (r: WildBattleEnd) => WildResult;
+  /** 필드 모험: 기술 제안을 받는다 — removeId를 잊고 그 자리에 새 기술 (replaceSkill과 같은 검사, 한 번의 set). 안 되면 false */
+  acceptSkillOffer: (offer: SkillOffer, removeId: SkillId) => boolean;
   /**
    * 필드 모험: 가진 기술 하나를 잊고 다른 기술을 그 자리에 배운다. 가진 기술을 잊고, 아직 안 가진 허용된 기술을 배울 때만 true.
    * 거부하면 아무것도 바꾸지 않는다 (상태 객체도 그대로)
@@ -354,7 +399,8 @@ export const useGameStore = create<GameStore>()(
               companion: id,
               species: s.field.species[id]
                 ? s.field.species
-                : { ...s.field.species, [id]: newSpeciesEntry(id, 5, now) },
+                : // 스타터는 기술 1개(슬롯 1)로 시작한다 — 나머지는 레벨이 오르며 배운다
+                  { ...s.field.species, [id]: { ...newSpeciesEntry(id, 5, now), skills: [`${id}-1`] } },
               seen: s.field.seen.includes(id) ? s.field.seen : [...s.field.seen, id],
             },
           };
@@ -458,11 +504,36 @@ export const useGameStore = create<GameStore>()(
           const total = new Map<SpeciesId, number>();
           for (const [id, exp] of gains) total.set(id, (total.get(id) ?? 0) + exp);
           const notices: FieldNotice[] = [];
+          const offers: SkillOffer[] = [];
           for (const [id, exp] of total) {
-            const grown = addExp(species[id]!, exp, speciesDef(id).legend);
-            species = { ...species, [id]: grown.entry };
-            if (grown.levelsGained > 0) notices.push({ kind: 'levelUp', species: id, level: grown.entry.level });
+            const before = species[id]!;
+            const grown = addExp(before, exp, speciesDef(id).legend);
+            let entry = grown.entry;
+            if (grown.levelsGained > 0) notices.push({ kind: 'levelUp', species: id, level: entry.level });
             if (grown.evolvedTo) notices.push({ kind: 'evolve', species: id, stage: grown.evolvedTo });
+            // 레벨이 오르면 기술 배우기 (같은 set 안에서)
+            if (grown.levelsGained > 0) {
+              const learn = learnOnLevelUp(id, entry, before.level);
+              if (learn.notices.length > 0) entry = { ...entry, skills: learn.skills };
+              notices.push(...learn.notices);
+              offers.push(...learn.offers);
+            }
+            species = { ...species, [id]: entry };
+          }
+          // 기술 복사: 잡거나 돌려보냈을 때만, 한 전투 한 번. 싸운 구구몬이 야생의 기술 하나를 따라 배운다
+          const mine = companion ? species[companion] : undefined;
+          if (companion && mine && (caught || r.end === 'released') && SPECIES_IDS.includes(r.species)) {
+            // 후보에서 뺄 것: 이미 가진 기술, 그리고 (같은 종이면) 동행 레벨로는 아직 못 가지는 자기 종 기술
+            const skip = learnedAt(r.species, r.level)
+              .map((k) => k.id)
+              .filter((k) => mine.skills.includes(k) || !isAllowedSkill(companion, mine.level, k));
+            const got = rollCopy(r.rng ?? Math.random, r.species, r.level, skip);
+            if (got && mine.skills.length < MAX_SKILLS) {
+              species = { ...species, [companion]: { ...mine, skills: [...mine.skills, got] } };
+              notices.push({ kind: 'skill', species: companion, skillId: got, how: 'copied', fromSpecies: r.species });
+            } else if (got) {
+              offers.push({ species: companion, skillId: got, source: 'copy', fromSpecies: r.species });
+            }
           }
           if (r.end === 'fainted' && companion) {
             // 쓰러지는 순간 damageCompanion이 동행을 바꿔 두었으면, 대신 함께 다니는 종을 알림에 담는다
@@ -479,7 +550,7 @@ export const useGameStore = create<GameStore>()(
           // 펫 친밀도: 맞힌 문제마다 (알이면 없음)
           const affection = s.pet.stage !== 'egg' && s.pet.species ? correct * ANSWER_AFFECTION : 0;
           const settled = settlePet(s.pet, affection > 0 ? addAffection(s.pet, affection) : s.pet, r.now);
-          result = { newSpecies, affection, notices, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp };
+          result = { newSpecies, affection, notices, offers, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp };
           return { field: { ...s.field, species, stats, seen }, pet: settled.pet, lastSeenAt: r.now };
         });
         return result;
@@ -491,6 +562,7 @@ export const useGameStore = create<GameStore>()(
         return commitSkills(get, set, species, e.skills.map((id) => (id === removeId ? addId : id)));
       },
       setSkills: (species, ids) => commitSkills(get, set, species, ids),
+      acceptSkillOffer: (offer, removeId) => get().replaceSkill(offer.species, removeId, offer.skillId),
       addSkill: (species, id) => {
         const e = speciesEntry(get().field, species);
         if (!e || e.skills.length >= MAX_SKILLS || e.skills.includes(id)) return false;

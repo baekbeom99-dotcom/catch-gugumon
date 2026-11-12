@@ -121,8 +121,9 @@ describe('newSpeciesEntry', () => {
   it('스타터(레벨 5)와 새로 잡은 구구몬에 기술이 들어간다', () => {
     useGameStore.getState().resetAll();
     useGameStore.getState().chooseStarter('cloud', NOW);
-    expect(useGameStore.getState().field.species.cloud!.skills).toEqual(defaultSkills('cloud', 5));
-    useGameStore.getState().finishWildBattle({ species: 'horn', companion: 'cloud', level: 14, tier: 'normal', end: 'caught', correct: 0, now: NOW });
+    // 스타터는 기술 1개(슬롯 1)로 시작, 잡은 구구몬은 그 레벨에서 익힌 것 전부
+    expect(useGameStore.getState().field.species.cloud!.skills).toEqual(['cloud-1']);
+    useGameStore.getState().finishWildBattle({ species: 'horn', companion: 'cloud', level: 14, tier: 'normal', end: 'caught', correct: 0, now: NOW, rng: () => 1 });
     expect(useGameStore.getState().field.species.horn!.skills).toEqual(defaultSkills('horn', 14));
   });
 });

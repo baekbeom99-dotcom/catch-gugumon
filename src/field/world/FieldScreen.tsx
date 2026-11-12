@@ -3,6 +3,8 @@ import { Navigate, useNavigate } from 'react-router-dom';
 import { companionStart, type Dir, type FieldMap, type StepResult, safeStartPosition, tryStep } from '../../domain/field/movement';
 import { displayName } from '../../domain/field/growth';
 import { useSessionStore } from '../../store/useSessionStore';
+import type { FieldNotice } from '../../store/fieldData';
+import { skillDef } from '../../domain/field/skills';
 import { companionImage } from '../art/companionImage';
 import { creatureArt } from '../art/creatureArt';
 import { STAGE_SCALE } from '../art/creatureSprite';
@@ -15,7 +17,7 @@ import { battleText } from '../battle/battleText';
 import { pickCompanion } from '../companion';
 import { COMPANION_MAX_HP, ENCOUNTER_FLASH_MS, ROAM_BUBBLE_MS, STEP_MS, TURN_TAP_MS } from '../../domain/field/tuning';
 import { type Roamer, createRoamers, habitatOf, pokeRoamer, reviveRoamers, stepRoamers } from '../../domain/field/roam';
-import type { SpeciesId } from '../../domain/field/creatures';
+import { speciesDef, type SpeciesId } from '../../domain/field/creatures';
 import { debugFlags } from '../debugFlags';
 import { useGameStore } from '../../store/useGameStore';
 import { ShopPopup } from '../shop/ShopPopup';
@@ -57,6 +59,15 @@ interface Move {
   ty: number;
   start: number;
   result: StepResult;
+}
+
+/** 기술 알림 글: "○○이 「기술」을 배웠어요!" / "○○이 △△에게서 「기술」을 따라 배웠어요!" (조사가 맞게 ★ 없는 이름) */
+function skillNoticeText(n: Extract<FieldNotice, { kind: 'skill' }>): string {
+  const mon = speciesDef(n.species).name;
+  const skill = skillDef(n.skillId).name;
+  return n.how === 'copied' && n.fromSpecies
+    ? battleText.skillCopied(mon, speciesDef(n.fromSpecies).name, skill)
+    : battleText.skillLearned(mon, skill);
 }
 
 /** 첫 구구몬을 아직 안 골랐으면 고르러 간다 */
@@ -213,6 +224,8 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
   }
 
   const notice0 = useSessionStore((s) => s.pendingFieldNotices[0] ?? null);
+  /** 선택창을 기다리는 기술 제안 수 (선택창은 다음 작업 — 지금은 E2E가 읽는 표시만) */
+  const offerCount = useSessionStore((s) => s.skillOffers.length);
   st.current.noticeOpen = notice0 !== null;
   const noticeStage = useGameStore((s) => (notice0 ? s.field.species[notice0.species]?.stage ?? 1 : 1));
   const replacedId = notice0?.kind === 'fainted' ? notice0.replacedBy : undefined;
@@ -527,7 +540,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
   }, [map, save]);
 
   return (
-    <section className="fieldmode">
+    <section className="fieldmode" data-skill-offers={offerCount}>
       <div className="fieldmode__view" ref={wrapRef}>
         <canvas ref={canvasRef} className="fieldmode__canvas" data-testid="field-canvas" />
         <Joystick onDir={setPadDir} onTap={onTap} />
@@ -593,18 +606,28 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
             type="button"
             className="fieldmode__growth"
             role="dialog"
-            aria-label={notice0.kind === 'fainted' ? '쓰러짐 알림' : '성장 알림'}
+            aria-label={notice0.kind === 'fainted' ? '쓰러짐 알림' : notice0.kind === 'skill' ? '기술 알림' : '성장 알림'}
             onClick={dismissNotice}
           >
             <span className="fieldmode__growth-title">
-              {notice0.kind === 'levelUp' ? '레벨이 올랐어!' : notice0.kind === 'evolve' ? '진화했어!' : '쓰러졌어…'}
+              {notice0.kind === 'levelUp'
+                ? '레벨이 올랐어!'
+                : notice0.kind === 'evolve'
+                  ? '진화했어!'
+                  : notice0.kind === 'skill'
+                    ? notice0.how === 'copied'
+                      ? battleText.skillCopiedTitle
+                      : battleText.skillLearnedTitle
+                    : '쓰러졌어…'}
             </span>
             <span className="fieldmode__growth-body">
               {notice0.kind === 'levelUp'
                 ? `${displayName(notice0.species, noticeStage)} Lv${notice0.level}`
                 : notice0.kind === 'evolve'
                   ? displayName(notice0.species, notice0.stage)
-                  : notice0.replacedBy
+                  : notice0.kind === 'skill'
+                    ? skillNoticeText(notice0)
+                    : notice0.replacedBy
                     ? battleText.replacedField(displayName(notice0.replacedBy, replacedStage))
                     : `${displayName(notice0.species, noticeStage)} — ${battleText.faintedField}`}
             </span>

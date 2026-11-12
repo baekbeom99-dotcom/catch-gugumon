@@ -4,6 +4,9 @@ import type { Tier } from '../../domain/field/strength';
 import { CALM_BONUS_MS, SPECIAL_HEAL } from '../../domain/field/tuning';
 import { josa } from '../../domain/korean';
 
+/** 낱말 뒤에 붙을 조사만 (「」로 감쌀 때) */
+const particle = (word: string, withFinal: string, withoutFinal: string) => josa(word, withFinal, withoutFinal).slice(word.length);
+
 const TIER_WORD: Record<Tier, string> = { weak: '약한 ', normal: '', strong: '강한 ', mighty: '강력한 ', legend: '' };
 
 /** 특수 기술 한 낱말 (고르기 버튼의 발동 조건·내 구구몬 상태 표시) */
@@ -69,4 +72,11 @@ export const battleText = {
   faintedField: '구구몬이 쓰러졌어요. 상점에서 회복시켜요',
   /** 필드 알림: 쓰러지면서 도감의 다른 구구몬이 대신 함께 다니게 됐을 때 */
   replacedField: (name: string) => `${josa(name, '이', '가')} 대신 함께 다녀요`,
+  /** 필드 알림: 레벨이 올라 새 기술을 가짐 */
+  skillLearnedTitle: '새 기술을 배웠어!',
+  skillLearned: (mon: string, skill: string) => `${josa(mon, '이', '가')} 「${skill}」${particle(skill, '을', '를')} 배웠어요!`,
+  /** 필드 알림: 야생 구구몬에게서 기술을 따라 배움 */
+  skillCopiedTitle: '기술을 따라 배웠어!',
+  skillCopied: (mon: string, from: string, skill: string) =>
+    `${josa(mon, '이', '가')} ${from}에게서 「${skill}」${particle(skill, '을', '를')} 따라 배웠어요!`,
 } as const;

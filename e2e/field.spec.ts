@@ -726,8 +726,10 @@ test('처음 필드는 첫 구구몬 고르기로 가고, 고르면 태초마을
   await page.getByRole('button', { name: '젤리몬 고르기' }).click();
   await expect(page).toHaveURL(/#\/field$/);
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '10,31');
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.position);
-  expect(saved).toEqual({ map: 'town', x: 10, y: 31, facing: 'down' });
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
+  expect(saved.position).toEqual({ map: 'town', x: 10, y: 31, facing: 'down' });
+  // 스타터는 기술 1개(슬롯 1)로 시작한다
+  expect(saved.species.jelly.skills).toEqual(['jelly-1']);
 });
 
 // ── 상점 팝업 ──
@@ -1021,6 +1023,10 @@ async function standBesideGrassWith(page: Page, unlocked: boolean) {
 }
 
 test('12·13단이 열렸으면 레전드가 나타나 13단 문제를 낸다', async ({ page }) => {
+  // 강력(+1)과 상성(+1)이 겹치면 두 번 만에 어지러워져 세 번째 문제가 없다 → 늘 "늦게"로 고정해 문제 3개를 본다
+  await page.addInitScript(() => {
+    (window as unknown as { __GUGU_E2E_FAST__: boolean }).__GUGU_E2E_FAST__ = false;
+  });
   await standBesideGrassWith(page, true);
   await stepIntoGrass(page);
   await expect(page.getByRole('status').filter({ hasText: /^전설의 .*나타났다!$/ })).toBeVisible();
@@ -1106,6 +1112,83 @@ test('전투를 마치면 필드에서 "레벨이 올랐어!" 알림이 뜨고, 
   await page.getByRole('button', { name: '메뉴' }).click();
   await page.getByRole('button', { name: '구구몬 도감' }).click();
   await expect(page.getByLabel('새싹몬 잡음')).toContainText('Lv6');
+});
+
+// ── 기술 배우기·복사 ──
+
+async function savedSkills(page: Page): Promise<string[]> {
+  return page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.species.cloud.skills);
+}
+
+function copyOn(page: Page) {
+  return page.addInitScript(() => {
+    (window as unknown as { __GUGU_E2E_COPY__: boolean }).__GUGU_E2E_COPY__ = true;
+  });
+}
+
+test('레벨이 올라 새 기술을 익히면 "새 기술을 배웠어!" 알림이 레벨업 다음에 뜬다 (기술 1개 → 2개)', async ({ page }) => {
+  // 구름몬 Lv5, 기술 1개, 다음 레벨까지 5 모자람 (도망쳐도 참여 +10)
+  await standBesideGrass(page, { cloud: { exp: 65 } });
+  await stepIntoGrass(page);
+  await page.getByRole('button', { name: '도망치기' }).click();
+  await page.getByRole('dialog', { name: '도망치기' }).getByRole('button', { name: '도망갈래' }).click();
+  await expect(page).toHaveURL(/#\/field$/, { timeout: 5000 });
+  const grow = page.getByRole('dialog', { name: '성장 알림' });
+  await expect(grow).toContainText('Lv6');
+  await grow.click();
+  const skill = page.getByRole('dialog', { name: '기술 알림' });
+  await expect(skill).toContainText('새 기술을 배웠어!');
+  await expect(skill).toContainText('새싹몬이 「새싹 휙」을 배웠어요!');
+  await page.screenshot({ path: '.superpowers/sdd/2026-11-12-field-adventure-3/task-5-shots/learned-375.png' });
+  await skill.click();
+  await expect(skill).toHaveCount(0);
+  expect(await savedSkills(page)).toEqual(['cloud-1', 'cloud-2']);
+});
+
+test('복사 스위치: 잡으면 기술이 5개 미만이라 바로 따라 배우고 알림이 뜬다', async ({ page }) => {
+  await copyOn(page);
+  // Lv8(★★, 진화 알림 없음)이라 약한 야생(Lv3~5)의 슬롯 2까지 후보가 된다 — 같은 구름몬이어도 후보가 있다
+  await standBesideGrass(page, { tier: 'weak', cloud: { level: 8, stage: 2, skills: ['cloud-1'] } });
+  await stepIntoGrass(page);
+  await answerUntilDizzy(page);
+  await page.getByRole('button', { name: '캡슐 던지기' }).click();
+  await expect(page.getByText(/잡았다!/)).toBeVisible({ timeout: 5000 });
+  await expect(page).toHaveURL(/#\/field$/, { timeout: 5000 });
+  const skill = page.getByRole('dialog', { name: '기술 알림' });
+  await expect(skill).toContainText('기술을 따라 배웠어!');
+  await expect(skill).toContainText(/새싹몬이 .+에게서 「.+」[을를] 따라 배웠어요!/);
+  await page.screenshot({ path: '.superpowers/sdd/2026-11-12-field-adventure-3/task-5-shots/copied-375.png' });
+  const skills = await savedSkills(page);
+  expect(skills).toHaveLength(2);
+  expect(skills[0]).toBe('cloud-1');
+  await expect(page.locator('section.fieldmode')).toHaveAttribute('data-skill-offers', '0');
+});
+
+test('복사 스위치: 기술이 5개면 저장은 그대로, 제안이 대기열에 쌓인다 (돌려보내도)', async ({ page }) => {
+  await copyOn(page);
+  const five = ['cloud-1', 'horn-1', 'horn-2', 'jelly-1', 'jelly-2'];
+  await standBesideGrass(page, {
+    tier: 'weak',
+    cloud: { level: 8, stage: 2, skills: five },
+    capsules: { meadow: 0, waterside: 3, desert: 3, legend: 0 },
+  });
+  await stepIntoGrass(page);
+  await answerUntilDizzy(page);
+  await expect(page.getByRole('status')).toHaveText(/캡슐이 없어서 돌려보냈어/);
+  await expect(page).toHaveURL(/#\/field$/, { timeout: 5000 });
+  await expect(page.locator('section.fieldmode')).toHaveAttribute('data-skill-offers', '1');
+  await expect(page.getByRole('dialog', { name: '기술 알림' })).toHaveCount(0);
+  expect(await savedSkills(page)).toEqual(five);
+});
+
+test('복사 스위치가 false(E2E 기본)면 잡아도 기술이 그대로', async ({ page }) => {
+  await standBesideGrass(page, { tier: 'weak', cloud: { level: 8, stage: 2, skills: ['cloud-1'] } });
+  await stepIntoGrass(page);
+  await answerUntilDizzy(page);
+  await page.getByRole('button', { name: '캡슐 던지기' }).click();
+  await expect(page).toHaveURL(/#\/field$/, { timeout: 8000 });
+  await expect(page.getByRole('dialog', { name: '기술 알림' })).toHaveCount(0);
+  expect(await savedSkills(page)).toEqual(['cloud-1']);
 });
 
 // ── 꾸미기 (375px 화면 배치) ──

@@ -9,6 +9,7 @@
  *   window.__GUGU_E2E_LEGEND__ = true    만남이 레전드 (12단이 열려 있을 때)
  *   window.__GUGU_E2E_QUESTION__ = { factId: '7x8', type: 'product' }   전투 문제 고정
  *   window.__GUGU_E2E_FAST__ = true      전투 정답이 늘 "빠르게"(강력·특수 발동). false면 늘 늦게. 없으면 실제 시간 (NO_TIMER와 함께 쓴다)
+ *   window.__GUGU_E2E_COPY__ = true      잡거나 돌려보내면 기술 복사 100% (후보 중 첫 기술). false면 0% (E2E 기본). 없으면 2%
  *
  * 새 스위치를 만들면 여기에 더하고 CLAUDE.md 'E2E 스위치' 줄도 고친다.
  */
@@ -33,6 +34,8 @@ export interface FieldDebugFlags {
   question: { factId: string; type: string } | null;
   /** "빠르게 풀었나" 고정: true 늘 빠르게, false 늘 늦게, null이면 실제 걸린 시간 */
   fast: boolean | null;
+  /** 기술 복사 고정: true 늘 당첨, false 늘 꽝, null이면 실제 확률 */
+  copy: boolean | null;
 }
 
 interface DebugGlobals {
@@ -44,6 +47,7 @@ interface DebugGlobals {
   __GUGU_E2E_TIER__?: string;
   __GUGU_E2E_QUESTION__?: { factId: string; type: string };
   __GUGU_E2E_FAST__?: unknown;
+  __GUGU_E2E_COPY__?: unknown;
 }
 
 const g = () => globalThis as DebugGlobals;
@@ -57,12 +61,13 @@ export function debugFlags(): FieldDebugFlags {
     tier: readTier(g().__GUGU_E2E_TIER__),
     legend: !!g().__GUGU_E2E_LEGEND__,
     question: g().__GUGU_E2E_QUESTION__ ?? null,
-    fast: readFast(g().__GUGU_E2E_FAST__),
+    fast: readSwitch(g().__GUGU_E2E_FAST__),
+    copy: readSwitch(g().__GUGU_E2E_COPY__),
   };
 }
 
-/** true·false만 받는다. 그 밖의 값은 실제 시간(null) */
-function readFast(v: unknown): boolean | null {
+/** true·false만 받는다. 그 밖의 값은 null(실제 시간·실제 확률) */
+function readSwitch(v: unknown): boolean | null {
   return v === true || v === false ? v : null;
 }
 

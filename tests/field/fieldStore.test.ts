@@ -1,6 +1,8 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { hatch, chooseEgg, initialPet } from '../../src/domain/pet';
-import { townStart } from '../../src/store/fieldData';
+import { initialField, mergeField, townStart, type SpeciesEntry, type SpeciesId } from '../../src/store/fieldData';
+import { useSessionStore } from '../../src/store/useSessionStore';
+import { COPY_CHANCE } from '../../src/domain/field/tuning';
 import { useGameStore } from '../../src/store/useGameStore';
 import type { Wound } from '../../src/domain/field/wounds';
 import { currentSave } from '../../src/screens/admin/DataSecurityPanels';
@@ -10,7 +12,8 @@ const NOW = new Date('2026-11-03T09:00:00').getTime();
 function batch(over: Partial<Parameters<ReturnType<typeof useGameStore.getState>['finishWildBattle']>[0]> = {}) {
   // 싸운 구구몬: 따로 주지 않으면 저장의 동행 (화면은 전투를 시작할 때 고른 종을 넘긴다)
   const companion = useGameStore.getState().field.companion ?? 'cloud';
-  return { species: 'horn' as const, companion, level: 4, tier: 'normal' as const, end: 'caught' as const, correct: 3, now: NOW, ...over };
+  // rng: 기술 복사(2%)가 끼어들지 않게 늘 꽝
+  return { species: 'horn' as const, companion, level: 4, tier: 'normal' as const, end: 'caught' as const, correct: 3, now: NOW, rng: () => 1, ...over };
 }
 
 function hatchedPet() {
@@ -28,7 +31,8 @@ describe('필드 스토어 액션', () => {
     expect(f.starterChosen).toBe(true);
     expect(f.companion).toBe('jelly');
     expect(Object.keys(f.species)).toEqual(['jelly']);
-    expect(f.species.jelly).toEqual({ level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: NOW, hp: 100, wounds: [], skills: ['jelly-1', 'jelly-2'] });
+    // 스타터는 기술 1개로 시작한다
+    expect(f.species.jelly).toEqual({ level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: NOW, hp: 100, wounds: [], skills: ['jelly-1'] });
     expect(f.seen).toContain('jelly');
   });
 
@@ -139,6 +143,7 @@ describe('필드 경험치·알림', () => {
     expect(r2.notices).toEqual([
       { kind: 'levelUp', species: 'jelly', level: 8 },
       { kind: 'evolve', species: 'jelly', stage: 2 },
+      { kind: 'skill', species: 'jelly', skillId: 'jelly-3', how: 'learned' },
     ]);
     expect(useGameStore.getState().field.species.jelly).toMatchObject({ level: 8, stage: 2 });
   });
@@ -456,5 +461,246 @@ describe('캡슐 개수 저장', () => {
     const persisted = useGameStore.persist.getOptions().partialize!(useGameStore.getState()) as { field: { capsules: unknown } };
     expect(persisted.field.capsules).toEqual({ meadow: 3, waterside: 2, desert: 3, legend: 0 });
     expect(currentSave().field.capsules).toEqual({ meadow: 3, waterside: 2, desert: 3, legend: 0 });
+  });
+});
+
+describe('레벨업으로 기술 배우기 · 2% 복사', () => {
+  /** 동행 구구몬 기록을 직접 넣는다 */
+  function seed(species: SpeciesId, over: Partial<SpeciesEntry>) {
+    useGameStore.getState().resetAll();
+    useGameStore.setState((s) => ({
+      field: {
+        ...s.field,
+        starterChosen: true,
+        companion: species,
+        species: { [species]: { level: 1, exp: 0, stage: 1, caught: 1, firstCaughtAt: NOW, hp: 100, wounds: [], skills: [`${species}-1`], ...over } },
+      },
+    }));
+  }
+  const held = (id: SpeciesId) => useGameStore.getState().field.species[id]!.skills;
+  /** 차례로 값을 돌려주는 가짜 난수 (다 쓰면 1 = 꽝) */
+  const seq = (...v: number[]) => vi.fn(() => (v.length ? v.shift()! : 1));
+  const FIVE = ['cloud-1', 'cloud-2', 'cloud-3', 'horn-1', 'jelly-1'];
+
+  beforeEach(() => useGameStore.getState().resetAll());
+
+  it('Lv1→3: 슬롯 2를 자동으로 가지고 "배웠어요" 알림', () => {
+    seed('cloud', {});
+    // 참여 10 + 30×2 = 70 = Lv1(30)+Lv2(40)
+    const r = useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', end: 'escaped', correct: 30 }));
+    expect(useGameStore.getState().field.species.cloud!.level).toBe(3);
+    expect(held('cloud')).toEqual(['cloud-1', 'cloud-2']);
+    expect(r.notices).toEqual([
+      { kind: 'levelUp', species: 'cloud', level: 3 },
+      { kind: 'skill', species: 'cloud', skillId: 'cloud-2', how: 'learned' },
+    ]);
+    expect(r.offers).toEqual([]);
+  });
+
+  it('Lv1→9: 슬롯 2·3을 레벨 순서로', () => {
+    seed('cloud', {});
+    // 30+40+…+100 = 520 = 10 + 255×2
+    const r = useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', end: 'escaped', correct: 255 }));
+    expect(useGameStore.getState().field.species.cloud!.level).toBe(9);
+    expect(held('cloud')).toEqual(['cloud-1', 'cloud-2', 'cloud-3']);
+    expect(r.notices.flatMap((n) => (n.kind === 'skill' ? [n.skillId] : []))).toEqual(['cloud-2', 'cloud-3']);
+  });
+
+  it('스타터(Lv5, 기술 1개)는 Lv6이 되면 슬롯 2를 채운다', () => {
+    useGameStore.getState().chooseStarter('cloud', NOW);
+    expect(held('cloud')).toEqual(['cloud-1']);
+    useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', end: 'escaped', correct: 30 })); // 70 = Lv5→6
+    expect(held('cloud')).toEqual(['cloud-1', 'cloud-2']);
+  });
+
+  it('레벨이 오르지 않으면 모자란 기술도 채우지 않는다', () => {
+    seed('cloud', { level: 5 });
+    const r = useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', end: 'escaped', correct: 0 }));
+    expect(held('cloud')).toEqual(['cloud-1']);
+    expect(r.notices).toEqual([]);
+  });
+
+  it('옛 저장 이월(Lv8: 슬롯 1·2·5) → Lv9에 3, Lv14에 4를 채우고, Lv20의 슬롯 5는 건너뛴다', () => {
+    seed('cloud', { level: 8, skills: ['cloud-1', 'cloud-2', 'cloud-5'] });
+    useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', end: 'escaped', correct: 45 })); // 100 = Lv8→9
+    expect(held('cloud')).toEqual(['cloud-1', 'cloud-2', 'cloud-5', 'cloud-3']);
+    seed('cloud', { level: 13, skills: ['cloud-1', 'cloud-2', 'cloud-5', 'cloud-3'] });
+    useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', end: 'escaped', correct: 70 })); // 150 = Lv13→14
+    expect(held('cloud')).toEqual(['cloud-1', 'cloud-2', 'cloud-5', 'cloud-3', 'cloud-4']);
+    seed('cloud', { level: 19, skills: ['cloud-1', 'cloud-2', 'cloud-5', 'cloud-3', 'cloud-4'] });
+    const r = useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', end: 'escaped', correct: 100 })); // 210 = Lv19→20
+    expect(useGameStore.getState().field.species.cloud!.level).toBe(20);
+    expect(r.offers).toEqual([]);
+    expect(r.notices.some((n) => n.kind === 'skill')).toBe(false);
+  });
+
+  it('가진 기술이 5개면 새로 익힌 기술은 제안만 쌓이고 저장(기술)은 그대로, set은 한 번', () => {
+    seed('cloud', { level: 13, skills: FIVE });
+    let calls = 0;
+    const unsub = useGameStore.subscribe(() => calls++);
+    const r = useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', end: 'escaped', correct: 70 })); // Lv14
+    unsub();
+    expect(calls).toBe(1);
+    expect(useGameStore.getState().field.species.cloud!.level).toBe(14);
+    expect(held('cloud')).toEqual(FIVE);
+    expect(r.offers).toEqual([{ species: 'cloud', skillId: 'cloud-4', source: 'level' }]);
+    expect(r.notices.some((n) => n.kind === 'skill')).toBe(false);
+  });
+
+  it('5개일 때 예전에 익힌(이번에 새로 익히지 않은) 기술은 다시 제안하지 않는다', () => {
+    seed('cloud', { level: 15, skills: ['cloud-1', 'cloud-3', 'cloud-4', 'horn-1', 'jelly-1'] }); // cloud-2는 잊음
+    const r = useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', end: 'escaped', correct: 85 })); // 180 = Lv15→16
+    expect(useGameStore.getState().field.species.cloud!.level).toBe(16);
+    expect(r.offers).toEqual([]);
+  });
+
+  it('여러 개를 배우다 5개가 차면 남은 새 기술은 제안으로', () => {
+    seed('cloud', { level: 13, skills: ['cloud-1', 'horn-1', 'jelly-1', 'mushroom-1'] }); // 4개, 슬롯 2·3은 아직
+    // 150+160+170+180+190+200+210 = 1260 = 10 + 625×2 → Lv20
+    const r = useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', end: 'escaped', correct: 625 }));
+    expect(useGameStore.getState().field.species.cloud!.level).toBe(20);
+    // 슬롯 순서: 2가 먼저 들어가 5개가 차고, 이번에 새로 익힌 4·5만 제안 (3은 예전에 익힌 것이라 제안 안 함)
+    expect(held('cloud')).toEqual(['cloud-1', 'horn-1', 'jelly-1', 'mushroom-1', 'cloud-2']);
+    expect(r.offers).toEqual([
+      { species: 'cloud', skillId: 'cloud-4', source: 'level' },
+      { species: 'cloud', skillId: 'cloud-5', source: 'level' },
+    ]);
+  });
+
+  it('옛 저장(기술 칸 없음)을 읽은 뒤 레벨이 올라도 깨지지 않는다', () => {
+    const field = mergeField(initialField(), {
+      starterChosen: true,
+      companion: 'jelly',
+      species: { jelly: { level: 7, exp: 85, stage: 1, caught: 1, firstCaughtAt: 1 } },
+    });
+    useGameStore.setState({ field });
+    const r = useGameStore.getState().finishWildBattle(batch({ species: 'jelly', companion: 'jelly', correct: 5 }));
+    expect(held('jelly')).toEqual(['jelly-1', 'jelly-2', 'jelly-3']);
+    expect(r.notices).toContainEqual({ kind: 'skill', species: 'jelly', skillId: 'jelly-3', how: 'learned' });
+  });
+
+  describe('복사', () => {
+    it('경계: COPY_CHANCE 미만이면 당첨(5개 미만이라 바로 가짐 + 알림), 이상이면 없음', () => {
+      seed('cloud', { level: 5 });
+      const r = useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', correct: 0, rng: seq(0.0199, 0) }));
+      expect(held('cloud')).toEqual(['cloud-1', 'horn-1']);
+      expect(r.notices).toContainEqual({ kind: 'skill', species: 'cloud', skillId: 'horn-1', how: 'copied', fromSpecies: 'horn' });
+      expect(r.offers).toEqual([]);
+
+      seed('cloud', { level: 5 });
+      const r2 = useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', correct: 0, rng: seq(COPY_CHANCE, 0) }));
+      expect(held('cloud')).toEqual(['cloud-1']);
+      expect(r2.notices).toEqual([]);
+    });
+
+    it('돌려보냄(released)도 복사', () => {
+      seed('cloud', { level: 5 });
+      useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', end: 'released', correct: 0, rng: seq(0, 0.99) }));
+      expect(held('cloud')).toEqual(['cloud-1', 'horn-2']); // 야생 뿔몬 Lv4: 1·2 중 마지막
+    });
+
+    it('후보가 없으면(야생 기술을 이미 다 가짐) 아무 일 없음', () => {
+      seed('cloud', { level: 5, skills: ['cloud-1', 'horn-1', 'horn-2'] });
+      const r = useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', correct: 0, rng: seq(0, 0) }));
+      expect(held('cloud')).toEqual(['cloud-1', 'horn-1', 'horn-2']);
+      expect(r.notices).toEqual([]);
+      expect(r.offers).toEqual([]);
+    });
+
+    it('5개면 제안만 (출처 종과 함께), 저장 그대로', () => {
+      seed('cloud', { level: 8, skills: FIVE });
+      const before = held('cloud');
+      const r = useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', correct: 0, rng: seq(0, 0) }));
+      expect(held('cloud')).toBe(before);
+      expect(r.offers).toEqual([{ species: 'cloud', skillId: 'horn-2', source: 'copy', fromSpecies: 'horn' }]); // horn-1은 이미 가짐
+      expect(r.notices.some((n) => n.kind === 'skill')).toBe(false);
+    });
+
+    it('도망(escaped)·쓰러짐(fainted)·그만하기(quit)는 굴리지 않는다', () => {
+      for (const end of ['escaped', 'fainted', 'quit'] as const) {
+        seed('cloud', { level: 5 });
+        const rng = seq(0, 0);
+        useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', end, correct: 0, rng }));
+        expect(rng).not.toHaveBeenCalled();
+        expect(held('cloud')).toEqual(['cloud-1']);
+      }
+    });
+
+    it('한 전투에 한 번만 굴린다', () => {
+      seed('cloud', { level: 5 });
+      const rng = seq(0, 0);
+      useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', correct: 0, rng }));
+      expect(rng).toHaveBeenCalledTimes(2); // 당첨 1번 + 고르기 1번
+    });
+
+    it('같은 종 야생: 동행 레벨에서 아직 못 익히는 자기 종 기술은 후보가 아니다', () => {
+      seed('cloud', { level: 5 });
+      // 야생 구름몬 Lv14(1~4 익힘), 동행 Lv5는 1·2까지 → 가진 1을 빼면 2만 (경험치 50으로는 레벨이 안 오름)
+      useGameStore.getState().finishWildBattle(batch({ species: 'cloud', companion: 'cloud', level: 14, correct: 0, rng: seq(0, 0.99) }));
+      expect(held('cloud')).toEqual(['cloud-1', 'cloud-2']);
+    });
+
+    it('레벨업으로 배운 다음에 복사 (한 번의 set)', () => {
+      seed('cloud', { level: 1 });
+      let calls = 0;
+      const unsub = useGameStore.subscribe(() => calls++);
+      const r = useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', correct: 30, rng: seq(0, 0) }));
+      unsub();
+      expect(calls).toBe(1);
+      expect(held('cloud')).toEqual(['cloud-1', 'cloud-2', 'horn-1']);
+      expect(r.notices.flatMap((n) => (n.kind === 'skill' ? [n.how] : []))).toEqual(['learned', 'copied']);
+    });
+  });
+
+  describe('acceptSkillOffer', () => {
+    it('하나 잊고 배우기: 잊은 자리에 넣고 set 한 번', () => {
+      seed('cloud', { level: 14, skills: FIVE });
+      let calls = 0;
+      const unsub = useGameStore.subscribe(() => calls++);
+      const ok = useGameStore.getState().acceptSkillOffer({ species: 'cloud', skillId: 'cloud-4', source: 'level' }, 'horn-1');
+      unsub();
+      expect(ok).toBe(true);
+      expect(calls).toBe(1);
+      expect(held('cloud')).toEqual(['cloud-1', 'cloud-2', 'cloud-3', 'cloud-4', 'jelly-1']);
+    });
+
+    it('복사 제안도 받는다', () => {
+      seed('cloud', { level: 8, skills: FIVE });
+      expect(useGameStore.getState().acceptSkillOffer({ species: 'cloud', skillId: 'pebble-1', source: 'copy', fromSpecies: 'pebble' }, 'jelly-1')).toBe(true);
+      expect(held('cloud')).toEqual(['cloud-1', 'cloud-2', 'cloud-3', 'horn-1', 'pebble-1']);
+    });
+
+    it('거부: 레벨이 모자람·잊을 기술을 안 가짐·이미 가짐·없는 종·모르는 기술 → false, 상태 그대로', () => {
+      seed('cloud', { level: 8, skills: FIVE });
+      const before = useGameStore.getState();
+      let calls = 0;
+      const unsub = useGameStore.subscribe(() => calls++);
+      const accept = useGameStore.getState().acceptSkillOffer;
+      expect(accept({ species: 'cloud', skillId: 'cloud-4', source: 'level' }, 'horn-1')).toBe(false); // Lv8에 슬롯 4(Lv14)
+      expect(accept({ species: 'cloud', skillId: 'pebble-1', source: 'copy' }, 'mushroom-1')).toBe(false);
+      expect(accept({ species: 'cloud', skillId: 'horn-1', source: 'copy' }, 'jelly-1')).toBe(false);
+      expect(accept({ species: 'jelly', skillId: 'jelly-2', source: 'level' }, 'jelly-1')).toBe(false);
+      expect(accept({ species: 'cloud', skillId: 'nope', source: 'copy' }, 'jelly-1')).toBe(false);
+      unsub();
+      expect(calls).toBe(0);
+      expect(useGameStore.getState()).toBe(before);
+    });
+  });
+});
+
+describe('세션: 기술 제안 대기열', () => {
+  it('pushSkillOffer는 뒤에 쌓고, shiftSkillOffer는 앞에서 하나 뺀다', () => {
+    useSessionStore.getState().set({ skillOffers: [] });
+    useSessionStore.getState().pushSkillOffer(
+      { species: 'cloud', skillId: 'cloud-4', source: 'level' },
+      { species: 'cloud', skillId: 'horn-2', source: 'copy', fromSpecies: 'horn' },
+    );
+    useSessionStore.getState().pushSkillOffer();
+    expect(useSessionStore.getState().skillOffers.map((o) => o.skillId)).toEqual(['cloud-4', 'horn-2']);
+    useSessionStore.getState().shiftSkillOffer();
+    expect(useSessionStore.getState().skillOffers.map((o) => o.skillId)).toEqual(['horn-2']);
+    useSessionStore.getState().shiftSkillOffer();
+    useSessionStore.getState().shiftSkillOffer();
+    expect(useSessionStore.getState().skillOffers).toEqual([]);
   });
 });

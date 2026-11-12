@@ -61,6 +61,9 @@ import '../../screens/battle.css';
 import './wildBattle.css';
 
 const rng: Rng = Math.random;
+
+/** 기술 복사 난수: 디버그 스위치가 있으면 고정 */
+const copyRng = (forced: boolean | null): Rng => (forced === true ? () => 0 : forced === false ? () => 1 : rng);
 const COMPANION_COLOR = DAN_COLORS[5];
 
 /** 끝난 단계 → 정산의 끝 모양 (직접 도망치기는 quit) */
@@ -340,6 +343,8 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
         end: ending,
         correct: w.correct,
         now: Date.now(),
+        // 기술 복사 스위치: true 늘 당첨(후보 중 첫 기술), false 늘 꽝
+        rng: copyRng(debugFlags().copy),
       });
       newSpecies = r.newSpecies;
       if (r.evolvedTo) useSessionStore.getState().set({ pendingEvolution: r.evolvedTo });
@@ -348,6 +353,8 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
         const ss = useSessionStore.getState();
         ss.set({ pendingFieldNotices: [...ss.pendingFieldNotices, ...r.notices] });
       }
+      // 기술이 가득 차서 못 가진 새 기술은 선택창 대기열로 (저장 안 됨)
+      if (r.offers.length) useSessionStore.getState().pushSkillOffer(...r.offers);
     }
     const name = battleText.tierName(wildDef.name, w.tier);
     const text =

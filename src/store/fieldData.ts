@@ -53,7 +53,20 @@ export type FieldNotice =
   | { kind: 'levelUp'; species: SpeciesId; level: number }
   | { kind: 'evolve'; species: SpeciesId; stage: 2 | 3 }
   /** replacedBy: 쓰러지면서 대신 함께 다니게 된 종 (없으면 동행 그대로) */
-  | { kind: 'fainted'; species: SpeciesId; replacedBy?: SpeciesId };
+  | { kind: 'fainted'; species: SpeciesId; replacedBy?: SpeciesId }
+  /** 기술을 가졌다: learned 레벨이 올라 배움, copied 야생 구구몬(fromSpecies)에게서 따라 배움 */
+  | { kind: 'skill'; species: SpeciesId; skillId: SkillId; how: 'learned' | 'copied'; fromSpecies?: SpeciesId };
+
+/**
+ * 저장 안 되는 기술 제안: 가진 기술이 이미 MAX_SKILLS개라 바로 못 가진 새 기술 (선택창에서 하나 잊고 배우거나 포기).
+ * level 레벨로 익힘(안 배워도 아는 기술로 남는다), copy 야생 구구몬에게서 따라 배우기(놓치면 사라짐)
+ */
+export interface SkillOffer {
+  species: SpeciesId;
+  skillId: SkillId;
+  source: 'level' | 'copy';
+  fromSpecies?: SpeciesId;
+}
 
 const DIRS: readonly Dir[] = ['up', 'down', 'left', 'right'];
 

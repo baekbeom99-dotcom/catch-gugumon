@@ -12,9 +12,10 @@ describe('필드 디버그 스위치', () => {
     delete g.__GUGU_E2E_QUESTION__;
     delete g.__GUGU_E2E_TIER__;
     delete g.__GUGU_E2E_FAST__;
+    delete g.__GUGU_E2E_COPY__;
   });
 
-  it('기본은 모두 꺼짐', () => expect(debugFlags()).toEqual({ encounter: false, path: false, noWild: false, noTimer: false, tier: null, legend: false, question: null, fast: null }));
+  it('기본은 모두 꺼짐', () => expect(debugFlags()).toEqual({ encounter: false, path: false, noWild: false, noTimer: false, tier: null, legend: false, question: null, fast: null, copy: null }));
 
   it('E2E가 쓰는 window 이름에서 읽는다', () => {
     g.__GUGU_E2E_FIELD__ = true;
@@ -25,7 +26,8 @@ describe('필드 디버그 스위치', () => {
     g.__GUGU_E2E_QUESTION__ = { factId: '7x8', type: 'product' };
     g.__GUGU_E2E_TIER__ = 'mighty';
     g.__GUGU_E2E_FAST__ = true;
-    expect(debugFlags()).toEqual({ encounter: true, path: true, noWild: true, noTimer: true, tier: 'mighty', legend: true, question: { factId: '7x8', type: 'product' }, fast: true });
+    g.__GUGU_E2E_COPY__ = true;
+    expect(debugFlags()).toEqual({ encounter: true, path: true, noWild: true, noTimer: true, tier: 'mighty', legend: true, question: { factId: '7x8', type: 'product' }, fast: true, copy: true });
   });
 
   it('강함 단계 스위치는 아는 이름만 (레전드·이상한 값은 무시)', () => {
@@ -47,6 +49,17 @@ describe('필드 디버그 스위치', () => {
     for (const v of [undefined, 1, 'true', null]) {
       g.__GUGU_E2E_FAST__ = v;
       expect(debugFlags().fast).toBeNull();
+    }
+  });
+
+  it('복사 스위치: true·false만 읽고, 없거나 이상한 값이면 null(실제 2%)', () => {
+    g.__GUGU_E2E_COPY__ = false;
+    expect(debugFlags().copy).toBe(false);
+    g.__GUGU_E2E_COPY__ = true;
+    expect(debugFlags().copy).toBe(true);
+    for (const v of [undefined, 1, 'true', null]) {
+      g.__GUGU_E2E_COPY__ = v;
+      expect(debugFlags().copy).toBeNull();
     }
   });
 
