@@ -1562,3 +1562,158 @@ test('틀리면 힌트 뒤 같은 기술로 같은 문제를 다시 풀고(고�
   // 맞힌 뒤 다음 문제는 다시 고르기부터
   await expect(skillPicker(page)).toBeVisible();
 });
+
+// ── 캡슐 던지기 연출과 효과음 (필드 모험 3차 4-1·4-2) ──
+
+type ThrowResult = 'caught' | 'healed' | 'escaped' | 'angry';
+
+/** 던지기 결과를 고정한다 (__GUGU_E2E_THROW__). 안 부르면 캡슐 100% 잡힘 스위치 */
+async function forceThrow(page: Page, outcome: ThrowResult) {
+  await page.addInitScript((o) => {
+    (window as unknown as Record<string, unknown>).__GUGU_E2E_THROW__ = o;
+  }, outcome);
+}
+
+/** 소리가 울린 순서를 적어 둔다: 합성음이 시작될 때마다 첫 음높이를 모은다 (소리 이름은 첫 음높이로 알아본다) */
+async function spyAudio(page: Page) {
+  await page.addInitScript(() => {
+    const w = window as unknown as { __sfxFreqs: number[]; AudioContext: typeof AudioContext };
+    w.__sfxFreqs = [];
+    const make = w.AudioContext.prototype.createOscillator;
+    w.AudioContext.prototype.createOscillator = function () {
+      const osc = make.call(this);
+      const start = osc.start.bind(osc);
+      osc.start = (when?: number) => {
+        w.__sfxFreqs.push(osc.frequency.value);
+        start(when);
+      };
+      return osc;
+    };
+  });
+}
+
+/** 연출 단계(data-capsule-stage)가 바뀔 때마다 기록한다 */
+async function watchCapsuleStages(page: Page) {
+  await page.evaluate(() => {
+    const el = document.querySelector('[data-species]')!;
+    const seen: string[] = [];
+    (window as unknown as { __stages: string[] }).__stages = seen;
+    new MutationObserver(() => {
+      const v = el.getAttribute('data-capsule-stage');
+      if (v && seen[seen.length - 1] !== v) seen.push(v);
+    }).observe(el, { attributes: true, attributeFilter: ['data-capsule-stage'] });
+  });
+}
+
+const stagesSeen = (page: Page) => page.evaluate(() => (window as unknown as { __stages: string[] }).__stages);
+const freqsSeen = (page: Page) => page.evaluate(() => (window as unknown as { __sfxFreqs: number[] }).__sfxFreqs);
+
+/** 소리 이름 → 소리를 알아보는 첫 음높이 (sfx.ts의 SOUNDS와 같아야 한다: tests/audio/sfx.test.ts가 서로 다름을 지킨다) */
+async function sfxFirstFreq(name: string): Promise<number> {
+  const { SOUNDS } = await import('../src/audio/sfx');
+  return SOUNDS[name as keyof typeof SOUNDS][0].freq;
+}
+
+test('잡힘: 던짐→빨려듦→통통→흔들림→결과 순서, 흔들림 3번과 찰칵·잡았다 소리', async ({ page }) => {
+  await spyAudio(page);
+  await standBesideGrass(page, { tier: 'weak' });
+  await stepIntoGrass(page);
+  await answerUntilDizzy(page);
+  await watchCapsuleStages(page);
+  const button = page.getByRole('button', { name: '캡슐 던지기' });
+  await button.click();
+  // 던지는 동안 다시 눌러도 더 던지지 않는다
+  await button.click({ force: true }).catch(() => undefined);
+  // 던지는 순간 바로 저장된다 (연타해도 한 번만)
+  expect((await savedCapsules(page)).meadow).toBe(2);
+  // 결과(찰칵)는 0.2초라 화면 찍는 사이에 지나간다 — 순서는 아래 기록으로 본다
+  await expect(page.getByText(/잡았다!/)).toBeVisible({ timeout: 5000 });
+  expect(await stagesSeen(page)).toEqual(['throw', 'absorb', 'bounce', 'shake', 'result']);
+  expect((await savedCapsules(page)).meadow).toBe(2);
+  const freqs = await freqsSeen(page);
+  const times = async (n: string) => {
+    const first = await sfxFirstFreq(n);
+    return freqs.filter((x) => x === first).length;
+  };
+  expect(await times('throw')).toBe(1);
+  expect(await times('capsuleOpen')).toBe(1);
+  expect(await times('capsuleBounce')).toBe(1);
+  expect(await times('capsuleShake')).toBe(3);
+  expect(await times('capsuleClick')).toBe(1);
+  expect(await times('capsulePop')).toBe(0);
+});
+
+test('연출 단계별 화면 (375px 스크린샷)', async ({ page }) => {
+  const dir = '.superpowers/sdd/2026-11-12-field-adventure-3/task-7-shots';
+  await standBesideGrass(page, { tier: 'weak' });
+  await stepIntoGrass(page);
+  await answerUntilDizzy(page);
+  await page.getByRole('button', { name: '캡슐 던지기' }).click();
+  // 던짐 0.55 → 빨려듦 0.45 → 통통 0.45 → 흔들림 1.35 → 결과
+  await page.waitForTimeout(250);
+  await page.screenshot({ path: `${dir}/1-throw.png` });
+  await page.waitForTimeout(450);
+  await page.screenshot({ path: `${dir}/2-absorb.png` });
+  await page.waitForTimeout(1150);
+  await page.screenshot({ path: `${dir}/3-shake.png` });
+  await expect(page.getByText(/잡았다!/)).toBeVisible({ timeout: 5000 });
+  await page.screenshot({ path: `${dir}/5-caught.png` });
+});
+
+test('빠져나옴: 첫 흔들림에서 열려 야생이 튀어나오고, 체력이 차오르고 다시 문제', async ({ page }) => {
+  await forceThrow(page, 'healed');
+  await spyAudio(page);
+  await standBesideGrass(page, { tier: 'weak' });
+  await stepIntoGrass(page);
+  await answerUntilDizzy(page);
+  await expect(page.getByLabel('야생 체력 0')).toBeVisible();
+  await watchCapsuleStages(page);
+  await page.getByRole('button', { name: '캡슐 던지기' }).click();
+  await expect(page.getByRole('status')).toHaveText('앗! 캡슐에서 빠져나왔어요! 힘을 조금 되찾았어요!', { timeout: 5000 });
+  await page.screenshot({ path: '.superpowers/sdd/2026-11-12-field-adventure-3/task-7-shots/4-pop-healed.png' });
+  expect(await stagesSeen(page)).toEqual(['throw', 'absorb', 'bounce', 'shake', 'result']);
+  await expect(page.getByLabel('야생 체력 0')).toHaveCount(0);
+  await expect(page.getByLabel(/야생 체력 [1-9]/)).toBeVisible();
+  // 다시 문제로 (연출이 끝나면 캡슐 버튼은 없고 문제와 보기가 나온다)
+  await expect(page.locator('.wild__bubble .question')).toBeVisible({ timeout: 3000 });
+  await expect(page.getByRole('button', { name: '캡슐 던지기' })).toHaveCount(0);
+  expect((await savedCapsules(page)).meadow).toBe(2);
+  const freqs = await freqsSeen(page);
+  const times = async (n: string) => {
+    const first = await sfxFirstFreq(n);
+    return freqs.filter((x) => x === first).length;
+  };
+  expect(await times('capsuleShake')).toBe(1);
+  expect(await times('capsulePop')).toBe(1);
+  expect(await times('capsuleClick')).toBe(0);
+});
+
+test('도망: 두 번째 흔들림에서 열리고 도망간다', async ({ page }) => {
+  await forceThrow(page, 'escaped');
+  await spyAudio(page);
+  await standBesideGrass(page, { tier: 'weak' });
+  await stepIntoGrass(page);
+  await answerUntilDizzy(page);
+  await page.getByRole('button', { name: '캡슐 던지기' }).click();
+  await expect(page.getByText(/도망/).first()).toBeVisible({ timeout: 5000 });
+  await expect(page).toHaveURL(/#\/field$/, { timeout: 5000 });
+  const freqs = await freqsSeen(page);
+  const times = async (n: string) => {
+    const first = await sfxFirstFreq(n);
+    return freqs.filter((x) => x === first).length;
+  };
+  expect(await times('capsuleShake')).toBe(2);
+  expect(await times('capsulePop')).toBe(1);
+});
+
+test('화남: 두 번째 흔들림에서 열리고 강력해져 다시 문제', async ({ page }) => {
+  await forceThrow(page, 'angry');
+  await standBesideGrass(page, { tier: 'weak' });
+  await stepIntoGrass(page);
+  await answerUntilDizzy(page);
+  await watchCapsuleStages(page);
+  await page.getByRole('button', { name: '캡슐 던지기' }).click();
+  await expect(page.getByText(/화가 났다!/)).toBeVisible({ timeout: 5000 });
+  expect(await stagesSeen(page)).toEqual(['throw', 'absorb', 'bounce', 'shake', 'result']);
+  await expect(page.locator('.wild__bubble .question')).toBeVisible({ timeout: 3000 });
+});

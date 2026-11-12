@@ -55,6 +55,23 @@ export function throwOdds(tier: Tier): { caught: number; retry: number; escaped:
   };
 }
 
+/**
+ * 던지기 결과를 미리 정해 두는 난수 (E2E 스위치 전용, 규칙·확률은 그대로).
+ * throwCapsule이 난수를 한 번 쓰니, 정한 결과의 칸 한가운데 값을 돌려준다.
+ */
+export function forcedThrowRng(outcome: 'caught' | 'healed' | 'escaped' | 'angry', tier: Tier): () => number {
+  const o = throwOdds(tier);
+  const value =
+    outcome === 'caught'
+      ? 0
+      : outcome === 'healed'
+        ? o.caught + o.retry / 2
+        : outcome === 'escaped'
+          ? 1 - o.angry - o.escaped / 2
+          : 0.9999;
+  return () => value;
+}
+
 /** 단계 배율을 곱한 경험치 (반올림) */
 export function tierExp(base: number, tier: Tier): number {
   return Math.round(base * TIER_RULES[tier].expScale);

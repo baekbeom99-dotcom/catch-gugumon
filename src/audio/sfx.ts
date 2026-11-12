@@ -1,7 +1,23 @@
 /** Web Audio 합성 효과음 — 오디오 파일 없이 즉시 반응 */
 import { useGameStore } from '../store/useGameStore';
 
-export type Sfx = 'tap' | 'correct' | 'gentle' | 'star' | 'capture' | 'combo' | 'coin' | 'fanfare' | 'lullaby';
+export type Sfx =
+  | 'tap'
+  | 'correct'
+  | 'gentle'
+  | 'star'
+  | 'capture'
+  | 'combo'
+  | 'coin'
+  | 'fanfare'
+  | 'lullaby'
+  // 캡슐 던지기: 던짐·빨려듦·통통·흔들림·찰칵(잡힘)·뻥(열림)
+  | 'throw'
+  | 'capsuleOpen'
+  | 'capsuleBounce'
+  | 'capsuleShake'
+  | 'capsuleClick'
+  | 'capsulePop';
 
 interface Note {
   freq: number;
@@ -15,7 +31,7 @@ interface Note {
 /** 도레미 음높이 (Hz) */
 const N = { C5: 523, D5: 587, E5: 659, G5: 784, A5: 880, C6: 1047, E6: 1319, G6: 1568, A6: 1760 } as const;
 
-const SOUNDS: Record<Sfx, Note[]> = {
+export const SOUNDS: Record<Sfx, Note[]> = {
   tap: [{ freq: 660, start: 0, dur: 0.05, gain: 0.6 }],
   correct: [
     { freq: N.G5, start: 0, dur: 0.09 },
@@ -64,7 +80,45 @@ const SOUNDS: Record<Sfx, Note[]> = {
     { freq: N.E5, start: 0.25, dur: 0.25, type: 'sine', gain: 0.6 },
     { freq: N.C5, start: 0.5, dur: 0.45, type: 'sine', gain: 0.5 },
   ],
+  // 캡슐: 휙 날아간다
+  throw: [
+    { freq: 300, start: 0, dur: 0.09, type: 'sine', gain: 0.6 },
+    { freq: 450, start: 0.07, dur: 0.09, type: 'sine', gain: 0.6 },
+    { freq: 650, start: 0.14, dur: 0.12, type: 'sine', gain: 0.6 },
+  ],
+  // 캡슐: 구구몬이 빨려 들어가는 '쀼웅'
+  capsuleOpen: [
+    { freq: 700, start: 0, dur: 0.08, type: 'square', gain: 0.35 },
+    { freq: 1000, start: 0.06, dur: 0.1, type: 'square', gain: 0.35 },
+    { freq: 450, start: 0.14, dur: 0.16, type: 'sine', gain: 0.6 },
+  ],
+  // 캡슐: 통통
+  capsuleBounce: [
+    { freq: 260, start: 0, dur: 0.1, type: 'sine', gain: 0.8 },
+    { freq: 200, start: 0.16, dur: 0.12, type: 'sine', gain: 0.7 },
+  ],
+  // 캡슐: 덜컹
+  capsuleShake: [
+    { freq: 180, start: 0, dur: 0.08, type: 'square', gain: 0.4 },
+    { freq: 230, start: 0.09, dur: 0.1, type: 'square', gain: 0.4 },
+  ],
+  // 캡슐: 잡혔다 '찰칵'
+  capsuleClick: [
+    { freq: 1200, start: 0, dur: 0.04, type: 'square', gain: 0.4 },
+    { freq: 800, start: 0.05, dur: 0.08, type: 'square', gain: 0.4 },
+  ],
+  // 캡슐: 열렸다 '뻥!'
+  capsulePop: [
+    { freq: 500, start: 0, dur: 0.06, type: 'square', gain: 0.4 },
+    { freq: 900, start: 0.04, dur: 0.1, type: 'square', gain: 0.4 },
+    { freq: 1400, start: 0.1, dur: 0.14, type: 'sine', gain: 0.6 },
+  ],
 };
+
+/** 효과음이 다 끝나는 시간(초) */
+export function sfxLength(name: Sfx): number {
+  return Math.max(...SOUNDS[name].map((n) => n.start + n.dur));
+}
 
 let ctx: AudioContext | null = null;
 

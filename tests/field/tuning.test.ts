@@ -27,7 +27,12 @@ describe('필드 모험 운영 수치', () => {
       WILD_HIT_ANIM_MS: 600,
       WILD_END_MS: 1500,
       CAPSULE_SHAKES: 3,
-      CAPSULE_SHAKE_MS: 400,
+      CAPSULE_SHAKE_MS: 450,
+      CAPSULE_THROW_MS: 550,
+      CAPSULE_ABSORB_MS: 450,
+      CAPSULE_BOUNCE_MS: 450,
+      CAPSULE_RESULT_MS: 200,
+      CAPSULE_POP_AT: { healed: 1, escaped: 2, angry: 2 },
       MIN_LOADING_MS: 600,
       WATER_FRAME_MS: 500,
       ROAM_IDLE_MIN_MS: 1500,
@@ -68,5 +73,19 @@ describe('필드 모험 운영 수치', () => {
       CHARGE_BONUS_CELLS: 1,
       CAPTURE_FAIL_HEAL_RATIO: 0.5,
     });
+  });
+});
+
+describe('캡슐 던지기 연출 시간', () => {
+  it('잡힘은 던짐부터 결과까지 약 3초', () => {
+    const total = T.CAPSULE_THROW_MS + T.CAPSULE_ABSORB_MS + T.CAPSULE_BOUNCE_MS + T.CAPSULE_SHAKES * T.CAPSULE_SHAKE_MS + T.CAPSULE_RESULT_MS;
+    expect(total).toBe(3000);
+  });
+
+  it('실패는 1~2번째 흔들림에서 열린다', () => {
+    for (const n of Object.values(T.CAPSULE_POP_AT)) {
+      expect(n).toBeGreaterThanOrEqual(1);
+      expect(n).toBeLessThan(T.CAPSULE_SHAKES);
+    }
   });
 });

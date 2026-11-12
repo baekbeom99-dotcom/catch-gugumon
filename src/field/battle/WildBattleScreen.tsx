@@ -3,8 +3,9 @@
  * 기술이 2개 이상이면 문제마다 먼저 기술을 고르고(SkillPicker), 보기 버튼은 답 숫자만 보인다.
  * 문제가 떠 있을 때만 시간이 흐른다(인트로·기술 고르기·명중·피격·힌트·어지러움·도망 확인창·가려진 탭에서는 멈춤).
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Navigate } from 'react-router-dom';
+import { playSfx } from '../../audio/sfx';
 import { DAN_COLORS } from '../../art/colors';
 import type { MonsterMood } from '../../art/MonsterSprite';
 import { HintPanel } from '../../components/HintPanel';
@@ -16,8 +17,13 @@ import { createAnswerTimer, elapsedMs, pauseTimer, resumeTimer, startTimer } fro
 import { displayName } from '../../domain/field/growth';
 import type { Encounter } from '../../domain/field/encounter';
 import {
+  CAPSULE_ABSORB_MS,
+  CAPSULE_BOUNCE_MS,
+  CAPSULE_POP_AT,
+  CAPSULE_RESULT_MS,
   CAPSULE_SHAKE_MS,
   CAPSULE_SHAKES,
+  CAPSULE_THROW_MS,
   COMPANION_MAX_HP,
   SPECIAL_HEAL,
   TIER_RULES,
@@ -39,10 +45,12 @@ import {
   throwCapsule,
   tick,
   wildHpRatio,
+  type ThrowOutcome,
   type WildState,
 } from '../../domain/field/wildBattle';
 import { fastSeconds, type SkillDef } from '../../domain/field/skills';
 import type { FactId } from '../../domain/facts';
+import { forcedThrowRng } from '../../domain/field/strength';
 import type { Rng } from '../../domain/random';
 import { useGameStore, type WildEnd } from '../../store/useGameStore';
 import { useSessionStore } from '../../store/useSessionStore';
@@ -65,6 +73,33 @@ const rng: Rng = Math.random;
 /** 기술 복사 난수: 디버그 스위치가 있으면 고정 */
 const copyRng = (forced: boolean | null): Rng => (forced === true ? () => 0 : forced === false ? () => 1 : rng);
 const COMPANION_COLOR = DAN_COLORS[5];
+
+/** 캡슐 던지기 연출 단계: 던짐 → 빨려듦 → 통통 → 흔들림 → 결과 (E2E는 data-capsule-stage로 읽는다) */
+type CapsuleStage = 'throw' | 'absorb' | 'bounce' | 'shake' | 'result';
+interface CapsuleShow {
+  stage: CapsuleStage;
+  outcome: ThrowOutcome;
+  /** 이 던지기에서 흔드는 횟수 (잡힘은 3번, 실패는 열릴 때까지) */
+  shakes: number;
+}
+
+/** 단계마다 공 애니메이션 시간(·흔들림 횟수)을 tuning 값으로 */
+function capsuleBallStyle(stage: CapsuleStage | null, shakes: number): CSSProperties | undefined {
+  switch (stage) {
+    case 'throw':
+      return { animationDuration: `${CAPSULE_THROW_MS}ms` };
+    case 'absorb':
+      return { animationDuration: `${CAPSULE_ABSORB_MS}ms` };
+    case 'bounce':
+      return { animationDuration: `${CAPSULE_BOUNCE_MS}ms` };
+    case 'shake':
+      return { animationDuration: `${CAPSULE_SHAKE_MS}ms`, animationIterationCount: shakes };
+    case 'result':
+      return { animationDuration: `${CAPSULE_RESULT_MS}ms` };
+    default:
+      return undefined;
+  }
+}
 
 /** 끝난 단계 → 정산의 끝 모양 (직접 도망치기는 quit) */
 function endOf(w: WildState, quit: boolean): WildEnd | null {
@@ -141,6 +176,8 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const [throwing, setThrowing] = useState(false);
   /** 같은 순간의 두 번째 누름을 막는다 (state는 다시 그린 뒤에야 바뀐다) */
   const throwingRef = useRef(false);
+  /** 캡슐 연출이 지금 어느 단계인지 (보기만 하는 값. 결과는 던질 때 이미 정해졌다) */
+  const [capsule, setCapsule] = useState<CapsuleShow | null>(null);
   const settledRef = useRef(false);
   /** 이 전투에서 맞아서 쓰러졌나 (쓰러짐 글을 공격 연출 뒤에 보인다) */
   const struckDownRef = useRef(false);
@@ -178,8 +215,8 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const catchFx = useCallback(() => {
     const canvas = fxRef.current;
     const at = fxPoint('foe');
-    if (canvas && at) void playFx(canvas, 'catch', at);
-  }, [fxPoint]);
+    if (canvas && at) void playFx(canvas, 'catch', at, { gold: speciesDef(encounter.species).legend });
+  }, [fxPoint, encounter.species]);
   /**
    * 기술 효과: 나간 기술(`def`, skillDef 기준)의 효과를 맞는 쪽 구구몬 그림 한가운데에 효과 중심이 오게 튼다 (강력이면 강력 효과).
    * 내 공격(왼→오)은 야생 위에 효과 기본 방향, 적 공격(오→왼)은 내 구구몬 위에 뒤집어서. 내 공격이 효과를 못 틀면(불러오기 실패) 불꽃으로 대신한다.
@@ -462,8 +499,10 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const onCapsule = () => {
     const w = wildRef.current!;
     if (w.phase !== 'dizzy' || throwing || throwingRef.current) return;
-    // 결과는 던지는 순간 정해 두고, 흔들림이 끝난 뒤에 보여 준다 (E2E 만남 스위치면 언제나 잡힌다)
-    const thrown = throwCapsule(w, debugFlags().encounter ? () => 0 : rng, companionLevel, held.length);
+    // 결과는 던지는 순간 정해 두고, 연출은 거기에 맞춰 보여 준다 (E2E 만남 스위치면 언제나 잡히고, 결과 스위치가 있으면 그 결과)
+    const flags = debugFlags();
+    const roll = flags.throwOutcome ? forcedThrowRng(flags.throwOutcome, w.tier) : flags.encounter ? () => 0 : rng;
+    const thrown = throwCapsule(w, roll, companionLevel, held.length);
     if (!thrown) return;
     // 맞는 캡슐 1개를 던지는 순간 바로 저장해 쓴다 (결과와 상관없이). 없으면 돌려보낸다
     if (!useGameStore.getState().spendCapsule(capsuleType)) {
@@ -473,18 +512,45 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     throwingRef.current = true;
     setThrowing(true);
     setMessage(battleText.throwCapsule);
+
+    const { outcome } = thrown;
+    const shakes = outcome === 'caught' ? CAPSULE_SHAKES : CAPSULE_POP_AT[outcome];
+    const show = (stage: CapsuleStage) => setCapsule({ stage, outcome, shakes });
+    let t = 0;
+    show('throw');
+    playSfx('throw');
+    t += CAPSULE_THROW_MS;
     later(() => {
-      throwingRef.current = false;
-      setThrowing(false);
+      show('absorb');
+      playSfx('capsuleOpen');
+    }, t);
+    t += CAPSULE_ABSORB_MS;
+    later(() => {
+      show('bounce');
+      playSfx('capsuleBounce');
+    }, t);
+    t += CAPSULE_BOUNCE_MS;
+    later(() => show('shake'), t);
+    for (let k = 0; k < shakes; k++) later(() => playSfx('capsuleShake'), t + k * CAPSULE_SHAKE_MS);
+    t += shakes * CAPSULE_SHAKE_MS;
+    // 결과: 잡히면 찰칵, 아니면 뻥 하고 열려 야생 구구몬이 튀어나온다
+    later(() => {
+      show('result');
       const after = thrown.state;
       const name = battleText.tierName(wildDef.name, after.tier);
-      switch (thrown.outcome) {
+      if (outcome === 'caught') {
+        playSfx('capsuleClick');
+        later(() => playSfx('capture'), 180);
+        catchFx();
+      } else {
+        playSfx('capsulePop');
+      }
+      switch (outcome) {
         case 'caught':
           setWild(after);
-          catchFx();
           break;
         case 'healed':
-          // 빠져나와 힘을 조금 되찾고 문제(기술이 2개 이상이면 고르기)로 돌아간다 (화남과 같이 다음 문제는 이미 넘겨 두었다). 연출은 Task 7
+          // 빠져나와 힘을 조금 되찾고 문제(기술이 2개 이상이면 고르기)로 돌아간다 (화남과 같이 다음 문제는 이미 넘겨 두었다). 체력 막대는 부드럽게 차오른다
           setWild(after);
           setHitCount((n) => n + 1);
           setMessage(battleText.healed);
@@ -500,9 +566,14 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
           setMessage(battleText.angry(name));
           break;
       }
-    }, CAPSULE_SHAKES * CAPSULE_SHAKE_MS);
+    }, t);
+    // 결과를 잠깐 보여 준 뒤 연출 끝 (그때까지 다른 입력은 막힌다)
+    later(() => {
+      throwingRef.current = false;
+      setThrowing(false);
+      setCapsule(null);
+    }, t + CAPSULE_RESULT_MS);
   };
-
   const hpRatio = wildHpRatio(wild);
   const picking = !intro && wild.phase === 'pick';
   const timeMs = TIER_RULES[wild.tier].timeMs;
@@ -519,6 +590,12 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     wild.phase === 'hit' ? 'hit' : dizzy ? 'sleep' : wild.phase === 'caught' ? 'happy' : 'idle';
   const strongCard = wild.tier === 'strong' ? 'wild__card--strong' : wild.tier === 'mighty' ? 'wild__card--mighty' : '';
   const gone = ending === 'escaped' || ending === 'released' || ending === 'quit';
+  // 캡슐 연출: 공이 보이는 동안(실패로 열린 뒤에는 사라진다. 잡힌 뒤에는 닫힌 채 그대로) 야생 그림은 숨는다
+  const stage = capsule?.stage ?? null;
+  const caughtShow = capsule?.outcome === 'caught' || (!capsule && wild.phase === 'caught');
+  const ballShown = capsule ? stage !== 'result' || caughtShow : wild.phase === 'caught';
+  const foeHidden = ballShown && stage !== 'throw' && stage !== 'absorb';
+  const popped = stage === 'result' && !caughtShow;
 
   return (
     <div className={`wild ${wildDef.legend ? 'wild--legend' : ''}`}>
@@ -540,7 +617,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
         </div>
       </header>
 
-      <section ref={stageRef} data-species={encounter.species} className={`wild__stage ${wildDef.legend ? 'wild__stage--legend' : ''} ${intro ? 'wild__stage--intro' : ''} ${intro && wildDef.legend ? 'wild__stage--sparkle' : ''}`}>
+      <section ref={stageRef} data-species={encounter.species} data-capsule-stage={stage ?? undefined} className={`wild__stage ${wildDef.legend ? 'wild__stage--legend' : ''} ${intro ? 'wild__stage--intro' : ''} ${intro && wildDef.legend ? 'wild__stage--sparkle' : ''}`}>
         {asking || inHint ? (
           <div className="wild__bubble" data-fact={item.factId}>
             {asking && <TimerBar key={key} ms={wild.timeLeftMs} totalMs={wild.limitMs} fillRef={timerFillRef} />}
@@ -553,11 +630,20 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
           </div>
         ) : (
           <>
-            <div key={`w${hitCount}`} className={`wild__foe ${wild.phase === 'hit' ? 'wild__foe--hit' : ''} ${struck ? 'wild__foe--attack' : ''} ${gone ? 'wild__foe--gone' : ''} ${throwing ? 'wild__foe--capsule' : ''}`}>
+            <div
+              key={`w${hitCount}`}
+              className={`wild__foe ${wild.phase === 'hit' ? 'wild__foe--hit' : ''} ${struck ? 'wild__foe--attack' : ''} ${gone ? 'wild__foe--gone' : ''} ${stage === 'absorb' ? 'wild__foe--absorb' : ''} ${foeHidden ? 'wild__foe--capsule' : ''} ${popped ? 'wild__foe--pop' : ''}`}
+              style={stage === 'absorb' ? { animationDuration: `${CAPSULE_ABSORB_MS}ms` } : undefined}
+            >
               {creatureSprite(encounter.species, { view: 'front', mood: wildMood, color: DAN_COLORS[encounter.dan], size: 150 })}
             </div>
-            {throwing && (
-              <div className="wild__capsule-ball" aria-hidden style={{ animationDuration: `${CAPSULE_SHAKE_MS}ms`, animationIterationCount: CAPSULE_SHAKES }}>
+            {ballShown && (
+              <div
+                key={stage ?? 'rest'}
+                className={`wild__capsule-ball wild__capsule-ball--${stage ?? 'rest'}`}
+                aria-hidden
+                style={capsuleBallStyle(stage, capsule?.shakes ?? 0)}
+              >
                 <CapsuleBall type={capsuleType} size={64} />
               </div>
             )}
