@@ -22,14 +22,17 @@ describe('캡슐 효과음 6개', () => {
 const NEW_SFX: Sfx[] = [
   'fxGrass', 'fxPoison', 'fxLight', 'fxWater', 'fxThunder', 'fxEarth', 'fxFire',
   'fxPower', 'superEffective', 'notVery',
-  'skillHeal', 'skillGuard', 'skillClue', 'skillCalm', 'skillCharge',
+  'skillHeal', 'skillGuard', 'skillClue', 'skillCalm', 'skillCharge', 'skillStun',
 ];
 
-describe('기술 효과음 15개', () => {
+describe('기술 효과음 16개', () => {
   it('SKILL_SFX가 속성 7개, SPECIAL_SFX가 특수 6종을 모두 덮는다', () => {
     expect(Object.keys(SKILL_SFX).sort()).toEqual(['earth', 'fire', 'grass', 'light', 'poison', 'thunder', 'water']);
     expect(Object.keys(SPECIAL_SFX).sort()).toEqual(['calm', 'charge', 'clue', 'guard', 'heal', 'stun']);
     for (const n of [...Object.values(SKILL_SFX), ...Object.values(SPECIAL_SFX)]) expect(NEW_SFX).toContain(n);
+    // 특수 6종은 소리가 서로 다르다 (스턴은 자리표시였던 방어 소리가 아니라 skillStun)
+    expect(new Set(Object.values(SPECIAL_SFX)).size).toBe(6);
+    expect(SPECIAL_SFX.stun).toBe('skillStun');
   });
 
   it('각각 있고 0.4초 안에 끝난다', () => {

@@ -58,14 +58,22 @@ export type FieldNotice =
   | { kind: 'skill'; species: SpeciesId; skillId: SkillId; how: 'learned' | 'copied'; fromSpecies?: SpeciesId };
 
 /**
- * 저장 안 되는 기술 제안: 가진 기술이 이미 MAX_SKILLS개라 바로 못 가진 새 기술 (선택창에서 하나 잊고 배우거나 포기).
- * level 레벨로 익힘(안 배워도 아는 기술로 남는다), copy 야생 구구몬에게서 따라 배우기(놓치면 사라짐)
+ * 저장 안 되는 기술 제안: 들어갈 자리(부속성·특수)가 이미 차 있어 바로 못 가진 새 기술 (선택창에서 그 자리 기술을 잊고 배우거나 포기).
+ * level 레벨로 익힘(안 배워도 아는 기술로 남는다), copy 야생 구구몬에게서 따라 배우기(놓치면 사라짐).
+ * seat는 새 기술이 들어갈 자리, removeId는 제안을 만들 때 그 자리에 있던 기술 (선택창은 지금 그 자리 기술을 다시 본다)
  */
 export interface SkillOffer {
   species: SpeciesId;
   skillId: SkillId;
   source: 'level' | 'copy';
   fromSpecies?: SpeciesId;
+  seat: Seat;
+  removeId?: SkillId;
+}
+
+/** 가진 기술 중 그 자리에 앉아 있는 기술 (없으면 null). 주속성 사슬은 여럿이라 앞의 것 */
+export function seatHolder(species: SpeciesId, held: readonly SkillId[], seat: Seat): SkillId | null {
+  return held.find((id) => seatOfId(species, id) === seat) ?? null;
 }
 
 const DIRS: readonly Dir[] = ['up', 'down', 'left', 'right'];

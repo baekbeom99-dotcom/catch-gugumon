@@ -1,7 +1,8 @@
 /**
- * 기술 선택창 — 가진 기술이 가득일 때 새 기술 제안이 오면 한 번에 하나씩 뜬다 (3차 설계 2-5).
- * 가진 기술 하나를 잊고 배우거나, 둘째 버튼(레벨 제안 "배우지 않기" / 복사 제안 "포기")으로 넘긴다.
- * 어떻게 끝내든 제안은 하나 처리되고 다음 제안으로 간다. Esc는 둘째 버튼과 같다.
+ * 기술 선택창 — 새 기술이 들어갈 자리(부속성·특수)가 차 있을 때 제안이 오면 한 번에 하나씩 뜬다 (3차 설계 2-5, 개정 3 0-1절).
+ * 같은 자리끼리만 바꿀 수 있으므로 잊을 기술은 그 자리의 지금 기술 하나다. 잊고 배우거나, 둘째 버튼(레벨 제안 "배우지 않기" / 복사 제안 "포기")으로 넘긴다.
+ * 어떻게 끝내든 제안은 하나 처리되고 다음 제안으로 간다. Esc는 둘째 버튼과 같다. 처음 포커스는 되돌릴 수 있는 둘째 버튼.
+ * (Task 13이 글·모양을 다듬는다)
  */
 import { useEffect } from 'react';
 import { speciesDef } from '../domain/field/creatures';
@@ -10,7 +11,7 @@ import { skillDef } from '../domain/field/skills';
 import { useGameStore } from '../store/useGameStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { SkillCard } from './SkillCard';
-import { holdUpdateBusy, offerStatus } from './skillOfferState';
+import { holdUpdateBusy, offerStatus, seatOccupant } from './skillOfferState';
 import { skillText } from './skillText';
 import './skills.css';
 
@@ -30,7 +31,7 @@ export function SkillOfferDialog() {
     if (stale) skip();
   }, [stale, offer]);
 
-  // 빈 자리가 있으면 그냥 가진다 (보통은 일어나지 않는다)
+  // 그 자리가 비어 있으면 그냥 가진다 (앞 제안을 받아 자리가 비었을 때 등)
   const roomy = status === 'take';
   useEffect(() => {
     if (!roomy || !offer) return;
@@ -51,6 +52,9 @@ export function SkillOfferDialog() {
 
   if (!offer || !held || stale || roomy) return null;
   const def = skillDef(offer.skillId);
+  // 잊을 기술: 그 자리의 지금 기술 하나 (ask일 때는 늘 있다)
+  const occupant = seatOccupant(offer, held);
+  const forget = occupant ? [occupant] : [];
 
   return (
     <div className="skill-offer" role="dialog" aria-modal="true" aria-label="기술 선택창" data-offer-source={offer.source}>
@@ -60,13 +64,12 @@ export function SkillOfferDialog() {
         <SkillCard def={def} note={skillText.source(offer)} />
         <p className="skill-offer__hint">{skillText.offerHint(offer)}</p>
         <div className="skill-offer__grid" role="group" aria-label="잊을 기술 고르기">
-          {held.map((id) => {
+          {forget.map((id) => {
             const k = skillDef(id);
             return (
               <button
                 key={id}
                 type="button"
-                autoFocus={id === held[0]}
                 className="skill-offer__pick"
                 data-skill={id}
                 aria-label={`${k.name} ${skillText.forgetAndLearn}`}
@@ -84,7 +87,8 @@ export function SkillOfferDialog() {
             );
           })}
         </div>
-        <button type="button" className="btn btn--ghost skill-offer__skip" onClick={skip}>
+        {/* 되돌릴 수 없는 "잊고 배우기"가 아니라 이 버튼에 처음 포커스 (Enter를 눌러도 기술을 잃지 않게) */}
+        <button type="button" autoFocus className="btn btn--ghost skill-offer__skip" onClick={skip}>
           {skillText.skip(offer)}
         </button>
         {skillText.skipNote(offer) && <p className="skill-offer__note">{skillText.skipNote(offer)}</p>}

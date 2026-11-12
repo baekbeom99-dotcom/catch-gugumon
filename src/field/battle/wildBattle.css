@@ -111,6 +111,12 @@
 
 /* 문제 시간 막대 (말풍선 맨 위). 마지막 TIMER_WARN_MS는 빨강 */
 .wild__timer {
+  /* 지금 나갈 단계 색: ③ 진한 보라 · ② 주황 · ① 옅은 노랑 (기점이 없으면 예전 주황 한 가지) */
+  --tier-3: #7a2ee8;
+  --tier-2: #ff8a1f;
+  --tier-1: #ffd96b;
+  position: relative;
+  display: block;
   height: 10px;
   margin: 0 2px 4px;
   border: 2px solid var(--ink);
@@ -125,12 +131,112 @@
   background: var(--orange);
 }
 
+/* 기점이 있는 막대: 조금 높여 눈금과 단계 번호를 넣는다 */
+.wild__timer--staged {
+  height: 16px;
+}
+
+.wild__timer--staged[data-tier='3'] .wild__timer-fill {
+  background: var(--tier-3);
+}
+
+.wild__timer--staged[data-tier='2'] .wild__timer-fill {
+  background: var(--tier-2);
+}
+
+.wild__timer--staged[data-tier='1'] .wild__timer-fill {
+  background: var(--tier-1);
+}
+
+/* 기점을 지나 단계가 내려가는 순간 짧게 번쩍 (단계마다 다른 이름이라 바뀔 때마다 다시 튼다) */
+.wild__timer--dropped[data-tier='2'] .wild__timer-fill {
+  animation: wild-tier-drop-2 320ms ease-out;
+}
+
+.wild__timer--dropped[data-tier='1'] .wild__timer-fill {
+  animation: wild-tier-drop-1 320ms ease-out;
+}
+
+@keyframes wild-tier-drop-2 {
+  0% {
+    filter: brightness(1.8);
+  }
+  100% {
+    filter: none;
+  }
+}
+
+@keyframes wild-tier-drop-1 {
+  0% {
+    filter: brightness(1.8);
+  }
+  100% {
+    filter: none;
+  }
+}
+
+/* 눈금: 기술이 바뀌는 자리의 세로 선 */
+.wild__timer-tick {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--ink);
+  pointer-events: none;
+}
+
+/* 구간마다 단계 번호 (색에만 기대지 않게) */
+.wild__timer-mark {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--ink);
+  text-shadow: 0 0 2px #fff, 0 0 2px #fff;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
 .wild__timer--warn {
   border-color: var(--red);
 }
 
-.wild__timer--warn .wild__timer-fill {
+/* 경고: 테두리는 늘 빨강, 채움은 기점이 없거나 1번 구간일 때만 빨강 (단계 색과 겹치지 않게) */
+.wild__timer--warn:not(.wild__timer--staged) .wild__timer-fill,
+.wild__timer--warn.wild__timer--staged[data-tier='1'] .wild__timer-fill {
   background: var(--red);
+}
+
+/* 고르기 버튼 안의 미리보기 막대 (꽉 찬 채로 눈금만) */
+.wild__timer--preview {
+  height: 13px;
+  margin: 0;
+  border-width: 2px;
+}
+
+.wild__timer--preview .wild__timer-mark {
+  font-size: 9px;
+}
+
+.wild__timer-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.wild__timer-zone--3 {
+  background: var(--tier-3);
+}
+
+.wild__timer-zone--2 {
+  background: var(--tier-2);
+}
+
+.wild__timer-zone--1 {
+  background: var(--tier-1);
 }
 
 .wild__stage {
@@ -406,7 +512,14 @@
   font-size: 13px;
 }
 
-/* 기술 고르기: 두 줄 격자 (위 3칸·아래 2칸, 375px에서 잘리지 않게) */
+/* 야생 구구몬이 기절해 다음 공격을 못 함 (이름 옆) */
+.wild__buff--foe {
+  margin-left: 6px;
+  background: #d9c8ff;
+  vertical-align: middle;
+}
+
+/* 기술 고르기: 버튼 최대 3개 (주속성 한 줄 + 부속성·특수 한 줄, 375px에서 잘리지 않게) */
 .skill-picker {
   display: grid;
   gap: 6px;
@@ -430,9 +543,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
   gap: 2px;
   min-width: 0;
-  min-height: 92px;
+  min-height: 76px;
   padding: 6px 4px;
   border: var(--border);
   border-radius: var(--radius);
@@ -444,11 +558,47 @@
   cursor: pointer;
 }
 
-/* 2개·4개는 한 줄에 둘씩, 5개는 위 3 · 아래 2 */
-.skill-picker__grid--n2 .skill-pick,
-.skill-picker__grid--n4 .skill-pick,
-.skill-picker__grid--n5 .skill-pick:nth-child(n + 4) {
+/* 버튼 2개는 한 줄에 둘, 3개는 주속성이 위 한 줄을 다 쓰고 부속성·특수가 아래 줄에 둘 */
+.skill-picker__grid--b2 .skill-pick {
   grid-column: span 3;
+}
+
+.skill-picker__grid--b3 .skill-pick {
+  grid-column: span 3;
+}
+
+.skill-picker__grid--b3 .skill-pick--main {
+  grid-column: span 6;
+}
+
+.skill-pick__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 2px 5px;
+  font-size: 12px;
+}
+
+.skill-pick__lines {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+/* 3개일 때 주속성 버튼은 넓으니 단계 글을 한 줄에 나란히 */
+.skill-picker__grid--b3 .skill-pick--main .skill-pick__lines {
+  flex-direction: row;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 1px 10px;
+}
+
+.skill-pick__gauge {
+  display: block;
+  align-self: stretch;
+  margin: 2px 4px 0;
 }
 
 .skill-pick:active:not(:disabled) {
@@ -465,13 +615,6 @@
   font-size: 15px;
   line-height: 1.15;
   word-break: keep-all;
-}
-
-.skill-pick__meta {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 12px;
 }
 
 .skill-pick__tag {
@@ -675,6 +818,10 @@
 
 /* 동작 줄이기: 날아가고 빨려들고 통통 튀는 움직임은 빼고 흔들림만 단순하게 */
 @media (prefers-reduced-motion: reduce) {
+  /* 단계가 바뀌어도 번쩍이지 않고 색만 바뀐다 */
+  .wild__timer--dropped .wild__timer-fill {
+    animation: none;
+  }
   .wild__capsule-ball--throw,
   .wild__capsule-ball--absorb,
   .wild__capsule-ball--bounce,

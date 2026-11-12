@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import * as core from 'pixelfx';
 import { ELEMENT_FX, ELEMENT_NAMES, MAIN_ELEMENT, SPECIAL_FX, STRONG_AGAINST, STRONG_FX, SUB_ELEMENT, elementOf, matchup, subElementOf, type Element } from '../../src/domain/field/elements';
-import { SKILLS } from '../../src/domain/field/skills';
+import { SKILLS, seatedDef } from '../../src/domain/field/skills';
 import { skillFxName } from '../../src/field/battle/skillUse';
 import { SPECIES } from '../../src/domain/field/creatures';
 import { EFFECTS, FX_NAMES, goldPalette, paletteLength, type FxSpec } from '../../src/field/fx/effects';
@@ -51,31 +51,38 @@ describe('속성 표', () => {
     for (const n of Object.values(SPECIAL_FX)) expect(FX_NAMES).toContain(n);
   });
 
-  it('skillFxName: 55개 기술 × 강력 여부 모두 있는 효과를 돌려주고, 속성 기술은 칸 순서·특수는 SPECIAL_FX를 따른다', () => {
+  it('skillFxName: 55개 기술(복사해 부속성 자리에 앉은 모습 포함) 모두 ELEMENT_FX의 4칸 안 — 윗단계여도 강력 효과(STRONG_FX)는 안 쓴다', () => {
     expect(SKILLS).toHaveLength(55);
+    const strong = new Set(Object.values(STRONG_FX).flat());
     for (const def of SKILLS) {
-      for (const strong of [false, true]) {
-        const name = skillFxName(def, strong);
-        expect(FX_NAMES).toContain(name);
-        if (def.special) expect(name).toBe(SPECIAL_FX[def.special]);
-        else expect(name).toBe((strong ? STRONG_FX : ELEMENT_FX)[def.element!][def.fxIndex!]);
+      // 복사: 다른 종(구름몬·버섯몬)에게 앉힌 모습도 원래 종의 속성·fxIndex 그대로
+      const views = [def, seatedDef(def, def.species === 'cloud' ? 'mushroom' : 'cloud')];
+      for (const view of views) {
+        for (const upper of [false, true]) {
+          const name = skillFxName(view, upper);
+          expect(FX_NAMES).toContain(name);
+          expect(strong.has(name)).toBe(false);
+          if (def.special) expect(name).toBe(SPECIAL_FX[def.special]);
+          else {
+            expect(def.fxIndex).toBeGreaterThanOrEqual(0);
+            expect(def.fxIndex).toBeLessThanOrEqual(3);
+            expect(name).toBe(ELEMENT_FX[def.element!][def.fxIndex!]);
+          }
+        }
       }
     }
   });
 });
 
-// stun은 Task 11 자리표시(여유 그림 재사용) — Task 12가 새 그림을 넣으면 여기서 빼지 않는다
-const ELEMENT_EFFECTS = [
-  ...Object.values(ELEMENT_FX).flat(),
-  ...Object.values(STRONG_FX).flat(),
-  ...Object.entries(SPECIAL_FX).flatMap(([k, v]) => (k === 'stun' ? [] : [v])),
-];
+// 강력 28개(STRONG_FX)는 지금 안 쓰지만 보관하므로 같은 규칙을 지킨다
+const ELEMENT_EFFECTS = [...Object.values(ELEMENT_FX).flat(), ...Object.values(STRONG_FX).flat(), ...Object.values(SPECIAL_FX)];
 
-describe('기술 효과 61개', () => {
-  it('평소 28 + 강력 28 + 특수 5 = 61개, 서로 겹치지 않고 기존 3개와 합쳐 64개', () => {
-    expect(ELEMENT_EFFECTS).toHaveLength(61);
-    expect(new Set(ELEMENT_EFFECTS).size).toBe(61);
-    expect(FX_NAMES).toHaveLength(64);
+describe('기술 효과 62개', () => {
+  it('평소 28 + 강력(보관) 28 + 특수 6(스턴 포함) = 62개, 서로 겹치지 않고 기존 3개와 합쳐 65개', () => {
+    expect(ELEMENT_EFFECTS).toHaveLength(62);
+    expect(new Set(ELEMENT_EFFECTS).size).toBe(62);
+    expect(FX_NAMES).toHaveLength(65);
+    expect(SPECIAL_FX.stun).toBe('stunned');
   });
 
   it.each(ELEMENT_EFFECTS)('%s: 실제 트는 시간이 명중 연출(0.6초) 안이다', async (name) => {

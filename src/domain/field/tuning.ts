@@ -49,6 +49,8 @@ export const ENCOUNTER_FLASH_MS = 800;
 export const WILD_INTRO_MS = 1200;
 /** 정답 기술 연출 시간 (이동안 시간은 멈춘다) */
 export const WILD_HIT_ANIM_MS = 600;
+/** 주②의 효과(스턴·회복·방어) 그림·소리는 기술이 맞은 뒤 이만큼 늦게 (두 소리가 한꺼번에 겹치지 않게, 명중 연출 안) */
+export const SKILL_EFFECT_DELAY_MS = 250;
 /** 도망갔다·잡았다 글을 보여 주고 필드로 돌아가기까지 */
 export const WILD_END_MS = 1500;
 /**

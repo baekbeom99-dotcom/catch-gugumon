@@ -593,7 +593,7 @@ export const EFFECTS = {
     screen: false,
     note: '불 강력 4 — 불덩이 운석이 떨어져 쾅 (5초 중 2초까지)',
   },
-  // ---- 특수 기술 효과 5개 (SPECIAL_FX) ----
+  // ---- 특수 기술 효과 6개 (SPECIAL_FX: 특수 5 + 주② 스턴) ----
   'heal-aoe': {
     center: { dx: -1.2, dy: -5.1 },
     load: () => import('pixelfx/fx/holy/heal-aoe'),
@@ -638,6 +638,16 @@ export const EFFECTS = {
     hold: false,
     screen: false,
     note: '특수 충전 — 반짝이는 힘의 별 (반복 효과)',
+  },
+  // 주② 스턴: 적 머리 위에서 별과 작은 새가 빙글빙글 (2초 반복 효과 중 1.5초를 0.6초에)
+  stunned: {
+    center: { dx: -0.3, dy: -38.7 },
+    load: () => import('pixelfx/fx/status/stunned'),
+    until: 1.5,
+    speed: 2.5,
+    hold: false,
+    screen: false,
+    note: '주② 스턴 — 적이 기절해서 머리 위로 별이 빙글빙글',
   },
 } satisfies Record<string, FxSpec>;
 

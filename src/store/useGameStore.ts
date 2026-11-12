@@ -57,6 +57,7 @@ import {
   type FieldNotice,
   isAllowedSkill,
   isValidSkills,
+  seatHolder,
   seatOfId,
   newSpeciesEntry,
   type SkillOffer,
@@ -145,7 +146,10 @@ function learnOnLevelUp(
       skills.push(k.id);
       notices.push({ kind: 'skill', species: id, skillId: k.id, how: 'learned' });
     } else if (fresh.has(k.id)) {
-      offers.push({ species: id, skillId: k.id, source: 'level' });
+      // 자리(부속성·특수)가 복사한 기술로 차 있다: 그 기술을 잊고 배울지 묻는다
+      const seat = seatOfId(id, k.id)!;
+      const removeId = seatHolder(id, skills, seat);
+      offers.push({ species: id, skillId: k.id, source: 'level', seat, ...(removeId ? { removeId } : {}) });
     }
   }
   return { skills, notices, offers };
@@ -535,7 +539,11 @@ export const useGameStore = create<GameStore>()(
               species = { ...species, [companion]: { ...mine, skills: [...mine.skills, got] } };
               notices.push({ kind: 'skill', species: companion, skillId: got, how: 'copied', fromSpecies: r.species });
             } else if (got) {
-              offers.push({ species: companion, skillId: got, source: 'copy', fromSpecies: r.species });
+              // 자리: 속성 기술(다른 종의 주속성 기술도) → 부속성 자리, 특수 → 특수 자리 (seatOf가 정한다, 주속성 사슬은 늘 들어가므로 여기 안 옴)
+              const found = seatOfId(companion, got)!;
+              const seat = found === 'main' ? 'sub' : found;
+              const removeId = seatHolder(companion, mine.skills, seat);
+              offers.push({ species: companion, skillId: got, source: 'copy', fromSpecies: r.species, seat, ...(removeId ? { removeId } : {}) });
             }
           }
           if (r.end === 'fainted' && companion) {

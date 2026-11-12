@@ -1,18 +1,19 @@
 /**
  * 야생 전투 화면 — 설계서 6절·8절, 필드 모험 3차 2-6·5절. 규칙은 domain/field/wildBattle.ts, 이 화면은 연출·저장·시간만 맡는다.
- * 기술이 2개 이상이면 문제마다 먼저 기술을 고르고(SkillPicker), 보기 버튼은 답 숫자만 보인다.
+ * 기술 버튼(주속성·부속성·특수, 최대 3개)이 2개 이상이면 문제마다 먼저 버튼을 고르고(SkillPicker), 보기 버튼은 답 숫자만 보인다.
+ * 맞힌 속도로 그 버튼의 어떤 기술이 나갈지 정해지고(pickFired), 시간 막대에 그 기점(눈금)과 지금 나갈 단계 색이 보인다.
  * 문제가 떠 있을 때만 시간이 흐른다(인트로·기술 고르기·명중·피격·힌트·어지러움·도망 확인창·가려진 탭에서는 멈춤).
  */
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { Navigate } from 'react-router-dom';
-import { playSfx } from '../../audio/sfx';
+import { playSfx, type Sfx } from '../../audio/sfx';
 import { DAN_COLORS } from '../../art/colors';
 import type { MonsterMood } from '../../art/MonsterSprite';
 import { HintPanel } from '../../components/HintPanel';
 import { QuestionView } from '../../components/QuestionView';
 import { capsuleFor } from '../../domain/field/capsules';
 import { speciesDef } from '../../domain/field/creatures';
-import { ELEMENT_FX, elementOf, subElementOf } from '../../domain/field/elements';
+import { ELEMENT_FX, SPECIAL_FX, elementOf, subElementOf } from '../../domain/field/elements';
 import { createAnswerTimer, elapsedMs, pauseTimer, resumeTimer, startTimer } from '../../domain/field/answerTimer';
 import { displayName } from '../../domain/field/growth';
 import type { Encounter } from '../../domain/field/encounter';
@@ -25,6 +26,7 @@ import {
   CAPSULE_SHAKES,
   CAPSULE_THROW_MS,
   COMPANION_MAX_HP,
+  SKILL_EFFECT_DELAY_MS,
   SPECIAL_HEAL,
   TIER_RULES,
   TIMER_WARN_MS,
@@ -48,7 +50,7 @@ import {
   type ThrowOutcome,
   type WildState,
 } from '../../domain/field/wildBattle';
-import { buttonFace, fastSeconds, skillButtons, type SkillButton, type SkillDef } from '../../domain/field/skills';
+import { M2_EFFECT_OF_SPECIES, buttonFace, skillButtons, type SkillButton, type SkillDef } from '../../domain/field/skills';
 import type { FactId } from '../../domain/facts';
 import { forcedThrowRng } from '../../domain/field/strength';
 import type { Rng } from '../../domain/random';
@@ -59,11 +61,27 @@ import { CapsuleBall } from '../art/CapsuleBall';
 import { pickCompanion } from '../companion';
 import { debugFlags } from '../debugFlags';
 import { playFx, preloadFx } from '../fx/playFx';
+import type { FxName } from '../fx/effects';
 import { endWildBattle, useFieldSession } from '../useFieldSession';
 import { HpBar, TimerBar } from './BattleBars';
 import { battleText } from './battleText';
 import { SkillPicker } from './SkillPicker';
-import { answerWithSkill, foeSkill, heldSkills, hitMessage, skillFxName, skillMatchup, skillSfxPlan } from './skillUse';
+import {
+  answerWithSkill,
+  clockRuns,
+  effectPlan,
+  foeSkill,
+  gaugeStops,
+  heldSkills,
+  hitMessage,
+  nowText,
+  readyText,
+  skillFxName,
+  skillMatchup,
+  skillSfxPlan,
+  tierAt,
+  type GaugeStop,
+} from './skillUse';
 import { useQuestionFeed } from './useQuestionFeed';
 import '../../screens/battle.css';
 import './wildBattle.css';
@@ -108,14 +126,13 @@ function endOf(w: WildState, quit: boolean): WildEnd | null {
   return null;
 }
 
-/** 지금 쓰는 기술의 짧은 발동 조건 ("4초 안에 풀면 강력!" / "4초 안에 풀면 회복!") */
-function shortCondition(def: SkillDef, timeMs: number): string {
-  return battleText.condition(fastSeconds(def, timeMs), def.special);
-}
-
-/** 시간 막대를 다시 그려야 하는 변화(초가 바뀜·빨개짐)인가 */
-function timerChanged(a: WildState, b: WildState): boolean {
-  return Math.ceil(a.timeLeftMs / 1000) !== Math.ceil(b.timeLeftMs / 1000) || a.timeLeftMs <= TIMER_WARN_MS !== b.timeLeftMs <= TIMER_WARN_MS;
+/** 시간 막대를 다시 그려야 하는 변화(초가 바뀜·빨개짐·기점을 지나 단계가 바뀜)인가 */
+function timerChanged(a: WildState, b: WildState, stops: readonly GaugeStop[]): boolean {
+  return (
+    Math.ceil(a.timeLeftMs / 1000) !== Math.ceil(b.timeLeftMs / 1000) ||
+    a.timeLeftMs <= TIMER_WARN_MS !== b.timeLeftMs <= TIMER_WARN_MS ||
+    tierAt(stops, a.elapsedMs) !== tierAt(stops, b.elapsedMs)
+  );
 }
 
 export function WildBattleScreen() {
@@ -139,13 +156,11 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   // 가진 기술은 전투를 시작할 때 정해 두고 전투 중에는 바뀌지 않는다
   const [held] = useState(() => heldSkills(companion, useGameStore.getState().field.species[companion]));
   const heldIds = useMemo(() => held.map((d) => d.id), [held]);
-  // 기술 버튼 최대 3개 (주속성·부속성·특수). Task 11 임시: 고르기 화면은 버튼마다 대표 기술(buttonFace) 하나를 보인다 — 자세한 글은 Task 12
+  // 기술 버튼 최대 3개 (주속성·부속성·특수, 가진 것만)
   const buttons = useMemo(() => skillButtons(heldIds, companion), [heldIds, companion]);
-  const faces = useMemo(() => buttons.map(buttonFace), [buttons]);
   /** 지금 쓰는 버튼 (버튼이 하나면 그것). 틀려서 힌트 뒤 같은 문제를 다시 풀 때도 그대로 */
   const buttonRef = useRef<SkillButton>(buttons[0]);
-  const pickedRef = useRef<SkillDef>(faces[0]);
-  const [picked, setPicked] = useState<SkillDef>(faces[0]);
+  const [picked, setPicked] = useState<SkillButton>(buttons[0]);
 
   const { item, fact, question, key, next } = useQuestionFeed(encounter, rng);
   const itemRef = useRef(item);
@@ -185,6 +200,8 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const settledRef = useRef(false);
   /** 이 전투에서 맞아서 쓰러졌나 (쓰러짐 글을 공격 연출 뒤에 보인다) */
   const struckDownRef = useRef(false);
+  /** 방금 적이 기절해서 공격하지 못했다 (맞는 흔들림 대신 기절 그림) */
+  const [stunBlocked, setStunBlocked] = useState(false);
   const [battleStartedAt] = useState(() => Date.now());
   const answeredFacts = useRef(new Set<FactId>());
   /** 답하는 데 걸린 시간: 도망 확인창·가려진 화면 동안은 멈춘다 */
@@ -201,23 +218,28 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const fxRef = useRef<HTMLCanvasElement>(null);
   const wildElement = elementOf(encounter.species);
   useEffect(() => {
-    // 내 기술 효과(평소·강력) + 야생 구구몬의 속성 기술 효과(주·부속성 4칸)를 미리 불러 둔다
+    // 내 기술 효과 + 주②의 효과(스턴·회복·방어) + 적이 기절했을 때 그림 + 야생 구구몬의 속성 기술 효과(주·부속성 4칸)를 미리 불러 둔다
     const names = [
-      ...held.flatMap((d) => [skillFxName(d, false), skillFxName(d, true)]),
+      ...held.map((d) => skillFxName(d)),
+      SPECIAL_FX[M2_EFFECT_OF_SPECIES[companion]],
+      SPECIAL_FX.stun,
       ...ELEMENT_FX[wildElement],
       ...ELEMENT_FX[subElementOf(encounter.species)],
     ];
     preloadFx('hit', 'catch', ...new Set(names));
-  }, [held, wildElement, encounter.species]);
-  /** 두 구구몬(.wild__foe 야생·.wild__ally 내 구구몬) 중 `side` 쪽 그림(이름 상자 말고 그림)의 한가운데 (캔버스 안 CSS px) — 효과 중심을 놓을 자리 */
-  const fxPoint = useCallback((side: 'foe' | 'ally') => {
+  }, [held, companion, wildElement, encounter.species]);
+  /**
+   * 두 구구몬(.wild__foe 야생·.wild__ally 내 구구몬) 중 `side` 쪽 그림(이름 상자 말고 그림)의 가로 한가운데, 세로는 위에서 yFrac (캔버스 안 CSS px) —
+   * 효과 중심을 놓을 자리 (보통 한가운데 0.5, 기절 별은 머리 쪽)
+   */
+  const fxPoint = useCallback((side: 'foe' | 'ally', yFrac = 0.5) => {
     const stage = stageRef.current;
     const box = stage?.querySelector(`.wild__${side}`);
     const art = box?.firstElementChild ?? box;
     if (!stage || !art) return null;
     const s = stage.getBoundingClientRect();
     const f = art.getBoundingClientRect();
-    return { x: f.left - s.left + f.width / 2, y: f.top - s.top + f.height / 2 };
+    return { x: f.left - s.left + f.width / 2, y: f.top - s.top + f.height * yFrac };
   }, []);
   /** 캡슐로 잡았을 때 야생 구구몬 위에서 */
   const catchFx = useCallback(() => {
@@ -226,17 +248,18 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     if (canvas && at) void playFx(canvas, 'catch', at, { gold: speciesDef(encounter.species).legend });
   }, [fxPoint, encounter.species]);
   /**
-   * 기술 효과: 나간 기술(`def`, skillDef 기준)의 효과를 맞는 쪽 구구몬 그림 한가운데에 효과 중심이 오게 튼다 (강력이면 강력 효과).
+   * 기술 효과: 나간 기술(`def`, skillDef 기준)의 효과를 맞는 쪽 구구몬 그림 한가운데에 효과 중심이 오게 튼다.
+   * 윗단계(upper)여도 그림은 그 기술의 칸 그대로(ELEMENT_FX), 소리만 fxPower가 겹친다.
    * 내 공격(왼→오)은 야생 위에 효과 기본 방향, 적 공격(오→왼)은 내 구구몬 위에 뒤집어서, 특수 기술은 쓴 구구몬 위에 그대로. 내 공격이 효과를 못 틀면(불러오기 실패) 불꽃으로 대신한다.
    */
   const moveFx = useCallback(
-    (attacker: 'ally' | 'foe', def: SkillDef, strong: boolean, matchupValue: -1 | 0 | 1 | null = null) => {
+    (attacker: 'ally' | 'foe', def: SkillDef, upper: boolean, matchupValue: -1 | 0 | 1 | null = null) => {
       // 효과음: 효과 그림과 같은 순간 (그림을 못 틀어도 소리는 난다)
-      for (const name of skillSfxPlan(attacker, def, strong, matchupValue)) playSfx(name);
+      for (const name of skillSfxPlan(attacker, def, upper, matchupValue)) playSfx(name);
       const canvas = fxRef.current;
       if (!canvas) return;
       const ally = attacker === 'ally';
-      const name = skillFxName(def, strong);
+      const name = skillFxName(def);
       // 특수 기술(회복·방어·힌트·여유·충전)은 쓴 구구몬 자신 위에서, 방향 없이
       const onSelf = !!def.special;
       const at = fxPoint(onSelf === ally ? 'ally' : 'foe');
@@ -250,6 +273,19 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     },
     [companion, encounter.species, fxPoint],
   );
+  /**
+   * 효과 하나를 한쪽 구구몬 위에 방향 없이 튼다 (주②의 스턴·회복·방어, 기절해서 못 움직임). 소리도 같은 순간.
+   * 기절 별은 머리 쪽(위에서 25%)에, 나머지는 한가운데. 색은 효과를 낸 내 구구몬 기준(황금이면 금색)
+   */
+  const sideFx = useCallback(
+    (fx: FxName, sfx: Sfx, on: 'foe' | 'ally') => {
+      playSfx(sfx);
+      const canvas = fxRef.current;
+      const at = fxPoint(on, fx === SPECIAL_FX.stun ? 0.25 : 0.5);
+      if (canvas && at) void playFx(canvas, fx, at, { gold: speciesDef(companion).legend });
+    },
+    [companion, fxPoint],
+  );
 
   useEffect(() => {
     markSeen(encounter.species);
@@ -260,10 +296,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     if (!intro) {
       const w = wildRef.current!;
       // 고르기면 고르기 제목("어떤 기술을 쓸까?")이 있으니 글 칸은 나타났다 글 그대로
-      if (w.phase === 'question') {
-        const def = pickedRef.current;
-        setMessage(battleText.ready(def.name, fastSeconds(def, TIER_RULES[w.tier].timeMs), def.special));
-      }
+      if (w.phase === 'question') setMessage(readyText(buttonRef.current, TIER_RULES[w.tier].timeMs));
       return;
     }
     const t = window.setTimeout(() => setIntro(false), WILD_INTRO_MS);
@@ -303,10 +336,18 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       const dmg = strikeDamage(before);
       if (dmg > 0) useGameStore.getState().damageCompanion(companion, dmg, { factId: it.factId, type: it.type });
       setStruckCount((n) => n + 1);
-      // 적의 기술: 그 레벨에서 익힌 속성 기술 중 무작위 (피해는 단계 값, 방어·스턴은 strikeDamage가 반영)
-      const foe = foeSkill(encounter.species, s.level, rng);
-      moveFx('foe', foe, false);
-      setMessage(battleText.foeAttack(battleText.tierName(wildDef.name, s.tier), foe.name));
+      const foeName = battleText.tierName(wildDef.name, s.tier);
+      if (before.stun) {
+        // 스턴: 적이 기절해서 공격하지 못했다 (피해 0 — 저장·상처도 그대로). 적 공격 그림 대신 머리 위 기절 별, 막는 소리
+        setStunBlocked(true);
+        sideFx(SPECIAL_FX.stun, 'skillGuard', 'foe');
+        setMessage(battleText.stunBlocked(foeName));
+      } else {
+        // 적의 기술: 그 레벨에서 익힌 속성 기술 중 무작위 (피해는 단계 값, 방어는 strikeDamage가 반영)
+        const foe = foeSkill(encounter.species, s.level, rng);
+        moveFx('foe', foe, false);
+        setMessage(battleText.foeAttack(foeName, foe.name));
+      }
       if (s.phase === 'fainted') {
         struckDownRef.current = true;
         return;
@@ -314,18 +355,24 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       const timedOut = s.timedOut;
       later(() => {
         if (settledRef.current) return; // 그 사이 도망쳐 끝났으면 끝 글을 덮지 않는다
+        setStunBlocked(false);
         setWild(resumeWild(wildRef.current!));
-        setMessage(timedOut ? battleText.timeUp : battleText.miss(pickedRef.current.name));
+        setMessage(timedOut ? battleText.timeUp : battleText.miss(buttonFace(buttonRef.current).name));
       }, WILD_FOE_ATTACK_MS);
     },
-    [companion, encounter.species, moveFx, later, setWild, wildDef],
+    [companion, encounter.species, moveFx, sideFx, later, setWild, wildDef],
   );
   const onStruckRef = useRef(onStruck);
   onStruckRef.current = onStruck;
 
   const ending = endOf(wild, quit);
   const noTimer = debugFlags().noTimer;
-  const running = !intro && !confirmQuit && !ending && wild.phase === 'question' && !noTimer;
+  // 캡슐에서 빠져나오거나 화난 결과를 보여 주는 동안(throwing)은 문제가 떠 있어도 시계가 멈춘다
+  const running = clockRuns({ intro, confirmQuit, ending: !!ending, phase: wild.phase, noTimer, throwing });
+  // 고른 버튼의 기술이 바뀌는 기점 (그 단계 문제 시간 기준 — 여유로 늘어난 시간은 넣지 않아 판정과 같다)
+  const stops = useMemo(() => gaugeStops(picked, TIER_RULES[wild.tier].timeMs), [picked, wild.tier]);
+  const stopsRef = useRef(stops);
+  stopsRef.current = stops;
 
   // 문제 시계: 화면이 가려져 있으면 흐르지 않는다. 시간이 다 되면 tick이 struck/fainted로 바꾼다
   useEffect(() => {
@@ -349,8 +396,8 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
         onStruckRef.current(prev, t);
         return;
       }
-      // 매 프레임 다시 그리지 않는다: 초가 바뀌거나 빨개질 때만
-      if (timerChanged(prev, t)) setWildState(t);
+      // 매 프레임 다시 그리지 않는다: 초가 바뀌거나 빨개지거나 기점을 지날 때만
+      if (timerChanged(prev, t, stopsRef.current)) setWildState(t);
     };
     raf = requestAnimationFrame(frame);
     return () => cancelAnimationFrame(raf);
@@ -447,16 +494,14 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     [capsuleType, setWild],
   );
 
-  /** 기술 고르기: 고른 기술로 문제 시계를 시작한다 */
-  const onPickSkill = (def: SkillDef) => {
+  /** 기술 고르기: 고른 버튼으로 문제 시계를 시작한다 */
+  const onPickSkill = (button: SkillButton) => {
     const w = wildRef.current!;
     if (intro || confirmQuit || throwing || w.phase !== 'pick') return;
-    const i = faces.findIndex((f) => f.id === def.id);
-    buttonRef.current = buttons[Math.max(0, i)];
-    pickedRef.current = def;
-    setPicked(def);
+    buttonRef.current = button;
+    setPicked(button);
     setWild(pickSkill(w));
-    setMessage(battleText.ready(def.name, fastSeconds(def, TIER_RULES[w.tier].timeMs), def.special));
+    setMessage(readyText(button, TIER_RULES[w.tier].timeMs));
   };
 
   /** 답 고르기 (보기 버튼 i번) */
@@ -473,11 +518,12 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       onStruck(w, after);
       return;
     }
-    const r = answerWithSkill(w, buttonRef.current, heldIds, wildElement, debugFlags().fast);
+    const button = buttonRef.current;
+    const r = answerWithSkill(w, button, heldIds, wildElement, debugFlags().fast);
     let after = r.state;
     let healed = 0;
     if (r.special === 'heal') {
-      // 회복 특수: 내 구구몬 체력을 채우고 바로 저장한다 (스토어 한 번). 글에는 실제로 늘어난 만큼만
+      // 회복(특수 버튼 성공이나 주②의 효과): 내 구구몬 체력을 채우고 바로 저장한다 (스토어 한 번). 글에는 실제로 늘어난 만큼만
       after = healAlly(after, SPECIAL_HEAL);
       healed = after.allyHp - r.state.allyHp;
       useGameStore.getState().restoreCompanionHp(companion, SPECIAL_HEAL);
@@ -485,9 +531,12 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     setWild(after);
     record(true, ms, w.missed);
     setHitCount((n) => n + 1);
-    // 윗단계(주②·주③·부속성)가 나가면 fxPower 소리 (특수 발동·대신 나간 기술은 평소). Task 11 임시: 그림도 아직 강력 효과 — Task 12에서 ELEMENT_FX로
-    moveFx('ally', r.fired, r.upper && !r.usedFallback && r.fired.kind !== 'special', skillMatchup(r.fired, wildElement));
-    const text = hitMessage(r, wildElement, healed);
+    // 윗단계(주②·주③·부속성)가 나가면 fxPower 소리 (특수 발동·대신 나간 기술은 upper가 아님). 그림은 나간 기술의 칸 그대로
+    moveFx('ally', r.fired, r.upper, skillMatchup(r.fired, wildElement));
+    // 주②의 효과(스턴·회복·방어): 기술이 맞은 조금 뒤에 효과 그림·소리
+    const effect = effectPlan(r);
+    if (effect) later(() => sideFx(effect.fx, effect.sfx, effect.on), SKILL_EFFECT_DELAY_MS);
+    const text = hitMessage(r, wildElement, healed, button.kind);
     // 이 문제에서 틀렸었으면 다음으로 넘어갈 때 틀린 사실을 몇 문제 뒤에 다시 넣는다
     const retryWrong = w.missed;
     setMessage(text);
@@ -601,7 +650,8 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     wild.hideChoice && battleText.buff.clue,
   ].filter((b): b is string => !!b);
   const dizzy = wild.phase === 'dizzy';
-  const struck = wild.phase === 'struck' || (wild.phase === 'fainted' && struckCount > 0);
+  // 적이 기절해 공격하지 못했으면 맞는 흔들림·공격 움직임은 없다
+  const struck = (wild.phase === 'struck' && !stunBlocked) || (wild.phase === 'fainted' && struckCount > 0);
   const wildMood: MonsterMood =
     wild.phase === 'hit' ? 'hit' : dizzy ? 'sleep' : wild.phase === 'caught' ? 'happy' : 'idle';
   const strongCard = wild.tier === 'strong' ? 'wild__card--strong' : wild.tier === 'mighty' ? 'wild__card--mighty' : '';
@@ -628,6 +678,11 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
         <div className={`wild__card ${strongCard}`}>
           <div className="wild__name">
             {wildNameNow} <small>Lv{wild.level}</small>
+            {wild.stun && (
+              <span className="wild__buff wild__buff--foe" aria-label="남은 효과 기절">
+                {battleText.buff.stun}
+              </span>
+            )}
           </div>
           <HpBar label={`야생 체력 ${Math.round(hpRatio * 100)}`} ratio={hpRatio} />
         </div>
@@ -636,7 +691,9 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       <section ref={stageRef} data-species={encounter.species} data-capsule-stage={stage ?? undefined} className={`wild__stage ${wildDef.legend ? 'wild__stage--legend' : ''} ${intro ? 'wild__stage--intro' : ''} ${intro && wildDef.legend ? 'wild__stage--sparkle' : ''}`}>
         {asking || inHint ? (
           <div className="wild__bubble" data-fact={item.factId}>
-            {asking && <TimerBar key={key} ms={wild.timeLeftMs} totalMs={wild.limitMs} fillRef={timerFillRef} />}
+            {asking && (
+              <TimerBar key={key} ms={wild.timeLeftMs} totalMs={wild.limitMs} fillRef={timerFillRef} stops={stops} elapsedMs={wild.elapsedMs} />
+            )}
             <QuestionView display={question.display} />
           </div>
         ) : null}
@@ -701,15 +758,13 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
             <CapsuleBall type={capsuleType} size={28} /> {battleText.throwButton(capsulesLeft)}
           </button>
         ) : ending ? null : picking ? (
-          <SkillPicker skills={faces} timeMs={timeMs} wildMain={wildElement} disabled={confirmQuit} onPick={onPickSkill} />
+          <SkillPicker buttons={buttons} timeMs={timeMs} wildMain={wildElement} disabled={confirmQuit} onPick={onPickSkill} />
         ) : (
           <>
             {inHint ? (
               <p className="hint-instruction">{battleText.hintInstruction}</p>
             ) : (
-              <p className="wild__skill-now">
-                {picked.name} · {shortCondition(picked, timeMs)}
-              </p>
+              <p className="wild__skill-now">{nowText(picked, timeMs)}</p>
             )}
             <div className="wild__answers">
               {question.choices.map((num, i) => {

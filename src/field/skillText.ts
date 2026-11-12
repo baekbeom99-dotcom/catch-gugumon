@@ -42,8 +42,12 @@ export const skillText = {
     return `Lv${skillDef(offer.skillId).learnLevel}에 배우는 기술이에요`;
   },
   offerTitle: (offer: SkillOffer) => (offer.source === 'copy' ? '기술을 따라 배울까?' : '새 기술을 배울 수 있어!'),
-  offerHint: (offer: SkillOffer) =>
-    offer.source === 'copy' ? '가진 기술이 가득이에요. 하나를 잊으면 배워요. (포기하면 사라져요)' : '가진 기술이 가득이에요. 하나를 잊으면 배워요.',
+  offerHint: (offer: SkillOffer) => {
+    const seat = offer.seat === 'special' ? '특수 자리' : '부속성 자리';
+    return offer.source === 'copy'
+      ? `${seat}가 차 있어요. 지금 기술을 잊으면 배워요. (포기하면 사라져요)`
+      : `${seat}가 차 있어요. 지금 기술을 잊으면 배워요.`;
+  },
   forgetAndLearn: '이 기술을 잊고 배우기',
   skip: (offer: SkillOffer) => (offer.source === 'copy' ? '포기' : '배우지 않기'),
   skipNote: (offer: SkillOffer) => (offer.source === 'copy' ? '' : '안 배워도 도감에서 나중에 배울 수 있어요'),

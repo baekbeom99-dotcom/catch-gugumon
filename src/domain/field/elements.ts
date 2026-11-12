@@ -92,7 +92,11 @@ export const ELEMENT_FX: Record<Element, FxRow> = {
   fire: ['fireball', 'fire-breath', 'flame-pillar', 'campfire'],
 };
 
-/** 강력(빨리 풀어 강하게 나간 기술)일 때 효과 — 같은 4칸, 평소보다 크고 화려하다 */
+/**
+ * 강력 효과 — 같은 4칸, 평소보다 크고 화려하다.
+ * 개정 3(설계서 0-1절)부터는 **쓰지 않고 보관만** 한다: 윗단계 기술이 나가도 그 기술의 ELEMENT_FX 칸을 쓴다
+ * (주속성 1·2·3번이 곧 약함 → 강함 효과). 나중에 다시 쓸 수 있어 지우지 않는다
+ */
 export const STRONG_FX: Record<Element, FxRow> = {
   grass: ['butterfly', 'healing-bloom', 'root-snare', 'tornado'],
   poison: ['toxic-puddle', 'shadow-tendrils', 'grasping-hands', 'void-orb'],
@@ -103,13 +107,13 @@ export const STRONG_FX: Record<Element, FxRow> = {
   fire: ['flamethrower', 'fire-ring', 'fire-tornado', 'meteor'],
 };
 
-/** 특수 기술(회복·방어·힌트·여유·충전) 효과 */
+/** 특수 효과(회복·방어·힌트·여유·충전·스턴) 그림 */
 export const SPECIAL_FX: Record<SpecialKind, FxName> = {
   heal: 'heal-aoe',
   guard: 'divine-shield',
   clue: 'rune-circle',
   calm: 'time-stop',
   charge: 'power-star',
-  // 스턴 효과 그림은 Task 12에서 바꾼다 (지금은 자리표시로 시간 멈춤 그림)
-  stun: 'time-stop',
+  // 주② 스턴: 적 머리 위로 별이 빙글빙글 (내 공격이 맞은 적 위에서 튼다)
+  stun: 'stunned',
 };

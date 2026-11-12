@@ -1182,6 +1182,38 @@ test('복사 스위치: 그 자리(부속성)가 차 있으면 저장은 그대�
   await expect(page.locator('section.fieldmode')).toHaveAttribute('data-skill-offers', '1');
   await expect(page.getByRole('dialog', { name: '기술 알림' })).toHaveCount(0);
   expect(await savedSkills(page)).toEqual(five);
+  // 선택창: 잊을 기술은 그 자리(부속성)의 jelly-1 하나뿐, 처음 포커스는 되돌릴 수 있는 "포기"
+  const offer = page.getByRole('dialog', { name: '기술 선택창' });
+  await expect(offer).toBeVisible();
+  await expect(offer.locator('.skill-offer__pick')).toHaveCount(1);
+  await expect(offer.locator('.skill-offer__pick')).toHaveAttribute('data-skill', 'jelly-1');
+  await expect(offer.getByRole('button', { name: '포기' })).toBeFocused();
+  // Enter를 눌러도 기술을 잃지 않는다 (포기 = 제안만 사라짐)
+  await page.screenshot({ path: `${shot12}/6-offer-dialog-375.png` });
+  await offer.locator('.skill-offer__pick').click();
+  await expect(offer).toHaveCount(0);
+  const after = await savedSkills(page);
+  expect(after.slice(0, 4)).toEqual(five.slice(0, 4));
+  expect(after[4]).not.toBe('jelly-1');
+  expect(after).toHaveLength(5);
+});
+
+test('복사 선택창: Enter(처음 포커스)는 포기라 기술이 그대로', async ({ page }) => {
+  await copyOn(page);
+  const five = ['cloud-1', 'cloud-2', 'cloud-5', 'cloud-3', 'jelly-1'];
+  await standBesideGrass(page, {
+    tier: 'weak',
+    cloud: { level: 20, stage: 3, skills: five },
+    capsules: { meadow: 0, waterside: 3, desert: 3, legend: 0 },
+  });
+  await stepIntoGrass(page);
+  await answerUntilDizzy(page);
+  await expect(page).toHaveURL(/#\/field$/, { timeout: 5000 });
+  const offer = page.getByRole('dialog', { name: '기술 선택창' });
+  await expect(offer).toBeVisible();
+  await page.keyboard.press('Enter');
+  await expect(offer).toHaveCount(0);
+  expect(await savedSkills(page)).toEqual(five);
 });
 
 test('복사 스위치가 false(E2E 기본)면 잡아도 기술이 그대로', async ({ page }) => {
@@ -1435,14 +1467,19 @@ test('기술이 1개면 고르기 없이 바로 문제, 보기 버튼은 답 숫
   await page.getByRole('button', { name: '싸우자!' }).click();
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
   await expect(skillPicker(page)).toHaveCount(0);
-  await expect(page.getByRole('status')).toHaveText('잎사귀 톡 준비! 4초 안에 풀면 강력!');
+  await expect(page.getByRole('status')).toHaveText('잎사귀 톡 준비!');
+  // 기술이 하나라 시간 막대에 기점(눈금)이 없다
+  await expect(page.locator('.wild__timer')).toHaveAttribute('data-tier', '1');
+  await expect(page.locator('.wild__timer-tick')).toHaveCount(0);
   const buttons = page.locator('.wild-move');
   await expect(buttons).toHaveCount(3);
   for (const t of await buttons.allTextContents()) expect(t.trim()).toMatch(/^\d+$/);
   await expect(moveButton(page, 56)).toHaveCount(1);
 });
 
-test('기술 5개: 고르기 단계에 버튼 3개(주속성·부속성·특수), 발동 조건과 상성 글이 보이고 375px 안에 들어간다', async ({ page }) => {
+const shot12 = '.superpowers/sdd/2026-11-12-field-adventure-3/task-12-shots';
+
+test('기술 5개: 고르기 단계에 버튼 3개(주속성·부속성·특수), 단계별 시간 조건과 상성 글이 보이고 375px 안에 들어간다', async ({ page }) => {
   await fixBattle(page, null);
   await standBesideGrass(page, {
     tier: 'normal',
@@ -1458,16 +1495,23 @@ test('기술 5개: 고르기 단계에 버튼 3개(주속성·부속성·특수)
   // "어떤 기술을 쓸까?"는 고르기 제목에 한 번만 (글 칸은 나타났다 글)
   await expect(picker.locator('.skill-picker__title')).toHaveText('어떤 기술을 쓸까?');
   await expect(page.getByText('어떤 기술을 쓸까?')).toHaveCount(1);
+  // 주속성 버튼: 가진 단계 1·2·3번과 단계별 시간 조건 (보통 7초: 2번 4초·3번 2초 — fastSeconds와 같은 값)
+  await expect(buttons.nth(0)).toHaveAttribute('data-button', 'main');
   await expect(buttons.nth(0)).toContainText('잎사귀 톡');
   await expect(buttons.nth(0)).toContainText('풀');
-  await expect(buttons.nth(0)).toContainText('★★');
-  await expect(buttons.nth(0)).toContainText('4초 안에 풀면 강력!');
-  // (Task 11 임시 화면: 버튼마다 대표 기술 하나 — 주속성은 주①, 단계별 글은 Task 12)
+  await expect(buttons.nth(0)).toContainText('★★~★★★');
+  await expect(buttons.nth(0).locator('.skill-pick__cond')).toHaveText(['1번 잎사귀 톡', '4초 안: 2번 새싹 휙 +기절', '2초 안: 3번 꽃잎 바람']);
+  // 부속성 버튼: 빠르면 부속성, 느리면 1번
   await expect(buttons.nth(1)).toHaveAttribute('data-skill', 'cloud-4');
   await expect(buttons.nth(1)).toContainText('★★★');
-  await expect(buttons.nth(1)).toContainText('4초 안에 풀면 강력!');
+  await expect(buttons.nth(1).locator('.skill-pick__cond')).toHaveText(['4초 안: 햇살 반짝(부속성)', '그보다 느리면 1번 잎사귀 톡']);
+  // 특수 버튼
   await expect(buttons.nth(2)).toContainText('특수');
-  await expect(buttons.nth(2)).toContainText('4초 안에 풀면 회복! 못 풀면 약한 기술이 나가요');
+  await expect(buttons.nth(2).locator('.skill-pick__cond')).toHaveText(['4초 안: 회복 효과', '못 풀면 약한 기술']);
+  // 시간 막대 미리보기: 주속성은 눈금 2개(③·②), 부속성·특수는 1개
+  await expect(buttons.nth(0).locator('.wild__timer-tick')).toHaveCount(2);
+  await expect(buttons.nth(1).locator('.wild__timer-tick')).toHaveCount(1);
+  await expect(buttons.nth(2).locator('.wild__timer-tick')).toHaveCount(1);
   for (const i of [0, 1]) await expect(buttons.nth(i)).toContainText(/효과가 커요! ▲|별로예요… ▼|보통이에요/);
   await expect(buttons.nth(2).locator('.skill-pick__match')).toHaveCount(0); // 특수는 상성 없음
   const vp = page.viewportSize()!;
@@ -1479,12 +1523,13 @@ test('기술 5개: 고르기 단계에 버튼 3개(주속성·부속성·특수)
     // 글자가 버튼 밖으로 넘치지 않는다
     expect(await buttons.nth(i).evaluate((el) => el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1)).toBe(true);
   }
-  await page.screenshot({ path: `${shotDir}/picker-5-375.png` });
+  await page.screenshot({ path: `${shot12}/1-picker-3-buttons-375.png` });
   await buttons.nth(1).click();
   await expect(picker).toHaveCount(0);
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
-  await expect(page.getByRole('status')).toHaveText('햇살 반짝 준비! 4초 안에 풀면 강력!');
-  await expect(page.locator('.wild__skill-now')).toHaveText('햇살 반짝 · 4초 안에 풀면 강력!');
+  await expect(page.getByRole('status')).toHaveText('햇살 반짝 준비! 4초 안에 풀어요!');
+  await expect(page.locator('.wild__skill-now')).toHaveText('햇살 반짝 · 4초 안에 풀어요');
+  await expect(page.locator('.wild__timer-tick')).toHaveCount(1);
 });
 
 /** 잎사귀 톡(풀) → 초원 야생 주속성 상성: 새싹몬(풀) 0, 버섯몬(독) −1, 왕관몬(빛) 0 */
@@ -1504,19 +1549,23 @@ test('빠르게 풀면 주속성 2번(새싹 휙)이 나간다, 느리면 1번 (
   // 평소: 위력 2 + 상성
   await moveButton(page, 56).click();
   await expect(page.getByRole('status')).toContainText('잎사귀 톡! 명중!');
-  await expect(page.getByRole('status')).not.toContainText('강력');
+  await expect(page.getByRole('status')).not.toContainText('빠르다');
   const cells1 = 2 + m;
   await expect(page.getByLabel(`야생 체력 ${hpOf(cells1)}`)).toBeVisible();
   expect(await wildHp(page)).toBe(hpOf(cells1));
-  // 빠르면 주②: 위력 2 + 상성 (+스턴 효과, "빠르면 +1칸"은 없어짐). 글은 Task 12 전까지 예전 "강력!"
+  // 빠르면 주②: 위력 2 + 상성 (+스턴 효과, "빠르면 +1칸"은 없어짐)
   await setFast(page, true);
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
   await moveButton(page, 56).click();
-  await expect(page.getByRole('status')).toContainText('새싹 휙! 강력!');
+  await expect(page.getByRole('status')).toContainText('새싹 휙! 빠르다! 2번 기술이 나갔어요');
+  await expect(page.getByRole('status')).toContainText('적이 기절했어요! 다음 공격을 한 번 못 해요');
+  await expect(page.getByRole('status')).not.toContainText('강력');
   const cells2 = cells1 + 2 + m;
   await expect(page.getByLabel(`야생 체력 ${hpOf(cells2)}`)).toBeVisible();
   expect(await wildHp(page)).toBe(hpOf(cells2));
-  await page.screenshot({ path: `${shotDir}/strong-375.png` });
+  // 야생 이름 옆에 "기절" (다음 공격 한 번을 못 함)
+  await expect(page.locator('.wild__buff--foe')).toHaveText('기절');
+  await page.screenshot({ path: `${shot12}/3-upper-stun-375.png` });
 });
 
 test('특수 회복: 빠르게 풀면 내 체력이 25 늘고, 늦으면 약한 기술이 대신 나간다', async ({ page }) => {
@@ -1564,7 +1613,7 @@ test('틀리면 힌트 뒤 같은 버튼으로 같은 문제를 다시 풀고(�
   await expect(page.locator('.wild__skill-now')).toContainText('햇살 반짝');
   await moveButton(page, answer).click();
   // 다시 푼 문제도 시계가 처음부터라 빨리 풀면 부속성이 나간다 (사용자 결정)
-  await expect(page.getByRole('status')).toContainText('햇살 반짝! 강력!');
+  await expect(page.getByRole('status')).toContainText('햇살 반짝! 빠르다! 부속성 기술이 나갔어요');
   // 맞힌 뒤 다음 문제는 다시 고르기부터
   await expect(skillPicker(page)).toBeVisible();
 });
@@ -1578,11 +1627,15 @@ test('주② 스턴으로 막은 적 공격은 저장 체력도 그대로, 그�
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
   await moveButton(page, 56).click();
   await expect(page.getByRole('status')).toContainText('새싹 휙!');
-  // 다음 문제에서 틀린다: 스턴이 막아 피해 0
+  // 다음 문제에서 틀린다: 스턴이 막아 피해 0, 적 공격 대신 "기절해서 움직이지 못했어요"
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
   await wrongMoveButton(page, 56).click();
+  await expect(page.getByRole('status')).toHaveText(/^(약한 |강한 |강력한 )?\S+[이가] 기절해서 움직이지 못했어요!$/);
+  await expect(page.locator('.wild__ally--struck')).toHaveCount(0);
+  await page.screenshot({ path: `${shot12}/4-stun-blocked-375.png` });
   await expect(page.locator('.wild-move--glow')).toHaveCount(1);
   await expect(page.getByLabel('내 체력 100')).toBeVisible();
+  await expect(page.locator('.wild__buff--foe')).toHaveCount(0);
   expect((await savedCloud(page)).hp).toBe(100);
   // 힌트 뒤 같은 문제에서 또 틀리면 이번엔 맞는다 (화면 75 = 저장 75)
   await page.locator('.wild-move--glow').click();
@@ -1766,7 +1819,10 @@ test('윗단계(주②) 발동 때 속성 소리와 fxPower, 주①은 fxPower �
   await setFast(page, true);
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
   await moveButton(page, 56).click();
-  await expect(page.getByRole('status')).toContainText('새싹 휙! 강력!');
+  await expect(page.getByRole('status')).toContainText('새싹 휙! 빠르다! 2번 기술이 나갔어요');
+  // 스턴 소리는 기술이 맞은 조금 뒤 (SKILL_EFFECT_DELAY_MS)
+  const stun = await sfxFirstFreq('skillStun');
+  await expect.poll(async () => (await freqsSeen(page)).filter((x) => x === stun).length).toBe(1);
   freqs = await freqsSeen(page);
   expect(freqs.filter((x) => x === grass).length).toBe(2);
   expect(freqs.filter((x) => x === power).length).toBe(1);
@@ -1793,4 +1849,65 @@ test('특수 회복 성공 때 skillHeal 소리, 늦어 약한 기술이 나가�
   freqs = await freqsSeen(page);
   expect(freqs.filter((x) => x === heal).length).toBe(1);
   expect(freqs.filter((x) => x === grass).length).toBe(1);
+});
+
+// ── 시간 막대의 기점 눈금·구간 색 (설계서 0-1절 "시간 게이지 표시") ──
+
+test('시간 막대: 고른 버튼의 기점 눈금(③·②)과 지금 나갈 단계 색(data-tier)이 기점을 지나면 바뀐다', async ({ page }) => {
+  await fixBattle(page, null);
+  // 시계가 실제로 흐르게 (보통 7초: 3번 2초 안, 2번 4초 안)
+  await standBesideGrass(page, { timer: true, tier: 'normal', cloud: { level: 20, skills: ['cloud-1', 'cloud-2', 'cloud-5'] } });
+  await stepIntoGrass(page);
+  await page.getByRole('button', { name: '싸우자!' }).click();
+  const timer = page.locator('.wild__timer');
+  await expect(timer).toBeVisible();
+  await expect(page.locator('.wild__timer-tick')).toHaveCount(2);
+  await expect(page.locator('.wild__timer-mark')).toHaveText(['①', '②', '③']);
+  await expect(timer).toHaveAttribute('data-tier', '3');
+  // 눈금은 막대 안에 있고 서로 겹치지 않는다 (375px)
+  const bar = (await timer.boundingBox())!;
+  const ticks = await page.locator('.wild__timer-tick').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().x));
+  for (const x of ticks) {
+    expect(x).toBeGreaterThan(bar.x);
+    expect(x).toBeLessThan(bar.x + bar.width);
+  }
+  expect(Math.abs(ticks[1] - ticks[0])).toBeGreaterThan(20);
+  await page.screenshot({ path: `${shot12}/2a-gauge-tier3-375.png` });
+  await expect(timer).toHaveAttribute('data-tier', '2', { timeout: 3500 });
+  await page.screenshot({ path: `${shot12}/2b-gauge-tier2-375.png` });
+  await expect(timer).toHaveAttribute('data-tier', '1', { timeout: 3500 });
+  await page.screenshot({ path: `${shot12}/2c-gauge-tier1-375.png` });
+});
+
+test('캡슐에서 빠져나온 뒤 결과를 보여 주는 동안(200ms)은 문제가 떠도 시계가 흐르지 않는다', async ({ page }) => {
+  await forceThrow(page, 'healed');
+  await standBesideGrass(page, { timer: true, tier: 'weak' });
+  await stepIntoGrass(page);
+  await answerUntilDizzy(page);
+  // 빠져나옴 글이 뜬 때와 시간 막대 채움이 처음 줄어든 때를 기록한다
+  await page.evaluate(() => {
+    const w = window as unknown as { __healedAt: number; __fillAt: number };
+    w.__healedAt = 0;
+    w.__fillAt = 0;
+    const status = document.querySelector('[role="status"]')!;
+    new MutationObserver(() => {
+      if (!w.__healedAt && status.textContent?.includes('빠져나왔어요')) w.__healedAt = performance.now();
+    }).observe(status, { childList: true, characterData: true, subtree: true });
+    new MutationObserver((list) => {
+      for (const m of list) {
+        const el = m.target as HTMLElement;
+        if (w.__healedAt && !w.__fillAt && el.classList?.contains('wild__timer-fill') && el.style.width !== '100%') w.__fillAt = performance.now();
+      }
+    }).observe(document.body, { attributes: true, attributeFilter: ['style'], subtree: true });
+  });
+  await page.getByRole('button', { name: '캡슐 던지기' }).click();
+  await expect(page.getByRole('status')).toHaveText(/빠져나왔어요/, { timeout: 5000 });
+  await expect(page.locator('.wild__bubble .question')).toBeVisible({ timeout: 3000 });
+  await expect.poll(() => page.evaluate(() => (window as unknown as { __fillAt: number }).__fillAt), { timeout: 3000 }).toBeGreaterThan(0);
+  const { healedAt, fillAt } = await page.evaluate(() => {
+    const w = window as unknown as { __healedAt: number; __fillAt: number };
+    return { healedAt: w.__healedAt, fillAt: w.__fillAt };
+  });
+  // CAPSULE_RESULT_MS(200ms) 동안은 멈춰 있다 (프레임 오차를 조금 둔다)
+  expect(fillAt - healedAt).toBeGreaterThanOrEqual(180);
 });

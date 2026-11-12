@@ -20,7 +20,7 @@ export type Sfx =
   | 'capsuleShake'
   | 'capsuleClick'
   | 'capsulePop'
-  // 기술 효과음: 속성 7, 강력 1, 상성 2, 특수 5
+  // 기술 효과음: 속성 7, 윗단계 1, 상성 2, 특수 5, 스턴 1
   | 'fxGrass'
   | 'fxPoison'
   | 'fxLight'
@@ -35,7 +35,9 @@ export type Sfx =
   | 'skillGuard'
   | 'skillClue'
   | 'skillCalm'
-  | 'skillCharge';
+  | 'skillCharge'
+  // 주② 스턴: 적이 기절해 어질어질
+  | 'skillStun';
 
 interface Note {
   freq: number;
@@ -173,7 +175,7 @@ export const SOUNDS: Record<Sfx, Note[]> = {
     { freq: 360, start: 0.07, dur: 0.1, type: 'sawtooth', gain: 0.35 },
     { freq: 540, start: 0.14, dur: 0.14, type: 'sawtooth', gain: 0.3 },
   ],
-  // 강력 발동: 짧은 상승 아르페지오
+  // 윗단계 기술(주②·주③·부속성)이 나감: 짧은 상승 아르페지오 (예전 "강력 발동")
   fxPower: [
     { freq: 698, start: 0, dur: 0.07 },
     { freq: 932, start: 0.06, dur: 0.07 },
@@ -210,6 +212,13 @@ export const SOUNDS: Record<Sfx, Note[]> = {
     { freq: 380, start: 0.09, dur: 0.1, type: 'sawtooth', gain: 0.3 },
     { freq: 600, start: 0.18, dur: 0.16, type: 'sawtooth', gain: 0.3 },
   ],
+  // 스턴: 높고 낮은 음이 번갈아 어질어질 (첫 음 1120은 다른 소리에 없다)
+  skillStun: [
+    { freq: 1120, start: 0, dur: 0.08, type: 'sine', gain: 0.6 },
+    { freq: 840, start: 0.08, dur: 0.08, type: 'sine', gain: 0.6 },
+    { freq: 1060, start: 0.16, dur: 0.08, type: 'sine', gain: 0.55 },
+    { freq: 760, start: 0.24, dur: 0.14, type: 'sine', gain: 0.5 },
+  ],
 };
 
 /** 속성 기술이 맞을 때 나는 소리 (나중에 소리만 바꾸려면 여기) */
@@ -230,8 +239,7 @@ export const SPECIAL_SFX: Record<SpecialKind, Sfx> = {
   clue: 'skillClue',
   calm: 'skillCalm',
   charge: 'skillCharge',
-  // 스턴 소리는 Task 12에서 skillStun으로 바꾼다 (지금은 자리표시로 방어 소리)
-  stun: 'skillGuard',
+  stun: 'skillStun',
 };
 
 /** 효과음이 다 끝나는 시간(초) */

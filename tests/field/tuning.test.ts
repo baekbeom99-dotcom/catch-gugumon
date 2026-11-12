@@ -25,6 +25,7 @@ describe('필드 모험 운영 수치', () => {
       ENCOUNTER_FLASH_MS: 800,
       WILD_INTRO_MS: 1200,
       WILD_HIT_ANIM_MS: 600,
+      SKILL_EFFECT_DELAY_MS: 250,
       WILD_END_MS: 1500,
       CAPSULE_SHAKES: 3,
       CAPSULE_SHAKE_MS: 450,

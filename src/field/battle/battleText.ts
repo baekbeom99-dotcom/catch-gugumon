@@ -9,8 +9,8 @@ const particle = (word: string, withFinal: string, withoutFinal: string) => josa
 
 const TIER_WORD: Record<Tier, string> = { weak: '약한 ', normal: '', strong: '강한 ', mighty: '강력한 ', legend: '' };
 
-/** 특수 기술 한 낱말 (고르기 버튼의 발동 조건·내 구구몬 상태 표시) */
-const SPECIAL_WORD: Record<SpecialKind, string> = { heal: '회복', guard: '방어', clue: '힌트', calm: '여유', charge: '충전', stun: '스턴' };
+/** 특수 효과 한 낱말 (고르기 버튼의 발동 조건·남은 효과 표시). 스턴은 어린이가 알기 쉽게 "기절" */
+const SPECIAL_WORD: Record<SpecialKind, string> = { heal: '회복', guard: '방어', clue: '힌트', calm: '여유', charge: '충전', stun: '기절' };
 
 /** 특수 기술이 발동했을 때 글 */
 const SPECIAL_DONE: Record<SpecialKind, string> = {
@@ -19,21 +19,48 @@ const SPECIAL_DONE: Record<SpecialKind, string> = {
   clue: '다음 문제에서 틀린 답 하나가 사라져요!',
   calm: `다음 문제 시간이 ${CALM_BONUS_MS / 1000}초 늘어나요!`,
   charge: '다음 기술이 더 세져요!',
-  stun: '기절해서 다음 공격을 못 해요!', // 글은 Task 12에서 다듬는다
+  stun: '적이 기절해서 다음 공격을 못 해요!', // 특수 자리에는 스턴이 없지만 표는 빠짐없이
 };
+
+/** 주②가 나가며 붙은 효과 글 (회복은 실제로 늘어난 양 healed) */
+function stageEffectText(kind: SpecialKind, healed: number): string {
+  switch (kind) {
+    case 'stun':
+      return '적이 기절했어요! 다음 공격을 한 번 못 해요';
+    case 'heal':
+      return healed > 0 ? `체력이 ${healed} 회복됐어요` : '체력이 이미 가득해요';
+    case 'guard':
+      return '다음 공격이 약해져요';
+    default:
+      return SPECIAL_DONE[kind];
+  }
+}
+
+const stars = (n: number) => '★'.repeat(Math.max(1, n));
 
 export const battleText = {
   /** 단계 말을 붙인 이름 ("약한 ○○"·"○○"·"강한 ○○"·"강력한 ○○", 황금은 이름 그대로) */
   tierName: (name: string, tier: Tier) => `${TIER_WORD[tier]}${name}`,
   appear: (name: string, legend: boolean) => `${legend ? '전설의' : '야생'} ${josa(name, '이', '가')} 나타났다!`,
   choose: '어떤 기술을 쓸까?',
-  /** 기술을 고른 뒤(또는 기술이 하나라 바로) 문제가 뜰 때 */
+  /** 특수 버튼을 고른 뒤 문제가 뜰 때 ("새싹 쑥쑥 준비! 4초 안에 풀면 회복!") */
   ready: (move: string, sec: number, special?: SpecialKind) => `${move} 준비! ${battleText.condition(sec, special)}`,
-  /** 짧은 발동 조건 ("4초 안에 풀면 강력!" / "4초 안에 풀면 회복!") */
-  condition: (sec: number, special?: SpecialKind): string => `${sec}초 안에 풀면 ${special ? SPECIAL_WORD[special] : '강력'}!`,
+  /** 주속성 버튼 (단계가 둘 이상이면 빨리 풀수록 센 기술) */
+  readyMain: (move: string, stages: boolean) => (stages ? `${move} 준비! 빨리 풀수록 센 기술이 나가요!` : `${move} 준비!`),
+  /** 부속성 버튼 */
+  readySub: (move: string, sec: number) => `${move} 준비! ${sec}초 안에 풀어요!`,
+  /** 특수 버튼의 짧은 발동 조건 ("4초 안에 풀면 회복!") */
+  condition: (sec: number, special?: SpecialKind): string => `${sec}초 안에 풀면 ${special ? SPECIAL_WORD[special] : '센 기술'}!`,
+  /** 지금 쓰는 기술 줄: 주속성 단계 ("4초 안 2번"), 부속성 ("4초 안에 풀어요") */
+  nowStage: (sec: number, n: 2 | 3) => `${sec}초 안 ${n}번`,
+  nowSub: (sec: number) => `${sec}초 안에 풀어요`,
   hit: (move: string) => `${move}! 명중!`,
-  /** 빠르게 풀어 강력이 발동 */
-  strong: (move: string) => `${move}! 강력!`,
+  /** 빠르게 풀어 윗단계가 나감: n번 기술(주속성 2·3번) 또는 부속성 기술(null) */
+  upper: (move: string, n: 1 | 2 | 3 | null) => `${move}! 빠르다! ${n === null ? '부속성' : `${n}번`} 기술이 나갔어요`,
+  /** 주②의 효과 (스턴·회복·방어) */
+  stageEffect: stageEffectText,
+  /** 스턴으로 적이 공격하지 못함 */
+  stunBlocked: (name: string) => `${josa(name, '이', '가')} 기절해서 움직이지 못했어요!`,
   /** 특수 기술 발동 */
   special: (move: string, kind: SpecialKind) => `${move}! ${SPECIAL_DONE[kind]}`,
   /** 회복 특수: 실제로 늘어난 체력 (0이면 이미 가득) */
@@ -42,15 +69,22 @@ export const battleText = {
   fallback: (move: string) => `시간이 지나서 약한 기술이 나갔어요. ${move}!`,
   /** 상성 (색에만 기대지 않게 ▲▼ 글자도) */
   matchup: (m: -1 | 0 | 1) => (m > 0 ? '효과가 커요! ▲' : m < 0 ? '별로예요… ▼' : '보통이에요'),
-  /** 고르기 버튼의 발동 조건 */
-  fastCondition: (sec: number) => `${sec}초 안에 풀면 강력!`,
-  specialCondition: (sec: number, kind: SpecialKind) => `${sec}초 안에 풀면 ${SPECIAL_WORD[kind]}! 못 풀면 약한 기술이 나가요`,
+  /** 고르기 버튼의 단계별 시간 조건 — 주속성: "1번 ○○" / "4초 안: 2번 ○○ +기절" */
+  stageFirst: (move: string) => `1번 ${move}`,
+  stageUpper: (sec: number, n: 2 | 3, move: string, effect?: SpecialKind) =>
+    `${sec}초 안: ${n}번 ${move}${effect ? ` +${SPECIAL_WORD[effect]}` : ''}`,
+  /** 부속성: 빠르면 그 기술, 느리면 주속성 1번 */
+  subLines: (sec: number, move: string, first: string) => [`${sec}초 안: ${move}(부속성)`, `그보다 느리면 1번 ${first}`],
+  /** 특수: 시간 안이면 효과, 못 풀면 약한 기술 */
+  specialLines: (sec: number, kind: SpecialKind) => [`${sec}초 안: ${SPECIAL_WORD[kind]} 효과`, '못 풀면 약한 기술'],
   /** 특수 기술 이름표 (속성 대신) */
   specialTag: '특수',
   /** 내 구구몬에 남아 있는 특수 효과 표시 */
   buff: SPECIAL_WORD,
   /** 위력 별 */
-  power: (n: number) => '★'.repeat(Math.max(1, n)),
+  power: stars,
+  /** 위력 범위 (주속성 버튼: 가진 단계 중 가장 약한 것 ~ 가장 센 것) */
+  powerRange: (min: number, max: number) => (min === max ? stars(min) : `${stars(min)}~${stars(max)}`),
   hintInstruction: '빛나는 답을 눌러 보세요',
   miss: (move: string) => `${move}! …빗나갔다. 힌트를 보자!`,
   timeUp: '시간이 지났어!',

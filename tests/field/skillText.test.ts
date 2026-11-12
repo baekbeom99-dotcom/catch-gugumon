@@ -32,8 +32,8 @@ describe('기술 글 (기술 표에서 계산)', () => {
   });
 
   it('출처 글', () => {
-    expect(skillText.source({ species: 'cloud', skillId: 'cloud-2', source: 'level' })).toBe('Lv3에 배우는 기술이에요');
-    expect(skillText.source({ species: 'cloud', skillId: 'horn-1', source: 'copy', fromSpecies: 'horn' })).toContain('뿔뿔몬');
+    expect(skillText.source({ species: 'cloud', skillId: 'cloud-2', source: 'level', seat: 'main' })).toBe('Lv3에 배우는 기술이에요');
+    expect(skillText.source({ species: 'cloud', skillId: 'horn-1', source: 'copy', fromSpecies: 'horn', seat: 'sub' })).toContain('뿔뿔몬');
     expect(skillText.learnLevel(skillDef('cloud-5'))).toBe('Lv20에 배워요');
   });
 
