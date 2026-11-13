@@ -537,6 +537,8 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
         foot: art.foot,
         sheet,
         ...pose,
+        // 시트 그림은 걷기 동작에 이미 통통함이 있으니 위로 뜨는 높이는 정지 그림에만 준다
+        ...(sheet ? { lift: 0 } : {}),
       };
       const sprites = s.roamers.length > 0 ? buildSprites(s.roamers, (r) => useGameStore.getState().field.species[r.species]?.stage ?? 1, now) : undefined;
       const cam = drawField(ctx, map, view, me, { now, step: stepT }, sprites);
