@@ -11,7 +11,7 @@ import { displayName } from '../domain/field/growth';
 import { companionImage } from './art/companionImage';
 import { creatureArt, stageSheets } from './art/creatureArt';
 import { SheetSprite, creatureSprite, speciesColor } from './art/creatureSprite';
-import { DIR_ROW, HURT_ROW, type SheetDir } from './art/spriteSheet';
+import { BATTLE_ROW, DIR_ROW, type SheetDir } from './art/spriteSheet';
 import { CapsuleBall } from './art/CapsuleBall';
 import { CAPSULE_NAMES, CAPSULE_TYPES } from '../domain/field/capsules';
 import { HERO_DIRS, HERO_SPRITES } from './art/hero';
@@ -25,6 +25,23 @@ const MOODS: MonsterMood[] = ['idle', 'hit', 'happy', 'sleep'];
 const STAGES = [1, 2, 3] as const;
 const row = { display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' } as const;
 const box = { background: '#f3f0e8', borderRadius: 8, padding: 8 } as const;
+
+/** 전투 그림(내 구구몬 오른쪽 위·야생 왼쪽 아래)을 1.6초마다 공격 한 번씩 틀어 본다 */
+function BattleReplay({ id, stage, side }: { id: (typeof SPECIES)[number]['id']; stage: 1 | 2 | 3; side: 'ally' | 'foe' }) {
+  const [at, setAt] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    const t = window.setInterval(() => setAt(Date.now()), 1600);
+    return () => window.clearInterval(t);
+  }, []);
+  return (
+    <figure style={{ margin: 0 }} data-testid={`dev-battle-${side}`}>
+      <div style={{ width: 96, height: 96, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
+        {creatureSprite(id, { view: side, stage, attackAt: at, color: DAN_COLORS[5], size: 96 })}
+      </div>
+      <small style={{ display: 'block', textAlign: 'center' }}>{side === 'ally' ? '공격 내 구구몬(행3)' : '공격 야생(행7)'}</small>
+    </figure>
+  );
+}
 
 const DIR_NAMES: Record<SheetDir, string> = { down: '앞', right: '오른쪽', up: '뒤', left: '왼쪽' };
 
@@ -55,12 +72,19 @@ function SheetPreview({ id }: { id: (typeof SPECIES)[number]['id'] }) {
               </figure>
             ))}
             {sh.hurt &&
-              (['front', 'back'] as const).map((v) => (
+              (['ally', 'foe'] as const).map((v) => (
                 <figure key={'h' + v} style={{ margin: 0 }}>
-                  <SheetSprite sheets={sh} anim={sh.hurt!} row={HURT_ROW[v]} px={72} />
-                  {cap(v === 'front' ? '맞음 앞' : '맞음 뒤')}
+                  <SheetSprite sheets={sh} anim={sh.hurt!} row={BATTLE_ROW.hurt[v]} px={72} />
+                  {cap(v === 'ally' ? '맞음 오른쪽위' : '맞음 왼쪽아래')}
                 </figure>
               ))}
+            {(['ally', 'foe'] as const).map((v) => (
+              <figure key={'bi' + v} style={{ margin: 0 }}>
+                <SheetSprite sheets={sh} anim={sh.idle} row={BATTLE_ROW.idle[v]} px={72} />
+                {cap(v === 'ally' ? '가만히 오른쪽위' : '가만히 왼쪽아래')}
+              </figure>
+            ))}
+            {sh.attack && (['ally', 'foe'] as const).map((v) => <BattleReplay key={'ba' + v} id={id} stage={st} side={v} />)}
             {sh.sleep && (
               <figure style={{ margin: 0 }}>
                 <SheetSprite sheets={sh} anim={sh.sleep} row={0} px={72} />

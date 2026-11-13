@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { DIR_ROW, HURT_ROW, cellOrigin, dirFromDelta, frameAt, rowForDir } from '../../src/field/art/spriteSheet';
+import { BATTLE_ROW, DIR_ROW, SOURCE_ROWS, attackPlacement, cellOrigin, onceFrameAt, totalMs, dirFromDelta, frameAt, rowForDir } from '../../src/field/art/spriteSheet';
+import cutScript from '../../scripts/cut-sprites.mjs?raw';
 
 describe('frameAt (프레임 시간 → 번호, 되풀이)', () => {
   const ms = [100, 50, 50];
@@ -29,8 +30,49 @@ describe('방향 → 시트 줄', () => {
     expect(rowForDir('left')).not.toBe(rowForDir('right'));
     expect(rowForDir('up')).toBe(2);
   });
-  it('맞음 시트는 앞 0·뒤 1', () => {
-    expect(HURT_ROW).toEqual({ front: 0, back: 1 });
+  it('전투 줄: 내 구구몬=원본 3(오른쪽 위)·야생=원본 7(왼쪽 아래)', () => {
+    expect(SOURCE_ROWS.idle[BATTLE_ROW.idle.ally]).toBe(3);
+    expect(SOURCE_ROWS.idle[BATTLE_ROW.idle.foe]).toBe(7);
+    expect(SOURCE_ROWS.hurt[BATTLE_ROW.hurt.ally]).toBe(3);
+    expect(SOURCE_ROWS.hurt[BATTLE_ROW.hurt.foe]).toBe(7);
+    expect(SOURCE_ROWS.attack[BATTLE_ROW.attack.ally]).toBe(3);
+    expect(SOURCE_ROWS.attack[BATTLE_ROW.attack.foe]).toBe(7);
+    // 걷기·가만히의 기본 네 줄(아래·오른·위·왼)은 그대로
+    expect(SOURCE_ROWS.idle.slice(0, 4)).toEqual([0, 2, 4, 6]);
+  });
+  it('cut-sprites.mjs 의 줄 목록과 같다', () => {
+    const src: string = cutScript;
+    expect(src).toContain(`idle: { name: 'Idle', rows: [${SOURCE_ROWS.idle.join(', ')}] }`);
+    expect(src).toContain(`walk: { name: 'Walk', rows: [${SOURCE_ROWS.walk.join(', ')}] }`);
+    expect(src).toContain(`hurt: { name: 'Hurt', rows: [${SOURCE_ROWS.hurt.join(', ')}] }`);
+    expect(src).toContain(`name: 'Attack', rows: [${SOURCE_ROWS.attack.join(', ')}]`);
+  });
+});
+
+describe('공격 시트는 한 번만 재생하고 끝나면 가만히로', () => {
+  const ms = [67, 33, 67];
+  it('프레임 경계', () => {
+    expect(onceFrameAt(ms, 0)).toBe(0);
+    expect(onceFrameAt(ms, 66)).toBe(0);
+    expect(onceFrameAt(ms, 67)).toBe(1);
+    expect(onceFrameAt(ms, 100)).toBe(2);
+    expect(onceFrameAt(ms, 166)).toBe(2);
+  });
+  it('다 끝나면 null(되풀이 없음), 시작 전이면 첫 프레임', () => {
+    expect(totalMs(ms)).toBe(167);
+    expect(onceFrameAt(ms, 167)).toBeNull();
+    expect(onceFrameAt(ms, 5000)).toBeNull();
+    expect(onceFrameAt(ms, -5)).toBe(0);
+  });
+  it('Attack 칸을 Idle 칸 기준점에 맞춰 겹친다', () => {
+    // k=1, Idle 칸 70(자리 44 안 가운데·아래), 기준점이 Idle (38,57)·Attack (72,72)
+    const p = attackPlacement({ px: 44, idleCell: 70, side: 144, k: 1, ax: 72, ay: 72, ix: 38, iy: 57 });
+    expect(p.size).toBe(144);
+    expect(p.left).toBe(-13 + 38 - 72);
+    expect(p.top).toBe(-26 + 57 - 72);
+    // 기준점이 같은 위치: Idle 칸 안 기준점 = Attack 칸 안 기준점 + 놓는 자리
+    expect(p.left + 72).toBe(-13 + 38);
+    expect(p.top + 72).toBe(-26 + 57);
   });
 });
 

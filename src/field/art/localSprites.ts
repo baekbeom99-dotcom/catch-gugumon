@@ -5,7 +5,7 @@
  * manifest.json이 없으면 시트 없이 정지 그림(front/back)만 쓴다.
  */
 import type { SpeciesId } from '../../domain/field/creatures';
-import type { ImageArtEntry, SheetAnim, StageArt, StageSheets } from './creatureArt';
+import type { AttackAnim, ImageArtEntry, SheetAnim, StageArt, StageSheets } from './creatureArt';
 
 /** 종 → 번호 (진화 1·2·3단계). 단계가 부족하면 마지막 번호를 되풀이 */
 export const LOCAL_SPRITE_MAP: Partial<Record<SpeciesId, { ids: string[]; fill?: number; foot?: number }>> = {
@@ -24,12 +24,13 @@ export interface SheetManifestEntry {
   walk?: { ms: number[]; rows: number };
   hurt?: { ms: number[]; rows: number };
   sleep?: { ms: number[]; rows: number };
+  attack?: { ms: number[]; rows: number; side: number; ax: number; ay: number; ix: number; iy: number };
 }
 export type SheetManifest = Record<string, SheetManifestEntry>;
 
 /** 파일 주소 표(경로 → url)로 종별 등록을 만든다. 앞모습이 없는 번호는 건너뛰어, 파일이 없으면 빈 객체 */
 export function buildLocalSprites(files: Files, map = LOCAL_SPRITE_MAP, manifest: SheetManifest = {}): Partial<Record<SpeciesId, ImageArtEntry>> {
-  const find = (id: string, view: 'front' | 'back' | 'idle' | 'walk' | 'hurt' | 'sleep') => {
+  const find = (id: string, view: 'front' | 'back' | 'idle' | 'walk' | 'hurt' | 'sleep' | 'attack') => {
     const key = Object.keys(files).find((k) => k.endsWith(`/${id}-${view}.png`));
     return key ? files[key] : undefined;
   };
@@ -41,10 +42,15 @@ export function buildLocalSprites(files: Files, map = LOCAL_SPRITE_MAP, manifest
       const a = m[k];
       return url && a && a.ms.length > 0 ? { url, ms: a.ms, rows: a.rows } : undefined;
     };
+    const attackOf = (): AttackAnim | undefined => {
+      const url = find(id, 'attack');
+      const a = m.attack;
+      return url && a && a.ms.length > 0 && a.side > 0 ? { url, ms: a.ms, rows: a.rows, side: a.side, ax: a.ax, ay: a.ay, ix: a.ix, iy: a.iy } : undefined;
+    };
     const idle = anim('idle');
     const walk = anim('walk');
     if (!idle || !walk) return undefined;
-    return { side: m.side, scale: m.side / m.baseSide, foot: m.foot, idle, walk, hurt: anim('hurt'), sleep: anim('sleep') };
+    return { side: m.side, scale: m.side / m.baseSide, foot: m.foot, idle, walk, hurt: anim('hurt'), sleep: anim('sleep'), attack: attackOf() };
   };
   const out: Partial<Record<SpeciesId, ImageArtEntry>> = {};
   for (const [species, cfg] of Object.entries(map) as [SpeciesId, NonNullable<(typeof map)[SpeciesId]>][]) {

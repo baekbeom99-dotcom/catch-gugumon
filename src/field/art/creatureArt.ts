@@ -26,6 +26,15 @@ export interface SheetAnim {
   rows: number;
 }
 
+/** 공격 시트: 칸이 Idle보다 크다(attackSide). 기준점 (ax,ay)=공격 칸 안, (ix,iy)=Idle 칸 안 — 두 점이 겹치게 놓는다 */
+export interface AttackAnim extends SheetAnim {
+  side: number;
+  ax: number;
+  ay: number;
+  ix: number;
+  iy: number;
+}
+
 /**
  * 한 단계의 시트 묶음 (scripts/cut-sprites.mjs 가 만든다). 칸은 모두 side×side 정사각형.
  * scale = side / 정지 그림 크기: 시트 칸이 더 크므로 이만큼 키워 그려야 몸이 정지 그림과 같은 크기다.
@@ -39,6 +48,8 @@ export interface StageSheets {
   walk: SheetAnim;
   hurt?: SheetAnim;
   sleep?: SheetAnim;
+  /** 전투 공격 (오른쪽위·왼쪽아래 2줄, 없으면 공격 때도 가만히) */
+  attack?: AttackAnim;
 }
 
 /** 진화 단계 하나의 그림 */

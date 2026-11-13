@@ -279,6 +279,9 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     const at = fxPoint('foe');
     if (canvas && at) void playFx(canvas, 'catch', at, { gold: speciesDef(encounter.species).legend });
   }, [fxPoint, encounter.species]);
+  // 공격 그림(Attack 시트) 신호: 공격을 시작한 시각. 표시만 하고 전투 규칙에는 쓰지 않는다
+  const [attackAt, setAttackAt] = useState<{ ally?: number; foe?: number }>({});
+  const markAttack = useCallback((who: 'ally' | 'foe') => setAttackAt((a) => ({ ...a, [who]: Date.now() })), []);
   /**
    * 기술 효과: 나간 기술(`def`, skillDef 기준)의 효과를 맞는 쪽 구구몬 그림 한가운데에 효과 중심이 오게 튼다.
    * 윗단계(upper)여도 그림은 그 기술의 칸 그대로(ELEMENT_FX), 소리만 fxPower가 겹친다.
@@ -286,6 +289,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
    */
   const moveFx = useCallback(
     (attacker: 'ally' | 'foe', def: SkillDef, upper: boolean, matchupValue: -1 | 0 | 1 | null = null) => {
+      markAttack(attacker);
       const canvas = fxRef.current;
       const ally = attacker === 'ally';
       // 길: 날아가는 효과는 쏘는 구구몬 → 맞는 구구몬, 특수 기술은 쓴 구구몬 자신 위에서 방향 없이
@@ -306,7 +310,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
         if (hitAt) void playFx(canvas, 'hit', hitAt);
       });
     },
-    [companion, encounter.species, fxPoint, later],
+    [companion, encounter.species, fxPoint, later, markAttack],
   );
   /** 맞는 순간에 띄울 때: 날아가는 시간 뒤에 (지금 공격의 --fx-delay와 같은 값) */
   const onArrive = useCallback(
@@ -614,6 +618,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     stageRef.current?.style.setProperty('--fx-delay', '0ms'); // 날아가는 효과면 moveFx가 날아가는 시간으로 바꾼다
     if (r.dodged) {
       // 빗나감: 기술 소리·몸짓은 그대로, 야생은 옆으로 비켜서고 칸은 안 깎인다
+      markAttack('ally');
       for (const name of skillSfxPlan('ally', r.fired, false, null)) playSfx(name);
       setDodgeSide('foe');
       showBurst('dodge', 'foe');
@@ -841,7 +846,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
               className={`wild__foe ${foeHit ? 'wild__foe--hit' : ''} ${foeDodged ? 'wild__foe--dodge' : ''} ${struck ? 'wild__foe--attack' : ''} ${gone ? 'wild__foe--gone' : ''} ${stage === 'absorb' ? 'wild__foe--absorb' : ''} ${foeHidden ? 'wild__foe--capsule' : ''} ${popped ? 'wild__foe--pop' : ''}`}
               style={stage === 'absorb' ? { animationDuration: `${CAPSULE_ABSORB_MS}ms` } : undefined}
             >
-              {creatureSprite(encounter.species, { view: 'front', mood: wildMood, color: DAN_COLORS[encounter.dan], size: 150 })}
+              {creatureSprite(encounter.species, { view: 'foe', attackAt: attackAt.foe, mood: wildMood, color: DAN_COLORS[encounter.dan], size: 150 })}
             </div>
             {shadowShown && (
               <span
@@ -862,7 +867,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
               </div>
             )}
             <div key={`a${hitCount}-${struckCount}`} className={`wild__ally ${wild.phase === 'hit' ? 'wild__ally--attack' : ''} ${struck && !allyDodged ? 'wild__ally--struck' : ''} ${allyDodged ? 'wild__ally--dodge' : ''}`}>
-              {creatureSprite(companion, { view: 'back', stage: companionStage, color: COMPANION_COLOR, size: 120 })}
+              {creatureSprite(companion, { view: 'ally', attackAt: attackAt.ally, mood: struck && !allyDodged ? 'hit' : 'idle', stage: companionStage, color: COMPANION_COLOR, size: 120 })}
             </div>
           </>
         )}

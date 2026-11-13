@@ -89,6 +89,7 @@ describe('시트 등록', () => {
       side: 70, baseSide: 44, foot: 0.986,
       idle: { ms: [667, 100, 100], rows: 4 }, walk: { ms: [67, 67], rows: 4 },
       hurt: { ms: [33, 133], rows: 2 }, sleep: { ms: [500, 583], rows: 1 },
+      attack: { ms: [67, 33, 67], rows: 2, side: 144, ax: 72, ay: 72, ix: 38, iy: 57 },
     },
   };
   it('manifest가 있으면 단계에 시트를 붙이고 크기 보정값을 채운다', () => {
@@ -100,6 +101,15 @@ describe('시트 등록', () => {
     expect(sh?.scale).toBeCloseTo(70 / 44, 5);
     expect(sh?.foot).toBe(0.986);
     expect(sh?.side).toBe(70);
+  });
+  it('attack 시트 등록: 파일과 manifest가 둘 다 있을 때만', () => {
+    const withAtk = { ...files, './creatures/pmd/0001-attack.png': 'a' };
+    const sh = buildLocalSprites(withAtk, map, manifest).cloud?.stages?.[0].sheets;
+    expect(sh?.attack).toEqual({ url: 'a', ms: [67, 33, 67], rows: 2, side: 144, ax: 72, ay: 72, ix: 38, iy: 57 });
+    // 파일이 없으면 attack만 빠지고 나머지 시트는 그대로
+    const noFile = buildLocalSprites(files, map, manifest).cloud?.stages?.[0].sheets;
+    expect(noFile?.attack).toBeUndefined();
+    expect(noFile?.idle.url).toBe('i');
   });
   it('manifest나 시트 파일이 없으면 시트 없이 정지 그림만', () => {
     expect(buildLocalSprites(files, map).cloud?.stages?.[0].sheets).toBeUndefined();
