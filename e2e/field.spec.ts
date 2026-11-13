@@ -1128,6 +1128,7 @@ test('주인공 대신 함께 다니는 구구몬이 직접 걷는다: 걸을 �
   await expect(canvas).toHaveAttribute('data-player', 'cloud');
   // 시트 그림이 없으면 정지 그림(still), 있으면 가만히(idle)
   await expect(canvas).toHaveAttribute('data-player-anim', /^(idle|still)$/);
+  await page.waitForTimeout(800); // 시트 그림을 읽는 동안은 still이라 읽은 뒤에 정한다
   const sheet = (await canvas.getAttribute('data-player-anim')) === 'idle';
   await page.keyboard.down('ArrowRight');
   if (sheet) await expect(canvas).toHaveAttribute('data-player-anim', 'walk');
@@ -1317,7 +1318,8 @@ for (const [type, text] of [
     const q = page.locator('.wild__bubble .question');
     await expect(q).toHaveText(text.replace(/\s/g, ''), { useInnerText: false });
     const bubble = (await page.locator('.wild__bubble').boundingBox())!;
-    const foeSvg = (await page.locator('.wild__foe svg').boundingBox())!;
+    // 야생 그림: 몬스터 SVG, 아니면 시트·정지 이미지(이 PC에 그림 파일이 있을 때) — 자리 상자
+    const foeSvg = (await page.locator('.wild__foe svg, .wild__foe [data-sheet], .wild__foe img').first().boundingBox())!;
     const viewport = page.viewportSize()!;
     expect(overlaps({ ...bubble, width: bubble.width + 12 }, foeSvg)).toBe(false); // 꼬리(12px)까지
     expect(bubble.x).toBeGreaterThanOrEqual(0);

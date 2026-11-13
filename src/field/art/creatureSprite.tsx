@@ -4,7 +4,7 @@ import { DAN_COLORS } from '../../art/colors';
 import { MonsterSprite, type MonsterMood } from '../../art/MonsterSprite';
 import type { MonsterKind } from '../../domain/battle';
 import { speciesDef, type SpeciesId } from '../../domain/field/creatures';
-import { creatureArt, imageView, stageSheets, type SheetAnim, type StageSheets } from './creatureArt';
+import { creatureArt, imageView, stageFill, stageSheets, type SheetAnim, type StageSheets } from './creatureArt';
 import { BATTLE_ROW, DIR_ROW, attackPlacement, onceFrameAt, totalMs, type BattleSide } from './spriteSheet';
 
 /** 내 구구몬(뒷모습)은 조금 작게 */
@@ -52,7 +52,7 @@ export function SheetSprite({ sheets, anim, row, px, testId }: { sheets: StageSh
     next();
     return () => window.clearTimeout(t);
   }, [ms]);
-  const cell = Math.round(px * sheets.scale);
+  const cell = Math.round(px * (sheets.fill ?? 1) * sheets.scale);
   const col = Math.min(frame, ms.length - 1);
   return (
     <span style={{ position: 'relative', display: 'block', width: px, height: px }} data-sheet={testId}>
@@ -104,7 +104,7 @@ function BattleSprite({ sheets, base, side, attackAt, px }: { sheets: StageSheet
   }, [atk, attackAt, total]);
   const col = live && atk ? onceFrameAt(atk.ms, now - attackAt!) : null;
   if (!live || !atk || col === null) return <SheetSprite sheets={sheets} anim={base.anim} row={base.row} px={px} testId={`${side}-${base.key}`} />;
-  const cell = Math.round(px * sheets.scale);
+  const cell = Math.round(px * (sheets.fill ?? 1) * sheets.scale);
   const pl = attackPlacement({ px, idleCell: cell, side: atk.side, k: cell / sheets.side, ax: atk.ax, ay: atk.ay, ix: atk.ix, iy: atk.iy });
   const row = BATTLE_ROW.attack[side];
   return (
@@ -142,7 +142,17 @@ export function creatureSprite(id: SpeciesId, { view: viewIn, attackAt, stage = 
     if (sheets && pick && battle) return <BattleSprite sheets={sheets} base={pick} side={battle} attackAt={attackAt} px={px} />;
     if (sheets && pick) return <SheetSprite sheets={sheets} anim={pick.anim} row={pick.row} px={px} testId={`${view}-${pick.key}`} />;
     const { src, flip } = imageView(art, view, stage);
-    const img = <img src={src} width={px} height={px} alt="" draggable={false} style={{ imageRendering: 'pixelated', display: 'block' }} />;
+    const fill = stageFill(art, stage);
+    const w = Math.round(px * fill);
+    // 몸 크기 맞춤: 자리(px)는 그대로 두고 그림만 키워 발끝·가운데를 맞춘다
+    const img =
+      fill === 1 ? (
+        <img src={src} width={px} height={px} alt="" draggable={false} style={{ imageRendering: 'pixelated', display: 'block' }} />
+      ) : (
+        <span style={{ position: 'relative', display: 'block', width: px, height: px }}>
+          <img src={src} width={w} height={w} alt="" draggable={false} style={{ imageRendering: 'pixelated', display: 'block', position: 'absolute', left: Math.round((px - w) / 2), bottom: 0 }} />
+        </span>
+      );
     return flip ? flipped(img) : img;
   }
   const sprite = <MonsterSprite kind={art.kind} color={color} golden={art.golden} mood={battle === 'ally' ? 'idle' : mood} size={px} />;

@@ -3,7 +3,7 @@ import { ROAM_JUMP_MS, ROAM_MOVE_MS } from '../../domain/field/tuning';
 import type { Pos } from '../../domain/field/movement';
 import type { Roamer } from '../../domain/field/roam';
 import { type SheetFrame, companionImage, companionSheet } from '../art/companionImage';
-import { creatureArt } from '../art/creatureArt';
+import { creatureArt, stageFill } from '../art/creatureArt';
 import { STAGE_SCALE } from '../art/creatureSprite';
 import { type SheetDir, dirFromDelta } from '../art/spriteSheet';
 
@@ -38,7 +38,7 @@ export function buildSprites(roamers: Roamer[], stageOf: (r: Roamer) => 1 | 2 | 
       roamer,
       img: companionImage(roamer.species, 96, sleeping ? 'sleep' : 'idle', stage),
       scale: STAGE_SCALE[stage],
-      fill: art.fill,
+      fill: art.fill * stageFill(art, stage),
       foot: art.foot,
       sheet: companionSheet(roamer.species, stage, anim, lastDir.get(roamer.species) ?? 'down', now),
     };

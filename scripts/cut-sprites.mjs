@@ -1,5 +1,7 @@
 // SpriteCollab(PMD) 시트에서 구구몬 대체용 그림을 잘라 낸다 (로컬 테스트용, 결과 이미지는 커밋하지 않는다).
-// 사용: node scripts/cut-sprites.mjs [번호...]   (기본 0001 0002 0003 0004)
+// 사용: node scripts/cut-sprites.mjs [번호 또는 범위...]   예) 1-18,23-28 0129 0130   (인자가 없으면 기본 46개)
+//   애니메이션이 없거나(AnimData에 없음·시트 파일 없음) CopyOf인 번호도 견딘다: Sleep·Hurt·Attack은 없으면 결과·manifest에서 빠지고(로더가 건너뜀),
+//   Idle이 Walk의 CopyOf이면 Walk 시트를 Idle로 쓴다. 하위 폼 폴더(0000 등)는 쓰지 않고 번호 폴더의 기본 폼 파일만 쓴다.
 //   SPRITE_SRC=원본 sprite 폴더 (기본 C:/claude_code/poke/SpriteCollab/sprite)
 //   SPRITE_OUT=저장 폴더 (기본 src/field/art/creatures/pmd)
 // 결과(번호마다):
@@ -19,7 +21,20 @@ import path from 'node:path';
 
 const SRC = process.env.SPRITE_SRC ?? 'C:/claude_code/poke/SpriteCollab/sprite';
 const OUT = process.env.SPRITE_OUT ?? 'src/field/art/creatures/pmd';
-const ids = process.argv.slice(2).length ? process.argv.slice(2) : ['0001', '0002', '0003', '0004'];
+const DEFAULT_IDS = '1-18,23-28,35-40,50-62,129,130,132';
+/** "1-18,23 0129" → ['0001', ..., '0018', '0023', '0129'] */
+function parseIds(args) {
+  const out = [];
+  for (const tok of args.join(',').split(',').map((t) => t.trim()).filter(Boolean)) {
+    const m = tok.match(/^(\d+)(?:-(\d+))?$/);
+    if (!m) throw new Error(`번호 형식이 이상함: ${tok}`);
+    const a = +m[1];
+    const b = m[2] ? +m[2] : a;
+    for (let n = a; n <= b; n++) out.push(String(n).padStart(4, '0'));
+  }
+  return [...new Set(out)];
+}
+const ids = parseIds(process.argv.slice(2).length ? process.argv.slice(2) : [DEFAULT_IDS]);
 const PAD = 1;
 const MS_PER_TICK = 1000 / 60;
 /** 애니 이름 → 쓰는 시트 줄(행 번호). 앞=0, 오른=2, 뒤=4, 왼=6 */
@@ -30,30 +45,56 @@ const ANIMS = {
   sleep: { name: 'Sleep', rows: [0] },
 };
 
-function animInfo(xml, name) {
-  const m = xml.match(new RegExp(String.raw`<Name>${name}</Name>[\s\S]*?<FrameWidth>(\d+)</FrameWidth>\s*<FrameHeight>(\d+)</FrameHeight>[\s\S]*?<Durations>([\s\S]*?)</Durations>`));
-  if (!m) throw new Error(`${name} 정보를 못 찾음`);
-  const ticks = [...m[3].matchAll(/<Duration>(\d+)<\/Duration>/g)].map((d) => +d[1]);
-  return { fw: +m[1], fh: +m[2], ms: ticks.map((t) => Math.round(t * MS_PER_TICK)) };
+/** AnimData.xml을 <Anim> 블록별로 읽는다: 이름 → { fw, fh, ticks } 또는 { copyOf } */
+function parseAnims(xml) {
+  const out = {};
+  for (const block of xml.split('<Anim>').slice(1)) {
+    const name = block.match(/<Name>([^<]+)<\/Name>/)?.[1];
+    if (!name) continue;
+    const copy = block.match(/<CopyOf>([^<]+)<\/CopyOf>/)?.[1];
+    if (copy) { out[name] = { copyOf: copy }; continue; }
+    const fw = block.match(/<FrameWidth>(\d+)<\/FrameWidth>/)?.[1];
+    const fh = block.match(/<FrameHeight>(\d+)<\/FrameHeight>/)?.[1];
+    const ticks = [...(block.match(/<Durations>([\s\S]*?)<\/Durations>/)?.[1] ?? '').matchAll(/<Duration>(\d+)<\/Duration>/g)].map((d) => +d[1]);
+    if (fw && fh && ticks.length) out[name] = { fw: +fw, fh: +fh, ticks };
+  }
+  return out;
+}
+
+/** 애니 하나의 시트·칸 정보. CopyOf를 따라가고, 정보나 시트 파일이 없으면 null */
+function animInfo(dir, table, name, depth = 0) {
+  const a = table[name];
+  if (!a || depth > 4) return null;
+  if (a.copyOf) return animInfo(dir, table, a.copyOf, depth + 1);
+  const file = path.join(dir, `${name}-Anim.png`);
+  if (!fs.existsSync(file)) return null;
+  return { fw: a.fw, fh: a.fh, ms: a.ticks.map((t) => Math.round(t * MS_PER_TICK)), sheet: fs.readFileSync(file).toString('base64') };
 }
 
 fs.mkdirSync(OUT, { recursive: true });
 const browser = await chromium.launch({ channel: process.env.SPRITE_CHANNEL ?? 'msedge' });
 const page = await browser.newPage();
-const manifest = {};
+const manifestFile = path.join(OUT, 'manifest.json');
+const manifest = fs.existsSync(manifestFile) ? JSON.parse(fs.readFileSync(manifestFile, 'utf8')) : {};
 for (const id of ids) {
   const dir = path.join(SRC, id);
-  const xml = fs.readFileSync(path.join(dir, 'AnimData.xml'), 'utf8');
+  const table = parseAnims(fs.readFileSync(path.join(dir, 'AnimData.xml'), 'utf8'));
   const anims = {};
   for (const [key, a] of Object.entries(ANIMS)) {
-    anims[key] = { ...a, ...animInfo(xml, a.name), sheet: fs.readFileSync(path.join(dir, `${a.name}-Anim.png`)).toString('base64') };
+    const info = animInfo(dir, table, a.name);
+    if (info) anims[key] = { ...a, ...info };
   }
-  const atk = { name: 'Attack', rows: [3, 7], ...animInfo(xml, 'Attack'), sheet: fs.readFileSync(path.join(dir, 'Attack-Anim.png')).toString('base64') };
+  // Idle·Walk 중 하나만 있으면 그걸로 둘 다 쓴다 (예: Idle이 Walk의 CopyOf)
+  if (!anims.idle && anims.walk) anims.idle = { ...anims.walk, rows: ANIMS.idle.rows };
+  if (!anims.walk && anims.idle) anims.walk = { ...anims.idle, rows: ANIMS.walk.rows };
+  if (!anims.idle) { console.warn(id, 'Idle·Walk 시트가 없어 건너뜀'); continue; }
+  const atkInfo = animInfo(dir, table, 'Attack');
+  const atk = atkInfo ? { name: 'Attack', rows: [3, 7], ...atkInfo } : null;
   const res = await page.evaluate(async ({ anims, atk, pad }) => {
     const load = async (b64) => { const img = new Image(); img.src = 'data:image/png;base64,' + b64; await img.decode(); return img; };
     const imgs = {};
     for (const k of Object.keys(anims)) imgs[k] = await load(anims[k].sheet);
-    const atkImg = await load(atk.sheet);
+    const atkImg = atk ? await load(atk.sheet) : null;
     /** 칸 하나의 몸 영역 [x0,y0,x1,y1) 또는 null */
     const boxOf = (img, fw, fh, col, row) => {
       const c = document.createElement('canvas'); c.width = fw; c.height = fh;
@@ -81,6 +122,7 @@ for (const id of ids) {
         if (!b) continue;
         u = u ? [Math.min(u[0], b[0]), Math.min(u[1], b[1]), Math.max(u[2], b[2]), Math.max(u[3], b[3])] : b;
       }
+      if (!u) { delete anims[k]; continue; }
       union[k] = u;
       side = Math.max(side, u[2] - u[0], u[3] - u[1]);
     }
@@ -114,13 +156,16 @@ for (const id of ids) {
     const ix = idle.fw / 2 + idleOx;
     const iy = idle.fh / 2 + idleOy;
     // Attack: 1원본픽셀=1칸픽셀, 칸은 정사각형, 프레임 가운데가 칸 가운데
+    let attack = null;
+    if (atk) {
     const sa = Math.max(atk.fw, atk.fh);
     const ac = document.createElement('canvas'); ac.width = sa * atk.ms.length; ac.height = sa * atk.rows.length;
     const ag = ac.getContext('2d'); ag.imageSmoothingEnabled = false;
     for (let col = 0; col < atk.ms.length; col++) atk.rows.forEach((row, i) => {
       ag.drawImage(atkImg, col * atk.fw, row * atk.fh, atk.fw, atk.fh, col * sa + Math.floor((sa - atk.fw) / 2), i * sa + Math.floor((sa - atk.fh) / 2), atk.fw, atk.fh);
     });
-    const attack = { png: ac.toDataURL('image/png').split(',')[1], side: sa, ax: sa / 2, ay: sa / 2, ix, iy };
+    attack = { png: ac.toDataURL('image/png').split(',')[1], side: sa, ax: sa / 2, ay: sa / 2, ix, iy };
+    }
     return { out, still, side, baseSide, bh, bw, attack };
   }, { anims, atk, pad: PAD });
   fs.writeFileSync(path.join(OUT, `${id}-front.png`), Buffer.from(res.still[0], 'base64'));
@@ -130,11 +175,13 @@ for (const id of ids) {
     fs.writeFileSync(path.join(OUT, `${id}-${k}.png`), Buffer.from(res.out[k], 'base64'));
     entry[k] = { frames: a.ms.length, ms: a.ms, rows: a.rows.length };
   }
-  fs.writeFileSync(path.join(OUT, `${id}-attack.png`), Buffer.from(res.attack.png, 'base64'));
-  const { side: aside, ax, ay, ix, iy } = res.attack;
-  entry.attack = { frames: atk.ms.length, ms: atk.ms, rows: atk.rows.length, side: aside, ax, ay, ix, iy };
+  if (res.attack) {
+    fs.writeFileSync(path.join(OUT, `${id}-attack.png`), Buffer.from(res.attack.png, 'base64'));
+    const { side: aside, ax, ay, ix, iy } = res.attack;
+    entry.attack = { frames: atk.ms.length, ms: atk.ms, rows: atk.rows.length, side: aside, ax, ay, ix, iy };
+  }
   manifest[id] = entry;
   console.log(id, JSON.stringify(entry));
 }
-fs.writeFileSync(path.join(OUT, 'manifest.json'), JSON.stringify(manifest, null, 2));
+fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2));
 await browser.close();

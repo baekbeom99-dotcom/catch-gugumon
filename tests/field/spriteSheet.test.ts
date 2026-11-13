@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BATTLE_ROW, DIR_ROW, SOURCE_ROWS, attackPlacement, cellOrigin, onceFrameAt, totalMs, dirFromDelta, frameAt, rowForDir } from '../../src/field/art/spriteSheet';
+import { BODY_H_TARGET, BODY_W_MAX, FILL_MAX, bodyFill, BATTLE_ROW, DIR_ROW, SOURCE_ROWS, attackPlacement, cellOrigin, onceFrameAt, totalMs, dirFromDelta, frameAt, rowForDir } from '../../src/field/art/spriteSheet';
 import cutScript from '../../scripts/cut-sprites.mjs?raw';
 
 describe('frameAt (프레임 시간 → 번호, 되풀이)', () => {
@@ -94,5 +94,28 @@ describe('이동 변화량 → 방향', () => {
 describe('cellOrigin', () => {
   it('칸 번호 × 한 변', () => {
     expect(cellOrigin(2, 3, 70)).toEqual({ sx: 140, sy: 210 });
+  });
+});
+
+describe('bodyFill (몸 높이 맞춤)', () => {
+  it('몸 높이가 목표 비율이 되게 한다', () => {
+    // 몸 높이 = 칸의 긴 쪽 → 배율 = 목표
+    expect(bodyFill({ baseSide: 44, bodyH: 42, bodyW: 34 })).toBeCloseTo(BODY_H_TARGET * 44 / 42, 2);
+    // 큰 종도 작은 종도 (몸 높이 × 배율) / 정지 그림 칸 ≈ 목표
+    for (const m of [{ baseSide: 44, bodyH: 42, bodyW: 34 }, { baseSide: 130, bodyH: 128, bodyW: 78 }, { baseSide: 38, bodyH: 36, bodyW: 26 }]) {
+      expect((m.bodyH * bodyFill(m)) / m.baseSide).toBeCloseTo(BODY_H_TARGET, 1);
+    }
+  });
+  it('가로가 넓은 종은 가로 상한으로 줄이고, 상한을 넘지 않는다', () => {
+    const wide = { baseSide: 64, bodyH: 40, bodyW: 62 };
+    expect((wide.bodyW * bodyFill(wide)) / wide.baseSide).toBeLessThanOrEqual(BODY_W_MAX + 0.001);
+    expect(bodyFill({ baseSide: 100, bodyH: 10, bodyW: 10 })).toBe(FILL_MAX);
+  });
+  it('값이 없으면 1', () => {
+    expect(bodyFill({})).toBe(1);
+    expect(bodyFill({ baseSide: 44 })).toBe(1);
+  });
+  it('cut-sprites.mjs 기본 번호는 46개 범위', () => {
+    expect(cutScript).toContain("'1-18,23-28,35-40,50-62,129,130,132'");
   });
 });

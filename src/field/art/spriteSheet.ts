@@ -80,3 +80,24 @@ export function dirFromDelta(dx: number, dy: number): SheetDir | null {
 export function cellOrigin(col: number, row: number, side: number): { sx: number; sy: number } {
   return { sx: col * side, sy: row * side };
 }
+
+/**
+ * 몸 크기 맞춤 기준 (종마다 몸 크기가 달라도 한 칸에서 몸 높이가 비슷하게 보이게).
+ * 자리(정사각형) 높이 대비 몸 높이 목표, 몸 가로 상한, 배율 상한.
+ */
+export const BODY_H_TARGET = 0.8;
+export const BODY_W_MAX = 1.0;
+export const FILL_MAX = 1.5;
+
+/**
+ * 몸 높이를 BODY_H_TARGET으로 맞추는 배율. 정지 그림(baseSide)은 몸의 긴 쪽이 자리를 거의 채우므로
+ * 배율 = BODY_H_TARGET × baseSide / bodyH. 가로(bodyW)가 BODY_W_MAX를 넘으면 가로 기준으로 줄이고, FILL_MAX를 넘지 않는다.
+ * 값이 없으면 1.
+ */
+export function bodyFill(m: { baseSide?: number; bodyH?: number; bodyW?: number }): number {
+  const { baseSide, bodyH, bodyW } = m;
+  if (!baseSide || !bodyH || baseSide <= 0 || bodyH <= 0) return 1;
+  let f = (BODY_H_TARGET * baseSide) / bodyH;
+  if (bodyW && bodyW > 0) f = Math.min(f, (BODY_W_MAX * baseSide) / bodyW);
+  return Math.round(Math.min(f, FILL_MAX) * 1000) / 1000;
+}

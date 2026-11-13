@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { SPECIES } from '../../src/domain/field/creatures';
-import { creatureArt, imageView, stageSheets, MONSTER_FILL, MONSTER_FOOT } from '../../src/field/art/creatureArt';
-import { buildLocalSprites } from '../../src/field/art/localSprites';
+import { creatureArt, imageView, stageFill, stageSheets, MONSTER_FILL, MONSTER_FOOT } from '../../src/field/art/creatureArt';
+import { buildLocalSprites, LOCAL_SPRITE_MAP } from '../../src/field/art/localSprites';
+import { bodyFill } from '../../src/field/art/spriteSheet';
 import { companionRect } from '../../src/field/world/fieldRenderer';
 
 describe('구구몬 그림 등록표', () => {
@@ -126,3 +127,50 @@ describe('시트 등록', () => {
   });
 });
 
+
+describe('종-번호 표 (LOCAL_SPRITE_MAP)', () => {
+  const speciesIds = new Set<string>(SPECIES.map((x) => x.id));
+  it('키는 모두 SpeciesId, 번호는 4자리 3단계', () => {
+    for (const [k, v] of Object.entries(LOCAL_SPRITE_MAP)) {
+      expect(speciesIds.has(k), k).toBe(true);
+      expect(v.ids).toHaveLength(3);
+      for (const id of v.ids) expect(id).toMatch(/^\d{4}$/);
+    }
+  });
+  it('기본 8종과 황금 3종이 모두 연결돼 있다', () => {
+    expect(Object.keys(LOCAL_SPRITE_MAP).sort()).toEqual(['antenna', 'cloud', 'fluff', 'ghost', 'horn', 'jelly', 'legend-fluff', 'legend-ghost', 'legend-horn', 'mushroom', 'pebble']);
+    expect(LOCAL_SPRITE_MAP['legend-horn']?.ids).toEqual(['0129', '0130', '0130']);
+    expect(LOCAL_SPRITE_MAP.antenna?.ids).toEqual(['0025', '0026', '0026']);
+  });
+  it('한 종의 번호 하나라도 그림이 없으면 그 종만 SVG로 (다른 종은 그대로)', () => {
+    const map = { cloud: { ids: ['0001', '0002', '0003'] }, ghost: { ids: ['0004', '0005', '0006'] } };
+    const files: Record<string, string> = {};
+    for (const id of ['0001', '0002', '0003', '0004', '0005']) files[`./creatures/pmd/${id}-front.png`] = id;
+    const r = buildLocalSprites(files, map);
+    expect(Object.keys(r)).toEqual(['cloud']);
+    expect(creatureArt('ghost', r).type).toBe('monster');
+  });
+  it('Sleep·Hurt·Attack이 없는 번호도 Idle·Walk만으로 시트가 붙는다', () => {
+    const map = { cloud: { ids: ['0015'] } };
+    const files = { './creatures/pmd/0015-front.png': 'f', './creatures/pmd/0015-idle.png': 'i', './creatures/pmd/0015-walk.png': 'w' };
+    const manifest = { '0015': { side: 90, baseSide: 50, foot: 0.989, bodyH: 48, bodyW: 46, idle: { ms: [67], rows: 6 }, walk: { ms: [67], rows: 4 } } };
+    const sh = buildLocalSprites(files, map, manifest).cloud?.stages?.[0].sheets;
+    expect(sh?.idle.url).toBe('i');
+    expect(sh?.hurt).toBeUndefined();
+    expect(sh?.sleep).toBeUndefined();
+    expect(sh?.attack).toBeUndefined();
+  });
+  it('단계마다 몸 높이로 fill을 계산해 붙인다 (stageFill)', () => {
+    const map = { cloud: { ids: ['0001', '0002'] } };
+    const files = { './creatures/pmd/0001-front.png': 'a', './creatures/pmd/0002-front.png': 'b' };
+    const manifest = {
+      '0001': { side: 70, baseSide: 44, foot: 0.98, bodyH: 42, bodyW: 34 },
+      '0002': { side: 90, baseSide: 130, foot: 0.98, bodyH: 128, bodyW: 78 },
+    };
+    const imgs = buildLocalSprites(files, map, manifest);
+    const art = creatureArt('cloud', imgs);
+    expect(stageFill(art, 1)).toBeCloseTo(bodyFill({ baseSide: 44, bodyH: 42, bodyW: 34 }), 5);
+    expect(stageFill(art, 2)).toBeCloseTo(0.8 * 130 / 128, 2);
+    expect(stageFill(creatureArt('mushroom', imgs), 2)).toBe(1);
+  });
+});

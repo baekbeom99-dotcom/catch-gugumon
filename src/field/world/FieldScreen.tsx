@@ -6,7 +6,7 @@ import { useSessionStore } from '../../store/useSessionStore';
 import type { FieldNotice } from '../../store/fieldData';
 import { skillDef } from '../../domain/field/skills';
 import { companionImage, companionSheet } from '../art/companionImage';
-import { creatureArt } from '../art/creatureArt';
+import { creatureArt, stageFill } from '../art/creatureArt';
 import { STAGE_SCALE } from '../art/creatureSprite';
 import { playFx, preloadFx, prefersReducedMotion } from '../fx/playFx';
 import type { FieldId, MapId } from '../../domain/field/fields';
@@ -533,7 +533,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
         y: hy,
         img: companionImage(meId, 96, 'idle', meStage),
         scale: STAGE_SCALE[meStage],
-        fill: art.fill,
+        fill: art.fill * stageFill(art, meStage),
         foot: art.foot,
         sheet,
         ...pose,

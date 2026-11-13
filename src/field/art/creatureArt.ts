@@ -44,6 +44,8 @@ export interface StageSheets {
   side: number;
   scale: number;
   foot: number;
+  /** 몸 크기 맞춤(StageArt.fill과 같은 값): 시트 칸을 이만큼 더 키워 그린다 (기본 1) */
+  fill?: number;
   idle: SheetAnim;
   walk: SheetAnim;
   hurt?: SheetAnim;
@@ -56,6 +58,8 @@ export interface StageSheets {
 export interface StageArt {
   front: string;
   back?: string;
+  /** 이 단계의 몸 크기 맞춤: 자리(정사각형) 대비 곱하는 배율, 기본 1. localSprites가 manifest의 몸 높이로 계산한다 (spriteSheet.bodyFill) */
+  fill?: number;
   /** 움직이는 시트 (선택, 없으면 정지 그림) */
   sheets?: StageSheets;
 }
@@ -99,6 +103,12 @@ export function creatureArt(id: SpeciesId, images: Partial<Record<SpeciesId, Ima
 export function stageSheets(art: CreatureArt, stage: 1 | 2 | 3 = 1): StageSheets | undefined {
   if (art.type !== 'image') return undefined;
   return art.stages?.[stage - 1]?.sheets;
+}
+
+/** 이 단계의 몸 크기 맞춤 배율 (이미지 그림에 없으면 1, 필드 동행은 art.fill에 곱한다) */
+export function stageFill(art: CreatureArt, stage: 1 | 2 | 3 = 1): number {
+  if (art.type !== 'image') return 1;
+  return art.stages?.[stage - 1]?.fill ?? 1;
 }
 
 /** 이미지 그림에서 보는 쪽에 맞는 파일과 뒤집기 여부 */

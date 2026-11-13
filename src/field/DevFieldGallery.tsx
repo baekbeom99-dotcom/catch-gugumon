@@ -9,7 +9,7 @@ import type { MonsterMood } from '../art/MonsterSprite';
 import { SPECIES } from '../domain/field/creatures';
 import { displayName } from '../domain/field/growth';
 import { companionImage } from './art/companionImage';
-import { creatureArt, stageSheets } from './art/creatureArt';
+import { creatureArt, stageFill, stageSheets } from './art/creatureArt';
 import { SheetSprite, creatureSprite, speciesColor } from './art/creatureSprite';
 import { BATTLE_ROW, DIR_ROW, type SheetDir } from './art/spriteSheet';
 import { CapsuleBall } from './art/CapsuleBall';
@@ -196,11 +196,57 @@ function CompanionPreview({ id }: { id: (typeof SPECIES)[number]['id'] }) {
   }, [id]);
   const art = creatureArt(id);
   const tile = 48;
-  const size = Math.round(tile * art.fill);
+  const size = Math.round(tile * art.fill * stageFill(art, 1));
   return (
     <div style={{ position: 'relative', width: tile, height: tile, background: '#d9b382', outline: '1px dashed #8d5a2b' }} title="필드 동행: 점선이 한 칸">
       {img && <img src={img.src} alt="" width={size} height={size} style={{ position: 'absolute', left: (tile - size) / 2, top: tile - size * art.foot }} />}
     </div>
+  );
+}
+
+type CompareMode = 'front' | 'back' | 'walk' | 'hit' | 'attack';
+const COMPARE_MODES: [CompareMode, string][] = [['front', '앞'], ['back', '뒤'], ['walk', '걷기'], ['hit', '맞음'], ['attack', '공격']];
+
+/** 모든 종·단계의 몸 크기를 한 화면에서 비교 (점선 = 자리 한 칸). 몸 높이 기준은 spriteSheet.BODY_H_TARGET */
+function SizeCompare() {
+  const [mode, setMode] = useState<CompareMode>('front');
+  const [at, setAt] = useState<number | undefined>(undefined);
+  useEffect(() => {
+    const t = window.setInterval(() => setAt(Date.now()), 1600);
+    return () => window.clearInterval(t);
+  }, []);
+  const px = 44;
+  const one = (id: (typeof SPECIES)[number]['id'], st: 1 | 2 | 3) => {
+    const art = creatureArt(id);
+    const sh = stageSheets(art, st);
+    let el: JSX.Element;
+    if (mode === 'walk' && sh) el = <SheetSprite sheets={sh} anim={sh.walk} row={DIR_ROW.down} px={Math.round(px * (st === 1 ? 1 : st === 2 ? 1.15 : 1.3))} />;
+    else if (mode === 'hit') el = creatureSprite(id, { view: 'foe', stage: st, mood: 'hit', color: DAN_COLORS[5], size: px });
+    else if (mode === 'attack') el = creatureSprite(id, { view: 'ally', stage: st, attackAt: at, color: DAN_COLORS[5], size: px });
+    else el = creatureSprite(id, { view: mode === 'back' ? 'back' : 'front', stage: st, color: DAN_COLORS[5], size: px });
+    return (
+      <span key={st} style={{ position: 'relative', width: px, height: px, display: 'inline-flex', alignItems: 'flex-end', justifyContent: 'center', outline: '1px dashed #c9b58f' }} title={displayName(id, st)}>
+        {el}
+      </span>
+    );
+  };
+  return (
+    <section data-testid="dev-size-compare">
+      <h2>크기 비교 (점선 = 한 칸)</h2>
+      <div style={{ ...row, marginBottom: 6 }}>
+        {COMPARE_MODES.map(([m, label]) => (
+          <button key={m} onClick={() => setMode(m)} style={{ fontWeight: mode === m ? 700 : 400 }}>
+            {label}
+          </button>
+        ))}
+      </div>
+      {SPECIES.map((s) => (
+        <div key={s.id} style={{ display: 'flex', alignItems: 'flex-end', gap: 4, marginBottom: 4 }}>
+          <small style={{ width: 64 }}>{s.name}</small>
+          {STAGES.map((st) => one(s.id, st))}
+        </div>
+      ))}
+    </section>
   );
 }
 
@@ -210,6 +256,7 @@ export function DevFieldGallery() {
       <h1>필드 모험 검수</h1>
       <DebugSwitches />
       <EffectButtons />
+      <SizeCompare />
 
       <section>
         <h2>캡슐</h2>
