@@ -112,6 +112,8 @@ export const THROW_ANGRY = 0.03;
 export const COMPANION_MAX_HP = 100;
 /** 문제 시간이 이만큼 남으면 빨갛게 */
 export const TIMER_WARN_MS = 2000;
+/** 내 두 번째 공격 연출이 끝난 뒤, 적의 주기 공격이 시작되기까지 잠깐 쉬는 시간 (입력은 그동안도 막힘) */
+export const WILD_COUNTER_GAP_MS = 500;
 /** 야생 몬스터가 공격하는 연출 시간 */
 export const WILD_FOE_ATTACK_MS = 700;
 /** 상처 목록에 남기는 최근 문제 수 */

@@ -33,6 +33,7 @@ import {
   TIER_RULES,
   TIMER_WARN_MS,
   WILD_END_MS,
+  WILD_COUNTER_GAP_MS,
   WILD_FOE_ATTACK_MS,
   WILD_HIT_ANIM_MS,
   WILD_INTRO_MS,
@@ -643,16 +644,20 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
         // 정답으로 2번 때렸으면 적이 한 번 공격한다 (주기 공격). 연출 뒤 힌트 없이 다음 문제
         const c = counterAttack(wildRef.current!, combat());
         if (c) {
-          setDodgeSide(null);
-          setWild(c.state);
-          if (!showFoeStrike(c.state, null)) return; // 쓰러짐: 끝 글은 끝내기 효과가 띄운다
+          // 두 번째 공격 연출이 끝난 뒤 잠깐 쉬었다가 적이 공격한다 (그동안 단계는 hit 그대로라 입력·도망 확인이 막혀 있다)
           later(() => {
             if (settledRef.current) return;
-            setStunBlocked(false);
             setDodgeSide(null);
-            setWild(resumeWild(wildRef.current!, buttons.length));
-            next(false);
-          }, WILD_FOE_ATTACK_MS);
+            setWild(c.state);
+            if (!showFoeStrike(c.state, null)) return; // 쓰러짐: 끝 글은 끝내기 효과가 띄운다
+            later(() => {
+              if (settledRef.current) return;
+              setStunBlocked(false);
+              setDodgeSide(null);
+              setWild(resumeWild(wildRef.current!, buttons.length));
+              next(false);
+            }, WILD_FOE_ATTACK_MS);
+          }, WILD_COUNTER_GAP_MS);
           return;
         }
         // 다음 문제: 기술이 2개 이상이면 고르기부터 (글은 방금 맞힌 글을 그대로 둔다)

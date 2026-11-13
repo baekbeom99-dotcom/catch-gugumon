@@ -58,6 +58,7 @@ describe('필드 모험 운영 수치', () => {
       COMPANION_MAX_HP: 100,
       WOUNDS_MAX: 10,
       TIMER_WARN_MS: 2000,
+      WILD_COUNTER_GAP_MS: 500,
       WILD_FOE_ATTACK_MS: 700,
       CAPSULE_START: { meadow: 3, waterside: 3, desert: 3, legend: 0 },
       CAPSULE_REWARD: 5,
