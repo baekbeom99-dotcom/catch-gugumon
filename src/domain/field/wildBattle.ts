@@ -352,7 +352,7 @@ export function canThrow(s: WildState): boolean {
 /**
  * 캡슐 던지기 (canThrow일 때만, 아니면 null). 난수 하나로 결과를 정한다(R11):
  * 잡힘 → 빠져나옴 → 도망 → 화남 순으로 칸을 쌓아, 0은 언제나 잡힘이고 0.999는 화남.
- * 잡힘 확률은 실패한 수(throwTries)·기절(stun)만큼 오른다 (throwOdds). 빠져나옴·화남이면 실패 수 +1, 새 문제로.
+ * 잡힘 확률은 실패한 수(throwTries)·기절(stun)·낮은 남은 체력만큼 오른다 (throwOdds). 빠져나옴·화남이면 실패 수 +1, 새 문제로.
  * 문제를 푸는 중에 던졌으면 그 문제는 틀린 것으로 치지 않는다 (맞힌 수·체력 그대로).
  */
 export function throwCapsule(
@@ -362,7 +362,7 @@ export function throwCapsule(
   heldCount = 1,
 ): { state: WildState; outcome: ThrowOutcome } | null {
   if (!canThrow(s)) return null;
-  const odds = throwOdds(s.tier, s.throwTries, s.stun);
+  const odds = throwOdds(s.tier, s.throwTries, s.stun, (maxCells(s.tier) - s.cells) / maxCells(s.tier));
   const r = rng();
   if (r < odds.caught) return { state: { ...s, phase: 'caught' }, outcome: 'caught' };
   const throwTries = s.throwTries + 1;

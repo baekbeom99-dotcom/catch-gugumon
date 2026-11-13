@@ -340,6 +340,24 @@ test('풀숲에서 만나 정답으로 HP를 0으로 만들면 캡슐 던지기 
   await expect(page.getByLabel('야생 체력 0')).toBeVisible();
 });
 
+test('HP가 0이 되면 캡슐 던지기와 놓아주기를 고를 수 있고, 놓아주면 캡슐을 쓰지 않는다', async ({ page }) => {
+  await standBesideGrass(page, { tier: 'normal' });
+  await stepIntoGrass(page);
+  await expect(page.getByText(/나타났다/)).toBeVisible();
+  for (let i = 0; i < 14; i++) {
+    if (await page.getByRole('button', { name: '캡슐 던지기' }).isVisible()) break;
+    const answer = await solveWild(page);
+    await moveButton(page, answer).click();
+    await page.waitForTimeout(800);
+  }
+  await expect(page.getByRole('button', { name: '캡슐 던지기' })).toBeVisible();
+  const before = await savedCapsules(page);
+  await page.getByRole('button', { name: '놓아주기' }).click();
+  await expect(page.getByText(/놓아주었어요/)).toBeVisible();
+  await expect(page).toHaveURL(/#\/field$/);
+  expect(await savedCapsules(page)).toEqual(before);
+});
+
 /** 저장본의 캡슐 개수 */
 async function savedCapsules(page: Page): Promise<Record<string, number>> {
   return page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.capsules);

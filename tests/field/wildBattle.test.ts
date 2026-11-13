@@ -124,7 +124,8 @@ describe('wildBattle: 적의 공격', () => {
 
 describe('wildBattle: 던지기', () => {
   it.each([
-    [0.079, 'caught'], [0.081, 'healed'], [0.759, 'healed'], [0.761, 'escaped'], [0.969, 'escaped'], [0.971, 'angry'],
+    // 어지러움(남은 체력 0)에서는 잡힘 +0.1(낮은 체력 보너스): 잡힘 0.18, 빠져나옴 ~0.786, 도망 ~0.973
+    [0.179, 'caught'], [0.181, 'healed'], [0.785, 'healed'], [0.787, 'escaped'], [0.972, 'escaped'], [0.974, 'angry'],
   ] as const)('보통 경계 %f → %s', (r, outcome) => {
     const d = dizzyOf(createWild('normal', 5, 100));
     expect(throwCapsule(d, seq(r, 0), 5)!.outcome).toBe(outcome);
@@ -792,15 +793,15 @@ describe('wildBattle: 실패할수록 잘 잡힌다 (throwTries)', () => {
     s = throwCapsule(s, seq(0.999, 0), 5)!.state;
     expect(s.throwTries).toBe(2);
   });
-  it('실패 3번이면 잡힘 0.38: 0.37은 잡힘, 0.39는 빠져나옴', () => {
+  it('실패 3번이면 잡힘 0.38(어지러우면 낮은 체력 +0.1로 0.48): 0.47은 잡힘, 0.49는 빠져나옴', () => {
     expect(throwOdds('normal', 3).caught).toBeCloseTo(0.38);
-    expect(throwCapsule(d({ throwTries: 3 }), seq(0.37), 5)!.outcome).toBe('caught');
-    expect(throwCapsule(d({ throwTries: 3 }), seq(0.39), 5)!.outcome).toBe('healed');
+    expect(throwCapsule(d({ throwTries: 3 }), seq(0.47), 5)!.outcome).toBe('caught');
+    expect(throwCapsule(d({ throwTries: 3 }), seq(0.49), 5)!.outcome).toBe('healed');
     expect(throwCapsule(d({ throwTries: 0 }), seq(0.37), 5)!.outcome).toBe('healed');
   });
   it('야생이 기절(스턴)해 있으면 +10%p', () => {
-    expect(throwCapsule(d({ stun: true }), seq(0.17), 5)!.outcome).toBe('caught');
-    expect(throwCapsule(d({ stun: false }), seq(0.17), 5)!.outcome).toBe('healed');
+    expect(throwCapsule(d({ stun: true }), seq(0.23), 5)!.outcome).toBe('caught');
+    expect(throwCapsule(d({ stun: false }), seq(0.23), 5)!.outcome).toBe('healed');
   });
   it('상한 70%: 실패를 많이 해도 0.70부터는 안 잡힌다', () => {
     expect(throwCapsule(d({ throwTries: 20, stun: true }), seq(0.6999), 5)!.outcome).toBe('caught');

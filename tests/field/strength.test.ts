@@ -91,3 +91,24 @@ describe('야생 강함 단계', () => {
   it('경험치 배율', () =>
     expect([tierExp(16, 'weak'), tierExp(40, 'strong'), tierExp(40, 'mighty')]).toEqual([10, 64, 120]));
 });
+
+describe('낮은 체력 잡힘 보너스(hpRatio)', () => {
+  it('1/4 이상이면 보너스 없음, 그 아래로 내려갈수록 직선으로 올라 체력 0에서 +0.1', () => {
+    const base = throwOdds('normal').caught;
+    expect(throwOdds('normal', 0, false, 1).caught).toBeCloseTo(base);
+    expect(throwOdds('normal', 0, false, 0.25).caught).toBeCloseTo(base);
+    expect(throwOdds('normal', 0, false, 0.125).caught).toBeCloseTo(base + 0.05);
+    expect(throwOdds('normal', 0, false, 0).caught).toBeCloseTo(base + 0.1);
+  });
+
+  it('다른 보너스와 더해지고 상한 0.7에서 멈추며, 합은 늘 1이다', () => {
+    expect(throwOdds('normal', 2, true, 0).caught).toBeCloseTo(throwOdds('normal').caught + 0.2 + 0.1 + 0.1);
+    expect(throwOdds('normal', 6, true, 0).caught).toBe(0.7);
+    const o = throwOdds('weak', 2, false, 0);
+    expect(o.caught + o.retry + o.escaped + o.angry).toBeCloseTo(1);
+  });
+
+  it('이상한 값은 보너스 없음으로 본다', () => {
+    expect(throwOdds('normal', 0, false, NaN)).toEqual(throwOdds('normal'));
+  });
+});

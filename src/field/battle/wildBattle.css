@@ -619,6 +619,21 @@
   font-size: 22px;
 }
 
+/* 어지러울 때: 캡슐 던지기(크게) + 놓아주기(작게) */
+.wild__dizzy-choice {
+  display: flex;
+  gap: 8px;
+  align-items: stretch;
+}
+.wild__dizzy-choice .wild__capsule {
+  flex: 2;
+}
+.wild__dizzy-choice .wild__letgo {
+  flex: 1;
+  min-height: 64px;
+  font-size: 18px;
+}
+
 /* 문제를 푸는 동안의 작은 캡슐 버튼 (야생 체력 1/4 이하에서만 켜짐) + 꺼져 있을 때 한 줄 안내 */
 .wild__catch {
   display: flex;

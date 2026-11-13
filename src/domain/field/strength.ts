@@ -1,7 +1,9 @@
 /** 야생 강함 단계 계산 — 단계 뽑기, 레벨 범위, 캡슐 던지기 확률, 경험치 배율 (표는 tuning.ts) */
 import { randomInt, type Rng } from '../random';
 import {
+  CAPSULE_ACTIVE_RATIO,
   CATCH_CAP,
+  CATCH_LOW_HP_BONUS,
   CATCH_PER_FAIL,
   CATCH_STATUS_BONUS,
   LEGEND_LEVEL,
@@ -47,9 +49,9 @@ export function rollTierLevel(rng: Rng, tier: Tier, companionLevel: number): num
  * 기준: 빠져나옴(E)과 화냄(A)은 모든 단계가 같고, '끝내 잡을 확률'(U)을 단계별로 맞추려고
  * 거꾸로 계산한다: 잡힘 = U×(E+A)÷(1−U), 나머지는 다시 던지기.
  * 개정 4(설계서 0-2절): 같은 야생에게 실패한 수(tries)마다 잡힘 +CATCH_PER_FAIL, 기절(status)이면 +CATCH_STATUS_BONUS,
- * 합은 CATCH_CAP에서 멈춘다. 잡힘이 오른 만큼 나머지(빠져나옴·도망·화남)는 기준 비율대로 줄어 합은 늘 1.
+ * 남은 체력(hpRatio, 1이 가득)이 1/4보다 적을수록 +CATCH_LOW_HP_BONUS까지 소폭 더한다. 합은 CATCH_CAP에서 멈춘다. 잡힘이 오른 만큼 나머지(빠져나옴·도망·화남)는 기준 비율대로 줄어 합은 늘 1.
  */
-export function throwOdds(tier: Tier, tries = 0, status = false): { caught: number; retry: number; escaped: number; angry: number } {
+export function throwOdds(tier: Tier, tries = 0, status = false, hpRatio = 1): { caught: number; retry: number; escaped: number; angry: number } {
   const u = TIER_RULES[tier].ultimateCatch;
   const baseCaught = (u * (THROW_ESCAPE + THROW_ANGRY)) / (1 - u);
   const base = {
@@ -59,7 +61,9 @@ export function throwOdds(tier: Tier, tries = 0, status = false): { caught: numb
     angry: THROW_ANGRY,
   };
   const n = Number.isFinite(tries) && tries > 0 ? Math.floor(tries) : 0;
-  const bonus = CATCH_PER_FAIL * n + (status ? CATCH_STATUS_BONUS : 0);
+  // 남은 체력이 1/4보다 적을수록 소폭 더 (1/4에서 0 → 체력 0에서 CATCH_LOW_HP_BONUS)
+  const low = Number.isFinite(hpRatio) ? Math.min(1, Math.max(0, (CAPSULE_ACTIVE_RATIO - hpRatio) / CAPSULE_ACTIVE_RATIO)) : 0;
+  const bonus = CATCH_PER_FAIL * n + (status ? CATCH_STATUS_BONUS : 0) + CATCH_LOW_HP_BONUS * low;
   if (bonus === 0) return base;
   const caught = Math.min(CATCH_CAP, baseCaught + bonus);
   const scale = (1 - caught) / (1 - baseCaught);
@@ -70,8 +74,8 @@ export function throwOdds(tier: Tier, tries = 0, status = false): { caught: numb
  * 던지기 결과를 미리 정해 두는 난수 (E2E 스위치 전용, 규칙·확률은 그대로).
  * throwCapsule이 난수를 한 번 쓰니, 정한 결과의 칸 한가운데 값을 돌려준다 (실패 수·기절로 바뀐 칸 기준).
  */
-export function forcedThrowRng(outcome: 'caught' | 'healed' | 'escaped' | 'angry', tier: Tier, tries = 0, status = false): () => number {
-  const o = throwOdds(tier, tries, status);
+export function forcedThrowRng(outcome: 'caught' | 'healed' | 'escaped' | 'angry', tier: Tier, tries = 0, status = false, hpRatio = 1): () => number {
+  const o = throwOdds(tier, tries, status, hpRatio);
   const value =
     outcome === 'caught'
       ? 0

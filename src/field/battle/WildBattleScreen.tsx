@@ -46,6 +46,7 @@ import {
   healAlly,
   hiddenChoice,
   pickSkill,
+  maxCells,
   releaseWild,
   resumeWild,
   throwCapsule,
@@ -219,6 +220,8 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const [throwing, setThrowing] = useState(false);
   /** 같은 순간의 두 번째 누름을 막는다 (state는 다시 그린 뒤에야 바뀐다) */
   const throwingRef = useRef(false);
+  /** 어지러울 때 "놓아주기"를 골랐다 (끝 글이 캡슐 없음과 다르다) */
+  const letGoRef = useRef(false);
   /** 캡슐 연출이 지금 어느 단계인지 (보기만 하는 값. 결과는 던질 때 이미 정해졌다) */
   const [capsule, setCapsule] = useState<CapsuleShow | null>(null);
   const settledRef = useRef(false);
@@ -523,7 +526,9 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
         : ending === 'escaped'
           ? battleText.escaped(name)
           : ending === 'released'
-            ? battleText.noCapsule
+            ? letGoRef.current
+              ? battleText.letGo(name)
+              : battleText.noCapsule
             : ending === 'fainted'
               ? battleText.fainted(allyName)
               : battleText.quit;
@@ -551,6 +556,14 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [ending, throwing]);
+
+  /** 어지러운 구구몬을 캡슐 없이 놓아준다 (고르기: 캡슐 던지기 / 놓아주기) */
+  const onLetGo = useCallback(() => {
+    const w = wildRef.current;
+    if (throwingRef.current || !w) return;
+    letGoRef.current = true;
+    setWild(releaseWild(w));
+  }, [setWild]);
 
   /** 어지러워졌다: 맞는 캡슐이 없으면 버튼 없이 돌려보낸다 (R18, 다른 종류 캡슐은 못 쓴다) */
   const onDizzy = useCallback(
@@ -666,7 +679,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     if (!canThrow(w) || intro || confirmQuit || throwing || throwingRef.current) return;
     // 결과는 던지는 순간 정해 두고, 연출은 거기에 맞춰 보여 준다 (E2E 만남 스위치면 언제나 잡히고, 결과 스위치가 있으면 그 결과)
     const flags = debugFlags();
-    const roll = flags.throwOutcome ? forcedThrowRng(flags.throwOutcome, w.tier, w.throwTries, w.stun) : flags.encounter ? () => 0 : rng;
+    const roll = flags.throwOutcome ? forcedThrowRng(flags.throwOutcome, w.tier, w.throwTries, w.stun, (maxCells(w.tier) - w.cells) / maxCells(w.tier)) : flags.encounter ? () => 0 : rng;
     const thrown = throwCapsule(w, roll, companionLevel, buttons.length);
     if (!thrown) return;
     // 문제를 풀던 중에 던졌으면 빠져나옴·화남 뒤에는 그 문제 대신 새 문제 (틀린 것으로 치지 않는다 — 기록 없음)
@@ -887,9 +900,14 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
             싸우자!
           </button>
         ) : dizzy ? (
-          <button type="button" className="btn btn--primary wild__capsule" aria-label="캡슐 던지기" disabled={throwing} onClick={onCapsule}>
-            <CapsuleBall type={capsuleType} size={28} /> {battleText.throwButton(capsulesLeft)}
-          </button>
+          <div className="wild__dizzy-choice">
+            <button type="button" className="btn btn--primary wild__capsule" aria-label="캡슐 던지기" disabled={throwing || confirmQuit} onClick={onCapsule}>
+              <CapsuleBall type={capsuleType} size={28} /> {battleText.throwButton(capsulesLeft)}
+            </button>
+            <button type="button" className="btn btn--ghost wild__letgo" aria-label="놓아주기" disabled={throwing || confirmQuit} onClick={onLetGo}>
+              {battleText.letGoButton}
+            </button>
+          </div>
         ) : ending ? null : picking ? (
           <SkillPicker buttons={buttons} timeMs={timeMs} wildMain={wildElement} disabled={confirmQuit} onPick={onPickSkill} />
         ) : (

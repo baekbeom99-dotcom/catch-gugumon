@@ -170,6 +170,8 @@ export const CAPSULE_ACTIVE_RATIO = 0.25;
 export const CATCH_PER_FAIL = 0.1;
 /** 야생이 기절(스턴)해 있으면 잡힘 확률에 더하는 값 */
 export const CATCH_STATUS_BONUS = 0.1;
+/** 야생 남은 체력이 1/4(CAPSULE_ACTIVE_RATIO) 아래로 내려갈수록 잡힘 확률에 더하는 값: 1/4에서 0, 체력 0에서 이 값까지 직선으로 오른다 (소폭) */
+export const CATCH_LOW_HP_BONUS = 0.1;
 /** 잡힘 확률의 위쪽 한계 */
 export const CATCH_CAP = 0.7;
 /**

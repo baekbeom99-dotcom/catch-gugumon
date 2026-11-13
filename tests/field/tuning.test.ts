@@ -81,6 +81,7 @@ describe('필드 모험 운영 수치', () => {
       CAPSULE_ACTIVE_RATIO: 0.25,
       CATCH_PER_FAIL: 0.1,
       CATCH_STATUS_BONUS: 0.1,
+      CATCH_LOW_HP_BONUS: 0.1,
       CATCH_CAP: 0.7,
       SPECIAL_SUCCESS: { heal: 0.9, guard: 0.9, stun: 0.5, clue: 0.8, calm: 0.8, charge: 0.7 },
     });

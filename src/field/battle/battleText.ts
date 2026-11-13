@@ -117,6 +117,9 @@ export const battleText = {
   angry: (name: string) => `${josa(name, '이', '가')} 화가 났다! 강력해졌다!`,
   /** 던지기 버튼: 맞는 캡슐의 남은 수 */
   throwButton: (left: number) => `캡슐 던지기 (${left})`,
+  /** 어지러울 때 고르는 버튼: 캡슐 없이 놓아준다 */
+  letGoButton: '놓아주기',
+  letGo: (name: string) => `${josa(name, '을', '를')} 놓아주었어요. 잘 가!`,
   /** 맞는 캡슐이 없어 돌려보냄 (R18) */
   noCapsule: '캡슐이 없어서 돌려보냈어! 상점에서 캡슐을 구해 오자',
   quit: '무사히 도망쳤다!',
