@@ -3,6 +3,8 @@ import { ELEMENT_FX, SPECIAL_FX, STRONG_FX } from '../../src/domain/field/elemen
 import { SKILLS, fastSeconds, pickFired, seatedDef, skillButtons, skillDef, type SkillButton } from '../../src/domain/field/skills';
 import { CALM_BONUS_MS, TIER_RULES } from '../../src/domain/field/tuning';
 import { createWild, type WildState } from '../../src/domain/field/wildBattle';
+import { EFFECTS, type FxSpec } from '../../src/field/fx/effects';
+import { SKILLS as ALL_SKILLS } from '../../src/domain/field/skills';
 import { battleText } from '../../src/field/battle/battleText';
 import type { Rng } from '../../src/domain/random';
 import {
@@ -17,6 +19,7 @@ import {
   combatRng,
   effectPlan,
   foeSkill,
+  moveFxRoute,
   gaugeStops,
   gaugeZones,
   heldSkills,
@@ -457,5 +460,50 @@ describe('전투 굴림 글: 크리티컬·빗나감·효과 실패 (설계서 0
     expect(answerWithSkill(at(0), btn(M12), M12, 'light', false, combatRng({ dodge: false, crit: true, effect: null }, ok))).toMatchObject({ crit: true, state: { cells: 4 } });
     expect(answerWithSkill(at(0), btn(M12), M12, 'light', false, combatRng({ dodge: true, crit: null, effect: null }, ok))).toMatchObject({ dodged: true, state: { cells: 0 } });
     expect(answerWithSkill(at(0), btn(M12), M12, 'light', true, combatRng({ dodge: false, crit: false, effect: false }, ok)).effect).toEqual({ kind: 'stun', ok: false });
+  });
+});
+
+describe('발사체 기술의 출발·도착 (moveFxRoute)', () => {
+  const pts = { ally: { x: 60, y: 200 }, foe: { x: 250, y: 70 } };
+  const travelDef = ALL_SKILLS.find((d) => !d.special && (EFFECTS as Record<string, FxSpec>)[skillFxName(d)].motion === 'travel')!;
+  const burstDef = ALL_SKILLS.find((d) => !d.special && ((EFFECTS as Record<string, FxSpec>)[skillFxName(d)].motion ?? 'burst') === 'burst')!;
+  const specialDef = ALL_SKILLS.find((d) => d.special)!;
+
+  it('내 공격: 내 구구몬에서 출발해 야생 구구몬에 도착하고, 효과음·피해는 날아가는 시간만큼 늦다', () => {
+    const r = moveFxRoute('ally', travelDef, pts)!;
+    expect(r.from).toEqual(pts.ally);
+    expect(r.at).toEqual(pts.foe);
+    expect(r.arriveMs).toBe((EFFECTS as Record<string, FxSpec>)[skillFxName(travelDef)].travelMs);
+    expect(r.arriveMs).toBeGreaterThan(0);
+    expect(r.arriveMs).toBeLessThanOrEqual(300);
+  });
+  it('적 공격: 야생에서 출발해 내 구구몬에 도착한다', () => {
+    const r = moveFxRoute('foe', travelDef, pts)!;
+    expect(r.from).toEqual(pts.foe);
+    expect(r.at).toEqual(pts.ally);
+    expect(r.arriveMs).toBe((EFFECTS as Record<string, FxSpec>)[skillFxName(travelDef)].travelMs);
+  });
+  it('날아가지 않는 효과는 출발 없이 맞는 쪽에서 바로, 지연 0', () => {
+    const r = moveFxRoute('ally', burstDef, pts)!;
+    expect(r.from).toBeNull();
+    expect(r.at).toEqual(pts.foe);
+    expect(r.arriveMs).toBe(0);
+  });
+  it('특수 기술은 쓴 구구몬 위에서 날아가지 않는다', () => {
+    const a = moveFxRoute('ally', specialDef, pts)!;
+    expect(a.at).toEqual(pts.ally);
+    expect(a.from).toBeNull();
+    expect(a.arriveMs).toBe(0);
+  });
+  it('동작 줄이기면 이동 없이 바로 (지연 0)', () => {
+    const r = moveFxRoute('ally', travelDef, pts, true)!;
+    expect(r.from).toBeNull();
+    expect(r.arriveMs).toBe(0);
+  });
+  it('맞는 쪽 자리를 못 구하면 null, 쏘는 쪽만 못 구하면 날아가지 않고 바로 터진다', () => {
+    expect(moveFxRoute('ally', travelDef, { ally: pts.ally, foe: null })).toBeNull();
+    const r = moveFxRoute('ally', travelDef, { ally: null, foe: pts.foe })!;
+    expect(r.from).toBeNull();
+    expect(r.arriveMs).toBe(0);
   });
 });

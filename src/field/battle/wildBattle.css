@@ -311,7 +311,9 @@
 }
 
 .wild__foe--hit {
-  animation: wild-shake 0.3s steps(3) 2;
+  /* 날아가는 기술이면 --fx-delay(날아가는 시간)만큼 늦게 맞고, 전체는 명중 연출 0.6초 안 */
+  animation: wild-shake calc((600ms - var(--fx-delay, 0ms)) / 2) steps(3) 2;
+  animation-delay: var(--fx-delay, 0ms);
 }
 
 .wild__foe--gone {
@@ -347,7 +349,8 @@
 }
 
 .wild__ally--struck {
-  animation: wild-shake 0.3s steps(3) 2, wild-flicker 0.6s steps(4);
+  animation: wild-shake calc((600ms - var(--fx-delay, 0ms)) / 2) steps(3) 2, wild-flicker calc(600ms - var(--fx-delay, 0ms)) steps(4);
+  animation-delay: var(--fx-delay, 0ms);
 }
 
 @keyframes wild-flicker {
@@ -699,11 +702,13 @@
 
 /* 공격을 피함: 옆으로 슥 비켜섰다 돌아온다 (맞는 흔들림 대신) */
 .wild__foe--dodge {
-  animation: wild-dodge-right 0.5s ease-out;
+  animation: wild-dodge-right calc(600ms - var(--fx-delay, 0ms)) ease-out;
+  animation-delay: var(--fx-delay, 0ms);
 }
 
 .wild__ally--dodge {
-  animation: wild-dodge-left 0.5s ease-out;
+  animation: wild-dodge-left calc(600ms - var(--fx-delay, 0ms)) ease-out;
+  animation-delay: var(--fx-delay, 0ms);
 }
 
 @keyframes wild-dodge-right {

@@ -2,10 +2,10 @@
  * 효과 틀기 — pixelfx(MIT, NOTICE.md)의 효과를 캔버스 위에 한 번 틀어 주는 얇은 함수.
  * 어떤 효과가 있는지·옵션은 effects.ts에 있다. '동작 줄이기'를 켠 기기에서는 틀지 않는다.
  */
-import { EFFECTS, type FxName, type FxSpec, goldPalette, paletteLength, TRANSITION_H, TRANSITION_W } from './effects';
+import { EFFECTS, fxTravelMs, type FxName, type FxSpec, goldPalette, paletteLength, TRANSITION_H, TRANSITION_W } from './effects';
 import type { FxModule } from 'pixelfx';
 
-export { FX_NAMES, type FxName } from './effects';
+export { FX_NAMES, fxTravelMs, type FxName } from './effects';
 
 /** 효과 그림 1픽셀이 화면 몇 CSS px인지 (명중·잡기) */
 export const FX_PIXEL = 3;
@@ -30,6 +30,30 @@ export interface PlayFxOptions {
   mirror?: boolean;
   /** 금색으로 (황금 구구몬이 쏠 때) */
   gold?: boolean;
+  /**
+   * 쏘는 구구몬의 자리 (캔버스 안 CSS px). 날아가는 효과(motion 'travel')면 여기서 `at`까지 구슬이 날아간 뒤
+   * `at`에서 효과가 터진다. 없거나 날아가지 않는 효과면 `at`에서 바로 터진다
+   */
+  from?: { x: number; y: number };
+}
+
+/** 날아가는 구슬 한 장면: 가운데 밝은 구슬 + 가장자리 + 뒤로 흐르는 꼬리 (효과 화소 단위 좌표) */
+function drawOrb(ctx: CanvasRenderingContext2D, orb: [string, string], a: { x: number; y: number }, b: { x: number; y: number }, p: number) {
+  const pos = (q: number) => ({ x: a.x + (b.x - a.x) * q, y: a.y + (b.y - a.y) * q });
+  for (let i = 3; i >= 1; i--) {
+    const t = pos(Math.max(0, p - i * 0.07));
+    ctx.fillStyle = orb[1];
+    ctx.fillRect(Math.round(t.x) - 1, Math.round(t.y) - 1, 3 - (i > 2 ? 1 : 0), 3 - (i > 2 ? 1 : 0));
+  }
+  const c = pos(p);
+  const x = Math.round(c.x);
+  const y = Math.round(c.y);
+  ctx.fillStyle = orb[1];
+  ctx.fillRect(x - 3, y - 2, 7, 5);
+  ctx.fillRect(x - 2, y - 3, 5, 7);
+  ctx.fillStyle = orb[0];
+  ctx.fillRect(x - 2, y - 1, 5, 3);
+  ctx.fillRect(x - 1, y - 2, 3, 5);
 }
 
 /** 캔버스마다 지금 도는 실행 표식 하나 — 새 효과를 틀면 바뀌어 이전 루프가 다음 프레임에 스스로 멈춘다 */
@@ -83,12 +107,31 @@ export async function playFx(
       y: spec.screen ? 0 : Math.round(at.y / FX_PIXEL - cy),
     });
     const until = spec.until ?? Infinity;
+    // 날아가는 효과: 먼저 구슬이 from → at으로 travelMs 동안 날아가고, 도착한 뒤에 효과(터짐)가 시작한다
+    const travelMs = fxTravelMs(name, !!opts.from);
+    const orb = spec.orb ?? ['#ffffff', '#ffd23a'];
+    const a = opts.from ? { x: opts.from.x / FX_PIXEL, y: opts.from.y / FX_PIXEL } : { x: 0, y: 0 };
+    const b = { x: at.x / FX_PIXEL, y: at.y / FX_PIXEL };
+    let travelStart = -1;
+    let flying = travelMs > 0;
 
     return await new Promise<boolean>((resolve) => {
       let last = performance.now();
       const step = (now: number) => {
         if (!canvas.isConnected || runs.get(canvas) !== run) return resolve(true); // 끊겼다: 그림은 새 효과가 맡는다
         try {
+          if (flying) {
+            if (travelStart < 0) travelStart = now;
+            if (now - travelStart < travelMs) {
+              ctx.clearRect(0, 0, w, h);
+              drawOrb(ctx, orb, a, b, (now - travelStart) / travelMs);
+              requestAnimationFrame(step);
+              return;
+            }
+            flying = false; // 도착: 구슬을 지우고 도착 지점에서 터짐을 시작한다
+            ctx.clearRect(0, 0, w, h);
+            last = now;
+          }
           const dt = Math.min(0.05, (now - last) / 1000) * spec.speed;
           last = now;
           fx.update(dt);

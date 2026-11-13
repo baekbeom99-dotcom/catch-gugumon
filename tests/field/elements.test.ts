@@ -4,7 +4,7 @@ import { ELEMENT_FX, ELEMENT_NAMES, MAIN_ELEMENT, SPECIAL_FX, STRONG_AGAINST, ST
 import { SKILLS, seatedDef } from '../../src/domain/field/skills';
 import { skillFxName } from '../../src/field/battle/skillUse';
 import { SPECIES } from '../../src/domain/field/creatures';
-import { EFFECTS, FX_NAMES, goldPalette, paletteLength, type FxSpec } from '../../src/field/fx/effects';
+import { EFFECTS, FX_NAMES, FX_TOTAL_MAX_MS, TRAVEL_MS_MAX, TRAVEL_MS_MIN, goldPalette, paletteLength, type FxSpec } from '../../src/field/fx/effects';
 import { WILD_HIT_ANIM_MS } from '../../src/domain/field/tuning';
 
 describe('속성 표', () => {
@@ -93,7 +93,8 @@ describe('기술 효과 62개', () => {
     // 같은 효과를 내 공격(명중 0.6초)과 적 공격(0.7초)에 쓰므로 짧은 쪽에 맞춘다
     const mod = await spec.load();
     const real = Math.min(spec.until ?? Infinity, mod.meta?.duration ?? Infinity) / spec.speed;
-    expect(real).toBeLessThanOrEqual(WILD_HIT_ANIM_MS / 1000 + 0.001);
+    // 날아가는 효과는 날아가는 시간까지 합쳐서 0.6초 안이다
+    expect(real + (spec.travelMs ?? 0) / 1000).toBeLessThanOrEqual(WILD_HIT_ANIM_MS / 1000 + 0.001);
   });
 
   it.each(ELEMENT_EFFECTS)('%s: playFx처럼 끝까지 돌려도 던지지 않고, 도중에 그림이 나온다', async (name) => {
@@ -192,5 +193,36 @@ describe('주·부 속성과 상성', () => {
       fire: ['grass', 'poison'], water: ['fire', 'earth'], grass: ['water', 'earth'], thunder: ['water', 'poison'],
       earth: ['thunder', 'fire'], poison: ['grass', 'light'], light: ['poison', 'thunder'],
     });
+  });
+});
+
+// 발사체 모양 효과는 공격하는 구구몬에서 맞는 구구몬까지 날아간다 (Task 20)
+// 눈으로 확인해 정한 날아가는 효과 (물줄기·이어지는 번개는 화면을 가로지르는 줄, 보라 구슬은 받침대째 서는 그림, 운석은 스스로 떨어져서 날아가기가 어색해 burst로 둠)
+const TRAVELERS = ['fireball', 'ball-lightning', 'boulder', 'vine-whip'];
+
+describe('날아가는 효과(motion·travelMs)', () => {
+  it('날아가는 효과는 정해 둔 네 개뿐이다', () => {
+    const now = FX_NAMES.filter((n) => (EFFECTS as Record<string, FxSpec>)[n].motion === 'travel');
+    expect([...now].sort()).toEqual([...TRAVELERS].sort());
+  });
+
+  it.each(FX_NAMES)('%s: travel이면 travelMs·구슬 색이 있고 이동+터짐이 0.6초 이하, burst면 travelMs가 없다', async (name) => {
+    const spec: FxSpec = EFFECTS[name];
+    if (spec.motion === 'travel') {
+      expect(spec.travelMs).toBeGreaterThanOrEqual(TRAVEL_MS_MIN);
+      expect(spec.travelMs).toBeLessThanOrEqual(TRAVEL_MS_MAX);
+      expect(spec.orb).toHaveLength(2);
+      const mod = await spec.load();
+      const burst = (Math.min(spec.until ?? Infinity, mod.meta?.duration ?? Infinity) / spec.speed) * 1000;
+      expect(burst + spec.travelMs!).toBeLessThanOrEqual(FX_TOTAL_MAX_MS + 1);
+    } else {
+      expect(spec.travelMs).toBeUndefined();
+      expect(spec.orb).toBeUndefined();
+    }
+  });
+
+  it('특수 기술·전환·명중·잡기, 바닥에서 솟는 효과는 날아가지 않는다', () => {
+    const still = [...Object.values(SPECIAL_FX), 'enter', 'hit', 'catch', 'thorns', 'earth-spike', 'quake', 'splash', 'wave-crash', 'lightning-strike', 'flame-pillar', 'smite'] as const;
+    for (const n of still) expect((EFFECTS as Record<string, FxSpec>)[n].motion ?? 'burst').toBe('burst');
   });
 });

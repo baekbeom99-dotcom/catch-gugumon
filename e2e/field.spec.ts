@@ -2007,8 +2007,9 @@ test('윗단계(주②) 발동 때 속성 소리와 fxPower, 주①은 fxPower �
   const grass = await sfxFirstFreq('fxGrass');
   await moveButton(page, 56).click();
   await expect(page.getByRole('status')).toContainText('잎사귀 톡! 명중!');
+  // 덩굴 효과는 날아가는 효과라 속성 소리는 맞는 순간(날아간 뒤)에 난다
+  await expect.poll(async () => (await freqsSeen(page)).filter((x) => x === grass).length).toBe(1);
   let freqs = await freqsSeen(page);
-  expect(freqs.filter((x) => x === grass).length).toBe(1);
   expect(freqs.filter((x) => x === power).length).toBe(0);
   await setFast(page, true);
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
@@ -2040,9 +2041,10 @@ test('특수 회복 성공 때 skillHeal 소리, 늦어 약한 기술이 나가�
   await skillPicker(page).locator('[data-skill="cloud-3"]').click();
   await moveButton(page, 56).click();
   await expect(page.getByRole('status')).toContainText('약한 기술이 나갔어요');
+  // 날아가는 효과라 속성 소리는 맞는 순간(날아간 뒤)에 난다
+  await expect.poll(async () => (await freqsSeen(page)).filter((x) => x === grass).length).toBe(1);
   freqs = await freqsSeen(page);
   expect(freqs.filter((x) => x === heal).length).toBe(1);
-  expect(freqs.filter((x) => x === grass).length).toBe(1);
 });
 
 // ── 시간 막대의 기점 눈금·구간 색 (설계서 0-1절 "시간 게이지 표시") ──

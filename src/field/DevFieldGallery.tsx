@@ -17,7 +17,7 @@ import { HERO_DIRS, HERO_SPRITES } from './art/hero';
 import { PixelSprite } from './art/PixelSprite';
 import { debugFlags, setDebugFlag } from './debugFlags';
 import { ELEMENT_FX, ELEMENT_NAMES, SPECIAL_FX, STRONG_FX, type Element } from '../domain/field/elements';
-import { EFFECTS, type FxName } from './fx/effects';
+import { EFFECTS, type FxName, type FxSpec } from './fx/effects';
 import { playFx } from './fx/playFx';
 
 const MOODS: MonsterMood[] = ['idle', 'hit', 'happy', 'sleep'];
@@ -54,17 +54,21 @@ function EffectButtons() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [gold, setGold] = useState(false);
   const [mirror, setMirror] = useState(false);
+  const [fly, setFly] = useState(true);
   const play = (name: FxName) => {
     const c = canvasRef.current;
     if (!c) return;
     c.getContext('2d')?.clearRect(0, 0, c.width, c.height);
     const r = c.getBoundingClientRect();
     // 상자 한가운데가 곧 효과 중심 (전투와 같은 규칙)
-    void playFx(c, name, { x: r.width / 2, y: r.height / 2 }, { gold, mirror });
+    // 날아가는 효과: 내 공격은 왼쪽 아래 구구몬에서, 뒤집기(적 공격)는 오른쪽 위 구구몬에서 한가운데로 날아온다
+    const from = fly ? (mirror ? { x: r.width - 30, y: r.height * 0.3 } : { x: 30, y: r.height * 0.8 }) : undefined;
+    void playFx(c, name, { x: r.width / 2, y: r.height / 2 }, { gold, mirror, ...(from ? { from } : {}) });
   };
   const button = (n: FxName) => (
     <button key={n} type="button" className="btn btn--ghost" onClick={() => play(n)} title={EFFECTS[n].note}>
       {n}
+      {(EFFECTS[n] as FxSpec).motion === 'travel' ? ' ➤' : ''}
     </button>
   );
   return (
@@ -78,6 +82,9 @@ function EffectButtons() {
       </label>
       <label style={{ display: 'block' }}>
         <input type="checkbox" checked={mirror} onChange={() => setMirror(!mirror)} /> 뒤집기 (적이 쏠 때)
+      </label>
+      <label style={{ display: 'block' }}>
+        <input type="checkbox" checked={fly} onChange={() => setFly(!fly)} /> 날아가기 (➤ 표시 효과: 쏘는 쪽에서 가운데로 구슬이 날아간 뒤 터짐)
       </label>
       {(Object.keys(ELEMENT_FX) as Element[]).map((el) => (
         <div key={el} style={{ marginTop: 4 }}>

@@ -21,7 +21,7 @@ import { resolveAnswer, type AnswerResult, type StrikeRoll, type WildPhase, type
 import { battleText } from './battleText';
 import type { Rng } from '../../domain/random';
 import { SKILL_SFX, SPECIAL_SFX, type Sfx } from '../../audio/sfx';
-import type { FxName } from '../fx/effects';
+import { fxTravelMs, type FxName } from '../fx/effects';
 import type { CombatForce } from '../debugFlags';
 
 /** 저장된 가진 기술(없거나 비었으면 그 레벨의 기본 기술)을 기술 표로. 전투를 시작할 때 한 번 정해 두고 바꾸지 않는다 */
@@ -324,4 +324,36 @@ export function clockRuns(s: {
   throwing: boolean;
 }): boolean {
   return !s.intro && !s.confirmQuit && !s.ending && s.phase === 'question' && !s.noTimer && !s.throwing;
+}
+
+/** 기술 효과 한 번의 길: 어디서 어디로 날아가고, 맞는 순간(효과음·피해 글·흔들림)이 언제인가 */
+export interface MoveFxRoute {
+  name: FxName;
+  /** 효과 중심을 놓을 자리 (맞는 구구몬, 특수 기술은 쓴 구구몬) */
+  at: { x: number; y: number };
+  /** 날아가는 효과면 쏘는 구구몬의 자리, 아니면 null */
+  from: { x: number; y: number } | null;
+  /** 효과를 튼 뒤 맞는 순간까지 (ms) — 날아가는 시간. 날아가지 않으면 0 */
+  arriveMs: number;
+  /** 특수 기술: 쓴 구구몬 자신 위에서 */
+  onSelf: boolean;
+}
+
+/**
+ * 기술 효과의 길. 내 공격은 내 구구몬 → 야생, 적 공격은 야생 → 내 구구몬. 특수 기술은 쓴 구구몬 위에서 날아가지 않는다.
+ * 동작 줄이기(reduced)면 이동 없이 맞는 자리에서 바로. 맞는 쪽 자리를 못 구하면 null, 쏘는 쪽만 못 구하면 날아가지 않는다.
+ */
+export function moveFxRoute(
+  attacker: 'ally' | 'foe',
+  def: SkillDef,
+  points: { ally: { x: number; y: number } | null; foe: { x: number; y: number } | null },
+  reduced = false,
+): MoveFxRoute | null {
+  const name = skillFxName(def);
+  const onSelf = !!def.special;
+  const shooter = attacker === 'ally' ? points.ally : points.foe;
+  const target = onSelf ? shooter : attacker === 'ally' ? points.foe : points.ally;
+  if (!target) return null;
+  const ms = onSelf || reduced || !shooter ? 0 : fxTravelMs(name);
+  return { name, at: target, from: ms > 0 ? shooter : null, arriveMs: ms, onSelf };
 }

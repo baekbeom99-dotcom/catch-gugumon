@@ -65,7 +65,7 @@ import { creatureSprite } from '../art/creatureSprite';
 import { CapsuleBall } from '../art/CapsuleBall';
 import { pickCompanion } from '../companion';
 import { debugFlags } from '../debugFlags';
-import { playFx, preloadFx } from '../fx/playFx';
+import { playFx, preloadFx, prefersReducedMotion } from '../fx/playFx';
 import type { FxName } from '../fx/effects';
 import { endWildBattle, useFieldSession } from '../useFieldSession';
 import { HpBar, TimerBar } from './BattleBars';
@@ -86,6 +86,7 @@ import {
   skillFxName,
   skillMatchup,
   skillSfxPlan,
+  moveFxRoute,
   strikeMessage,
   tierAt,
   type GaugeStop,
@@ -282,24 +283,36 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
    */
   const moveFx = useCallback(
     (attacker: 'ally' | 'foe', def: SkillDef, upper: boolean, matchupValue: -1 | 0 | 1 | null = null) => {
-      // 효과음: 효과 그림과 같은 순간 (그림을 못 틀어도 소리는 난다)
-      for (const name of skillSfxPlan(attacker, def, upper, matchupValue)) playSfx(name);
       const canvas = fxRef.current;
-      if (!canvas) return;
       const ally = attacker === 'ally';
-      const name = skillFxName(def);
-      // 특수 기술(회복·방어·힌트·여유·충전)은 쓴 구구몬 자신 위에서, 방향 없이
-      const onSelf = !!def.special;
-      const at = fxPoint(onSelf === ally ? 'ally' : 'foe');
-      if (!at) return;
+      // 길: 날아가는 효과는 쏘는 구구몬 → 맞는 구구몬, 특수 기술은 쓴 구구몬 자신 위에서 방향 없이
+      const route = moveFxRoute(attacker, def, { ally: fxPoint('ally'), foe: fxPoint('foe') }, prefersReducedMotion());
+      // 맞는 순간(날아가는 시간만큼 뒤): 효과음·크리티컬·빗나감 글·흔들림. 날아가지 않으면 바로
+      const arrive = route?.arriveMs ?? 0;
+      stageRef.current?.style.setProperty('--fx-delay', `${arrive}ms`);
+      const sound = () => {
+        for (const name of skillSfxPlan(attacker, def, upper, matchupValue)) playSfx(name);
+      };
+      if (arrive > 0) later(sound, arrive);
+      else sound(); // 효과 그림과 같은 순간 (그림을 못 틀어도 소리는 난다)
+      if (!canvas || !route) return;
       const gold = speciesDef(ally ? companion : encounter.species).legend;
-      void playFx(canvas, name, at, { mirror: !ally && !onSelf, gold }).then((ok) => {
-        if (ok || !ally || onSelf) return;
+      void playFx(canvas, route.name, route.at, { mirror: !ally && !route.onSelf, gold, ...(route.from ? { from: route.from } : {}) }).then((ok) => {
+        if (ok || !ally || route.onSelf) return;
         const hitAt = fxPoint('foe');
         if (hitAt) void playFx(canvas, 'hit', hitAt);
       });
     },
-    [companion, encounter.species, fxPoint],
+    [companion, encounter.species, fxPoint, later],
+  );
+  /** 맞는 순간에 띄울 때: 날아가는 시간 뒤에 (지금 공격의 --fx-delay와 같은 값) */
+  const onArrive = useCallback(
+    (fn: () => void) => {
+      const ms = parseFloat(stageRef.current?.style.getPropertyValue('--fx-delay') || '0');
+      if (ms > 0) later(fn, ms);
+      else fn();
+    },
+    [later],
   );
   /**
    * 효과 하나를 한쪽 구구몬 위에 방향 없이 튼다 (주②의 스턴·회복·방어, 기절해서 못 움직임). 소리도 같은 순간.
@@ -361,6 +374,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const showFoeStrike = useCallback(
     (s: WildState, wound: Wound | null): boolean => {
       const hit = s.lastStrike ?? { damage: 0, dodged: false, crit: false, blocked: false };
+      stageRef.current?.style.setProperty('--fx-delay', '0ms'); // 날아오는 효과면 moveFx가 날아오는 시간으로 바꾼다
       if (hit.damage > 0) useGameStore.getState().damageCompanion(companion, hit.damage, wound ?? undefined);
       setStruckCount((n) => n + 1);
       const foeName = battleText.tierName(wildDef.name, s.tier);
@@ -375,9 +389,9 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
         moveFx('foe', foe, false);
         if (hit.dodged) {
           setDodgeSide('ally');
-          showBurst('dodge', 'ally');
+          onArrive(() => showBurst('dodge', 'ally'));
         } else if (hit.crit) {
-          showBurst('crit', 'ally');
+          onArrive(() => showBurst('crit', 'ally'));
         }
         setMessage(strikeMessage(foeName, foe.name, hit));
       }
@@ -387,7 +401,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       }
       return true;
     },
-    [companion, encounter.species, moveFx, sideFx, showBurst, wildDef],
+    [companion, encounter.species, moveFx, onArrive, sideFx, showBurst, wildDef],
   );
 
   /**
@@ -584,6 +598,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
     setWild(after);
     record(true, ms);
     setHitCount((n) => n + 1);
+    stageRef.current?.style.setProperty('--fx-delay', '0ms'); // 날아가는 효과면 moveFx가 날아가는 시간으로 바꾼다
     if (r.dodged) {
       // 빗나감: 기술 소리·몸짓은 그대로, 야생은 옆으로 비켜서고 칸은 안 깎인다
       for (const name of skillSfxPlan('ally', r.fired, false, null)) playSfx(name);
@@ -598,7 +613,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       // 윗단계(주②·주③·부속성)가 나가면 fxPower 소리 (특수 발동·대신 나간 기술은 upper가 아님). 그림은 나간 기술의 칸 그대로
       moveFx('ally', r.fired, r.upper, skillMatchup(r.fired, wildElement));
     }
-    if (r.crit) showBurst('crit', 'foe');
+    if (r.crit) onArrive(() => showBurst('crit', 'foe')); // 맞는 순간에
     // 주②의 효과(스턴·회복·방어): 성공했을 때만, 기술이 맞은 조금 뒤에 효과 그림·소리
     const effect = effectPlan(r);
     if (effect) later(() => sideFx(effect.fx, effect.sfx, effect.on), SKILL_EFFECT_DELAY_MS);

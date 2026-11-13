@@ -5,6 +5,7 @@
  *   1. 아래 EFFECTS에 이름: { load, speed, hold, screen, ... } 한 줄 (pixelfx 효과 경로는 node_modules/pixelfx/fx/ 아래)
  *   2. 틀 곳에서 playFx(canvas, '이름', 자리) — 미리 받으려면 preloadFx('이름')
  *   3. #/dev/field 화면(개발 서버)에서 버튼을 눌러 바로 볼 수 있다
+ * 날아가는 효과(motion: 'travel')는 fireball·ball-lightning·boulder·vine-whip: 쏘는 구구몬에서 맞는 구구몬까지 작은 구슬이 날아간 뒤 터진다. 날아가는 시간(travelMs)과 터짐(until ÷ speed)을 합쳐 0.6초 안.
  * 효과는 보기만 하는 것이라 게임 시간·규칙에 손대지 않는다.
  */
 import type { FxModule } from 'pixelfx';
@@ -34,9 +35,23 @@ export interface FxSpec {
   center?: { dx: number; dy: number };
   /** true면 뒤집어 틀지 않는다 (글자가 들어 있는 효과 — 뒤집으면 글자가 거꾸로 보인다) */
   noMirror?: boolean;
+  /**
+   * 움직임: 'travel'이면 공격하는 구구몬에서 맞는 구구몬까지 작은 구슬이 날아간 뒤 도착 지점에서 효과가 터진다.
+   * 없거나 'burst'면 맞는 구구몬 위에서 바로 터진다 (바닥에서 솟는 효과·특수 효과 등).
+   */
+  motion?: 'travel' | 'burst';
+  /** travel일 때 구슬이 날아가는 시간 (ms, 150~300). 터지는 시간(until ÷ speed)과 합쳐 600ms 안 */
+  travelMs?: number;
+  /** travel일 때 날아가는 구슬의 색 [가운데, 가장자리] */
+  orb?: [string, string];
   /** 개발 화면에 보이는 설명 */
   note: string;
 }
+
+/** 날아가는 시간의 한계 (이동 + 터짐이 기술 명중 연출 0.6초 안에 들어가야 한다) */
+export const FX_TOTAL_MAX_MS = 600;
+export const TRAVEL_MS_MIN = 150;
+export const TRAVEL_MS_MAX = 300;
 
 /** 황금 구구몬이 쏠 때의 금색 팔레트 — 효과마다 기본 색 개수(6·8·9)가 달라 그 길이에 맞춰 만든다 (어두운 금 → 흰빛) */
 const GOLD_RAMP = ['#3a1d05', '#6b3a0c', '#a8620f', '#e0961c', '#ffcf3a', '#ffe680', '#fff6cf', '#ffffff'];
@@ -85,10 +100,13 @@ export const EFFECTS = {
   // 긴 효과는 until로 앞부분만 자르고 speed로 빠르게 튼다 (실제로 트는 시간 = until ÷ speed ≤ 0.6초).
   // 자리 `at`은 효과의 무게중심(center)을 놓을 곳이라, 맞는 쪽 몬스터 그림 한가운데를 주면 효과 중심에 몬스터 몸이 온다. 방향 있는 효과는 왼쪽에서 오른쪽으로 날아간다.
   'vine-whip': {
-    center: { dx: 13.0, dy: -33.7 },
+    center: { dx: 13.2, dy: -32.8 },
     load: () => import('pixelfx/fx/nature/vine-whip'),
     until: 0.9,
-    speed: 1.6,
+    speed: 2.4,
+    motion: 'travel',
+    travelMs: 220,
+    orb: ['#d6f5b0', '#3f9a3a'],
     hold: false,
     screen: false,
     note: '풀 1번 — 덩굴 휘두르기 (왼쪽에서 오른쪽으로 뻗음, 1.4초 중 0.9초까지 빠르게)',
@@ -229,10 +247,13 @@ export const EFFECTS = {
     note: '땅 1번 — 솟는 바위 가시 (3.4초 중 1.5초까지 빠르게, 땅에 붙는 효과)',
   },
   boulder: {
-    center: { dx: 100.5, dy: -25.3 },
+    center: { dx: 102.3, dy: -25.6 },
     load: () => import('pixelfx/fx/nature/boulder'),
     until: 1.5,
-    speed: 2.5,
+    speed: 4,
+    motion: 'travel',
+    travelMs: 220,
+    orb: ['#d8c4a0', '#7a5a3a'],
     hold: false,
     screen: false,
     note: '땅 2번 — 굴러가는 큰 바위 (2.3초 중 1.5초까지 2.5배속, 왼쪽에서 오른쪽으로)',
@@ -247,10 +268,13 @@ export const EFFECTS = {
     note: '땅 3번 — 땅 흔들림 (3.1초 중 1.5초까지 빠르게, 땅에 붙는 효과)',
   },
   fireball: {
-    center: { dx: -43.1, dy: -4.4 },
+    center: { dx: -43.2, dy: -4.5 },
     load: () => import('pixelfx/fx/fire/fireball'),
     until: 0.6,
-    speed: 1,
+    speed: 1.6,
+    motion: 'travel',
+    travelMs: 220,
+    orb: ['#fff3b0', '#ff7a1a'],
     hold: false,
     screen: false,
     note: '불 1번 — 불덩이 (왼쪽에서 오른쪽으로, 반복 효과라 0.6초까지만)',
@@ -311,10 +335,13 @@ export const EFFECTS = {
     note: '물 부속성 — 물방울 구슬',
   },
   'ball-lightning': {
-    center: { dx: 23.0, dy: -38.3 },
+    center: { dx: 23.2, dy: -39.5 },
     load: () => import('pixelfx/fx/lightning/ball-lightning'),
     until: 1.2,
-    speed: 2,
+    speed: 3.2,
+    motion: 'travel',
+    travelMs: 220,
+    orb: ['#fffbd0', '#f5d90a'],
     hold: false,
     screen: false,
     note: '번개 부속성 — 번개 공이 지직',
@@ -652,4 +679,11 @@ export const EFFECTS = {
 } satisfies Record<string, FxSpec>;
 
 export type FxName = keyof typeof EFFECTS;
+
+/** 이 효과가 `from`에서 `at`까지 날아가는 시간 (ms). 날아가지 않으면 0 */
+export function fxTravelMs(name: FxName, hasFrom = true): number {
+  const spec: FxSpec = EFFECTS[name];
+  return hasFrom && !spec.screen && spec.motion === 'travel' ? (spec.travelMs ?? 0) : 0;
+}
+
 export const FX_NAMES = Object.keys(EFFECTS) as FxName[];
