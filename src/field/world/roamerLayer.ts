@@ -21,10 +21,11 @@ export function buildSprites(roamers: Roamer[], stageOf: (r: Roamer) => 1 | 2 | 
   return roamers.map((roamer) => {
     const art = creatureArt(roamer.species);
     const sleeping = roamer.motion === 'sleep';
+    const stage = stageOf(roamer);
     return {
       roamer,
-      img: companionImage(roamer.species, 96, sleeping ? 'sleep' : 'idle'),
-      scale: STAGE_SCALE[stageOf(roamer)],
+      img: companionImage(roamer.species, 96, sleeping ? 'sleep' : 'idle', stage),
+      scale: STAGE_SCALE[stage],
       fill: art.fill,
       foot: art.foot,
     };

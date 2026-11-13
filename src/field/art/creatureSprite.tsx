@@ -27,7 +27,7 @@ export function creatureSprite(id: SpeciesId, { view, stage = 1, mood = 'idle', 
   const scale = STAGE_SCALE[stage] * (view === 'back' ? BACK_VIEW_SCALE : 1);
   const px = Math.round(size * scale);
   if (art.type === 'image') {
-    const { src, flip } = imageView(art, view);
+    const { src, flip } = imageView(art, view, stage);
     const img = <img src={src} width={px} height={px} alt="" draggable={false} style={{ imageRendering: 'pixelated', display: 'block' }} />;
     return flip ? flipped(img) : img;
   }

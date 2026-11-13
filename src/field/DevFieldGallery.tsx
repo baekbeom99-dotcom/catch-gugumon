@@ -175,6 +175,12 @@ export function DevFieldGallery() {
                   {creatureSprite(s.id, { view: 'front', mood: m, color: DAN_COLORS[7], size: 72 })}
                 </span>
               ))}
+              {creatureArt(s.id).type === 'image' &&
+                STAGES.map((st) => (
+                  <span key={'f' + st} title={`앞모습 ${displayName(s.id, st)}`}>
+                    {creatureSprite(s.id, { view: 'front', stage: st, color: DAN_COLORS[7], size: 72 })}
+                  </span>
+                ))}
               {STAGES.map((st) => (
                 <span key={st} title={displayName(s.id, st)}>
                   {creatureSprite(s.id, { view: 'back', stage: st, color: DAN_COLORS[5], size: 72 })}

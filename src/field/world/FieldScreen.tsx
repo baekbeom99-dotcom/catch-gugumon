@@ -502,7 +502,8 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
         const fromX = s.move ? s.cx + (s.move.fx - s.cx) * t : s.cx;
         const fromY = s.move ? s.cy + (s.move.fy - s.cy) * t : s.cy;
         const art = creatureArt(compId);
-        comp = { x: fromX, y: fromY, img: companionImage(compId), scale: STAGE_SCALE[species[compId]?.stage ?? 1], fill: art.fill, foot: art.foot };
+        const compStage = species[compId]?.stage ?? 1;
+        comp = { x: fromX, y: fromY, img: companionImage(compId, 96, 'idle', compStage), scale: STAGE_SCALE[compStage], fill: art.fill, foot: art.foot };
       }
       const stepT = s.move ? Math.min(1, (now - s.move.start) / STEP_MS) : null;
       const sprites = s.roamers.length > 0 ? buildSprites(s.roamers, (r) => useGameStore.getState().field.species[r.species]?.stage ?? 1) : undefined;

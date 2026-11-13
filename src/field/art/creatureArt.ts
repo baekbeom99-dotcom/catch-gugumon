@@ -12,17 +12,26 @@
  */
 import type { MonsterKind } from '../../domain/battle';
 import { speciesDef, type SpeciesId } from '../../domain/field/creatures';
+import { LOCAL_SPRITES } from './localSprites';
 
 /** MonsterSprite는 둘레에 여백이 있다: 몸이 한 칸쯤 차게 이만큼 키워 그린다 (viewBox 224 중 몸통이 약 155) */
 export const MONSTER_FILL = 1.45;
 /** MonsterSprite에서 발끝이 그림 높이의 어디쯤인지 (viewBox -24~200 중 발끝 ≈ 195) */
 export const MONSTER_FOOT = 0.98;
 
+/** 진화 단계 하나의 그림 */
+export interface StageArt {
+  front: string;
+  back?: string;
+}
+
 export interface ImageArtEntry {
   /** 앞모습 그림 주소 (import 한 파일) */
   front: string;
   /** 뒷모습 (내 구구몬이 싸울 때). 없으면 앞모습을 뒤집는다 */
   back?: string;
+  /** 진화 1·2·3단계별 그림 (선택). 있으면 그 단계 그림을 쓰고, 없으면 front/back */
+  stages?: [StageArt, StageArt, StageArt];
   /** 필드 동행으로 그릴 때 한 칸 대비 크기 (기본 1) */
   fill?: number;
   /** 발끝이 그림 높이의 어디쯤인지 0~1 (기본 1 = 맨 아래) */
@@ -31,22 +40,29 @@ export interface ImageArtEntry {
 
 export type CreatureArt =
   | { type: 'monster'; kind: MonsterKind; golden: boolean; fill: number; foot: number }
-  | { type: 'image'; front: string; back?: string; fill: number; foot: number };
+  | { type: 'image'; front: string; back?: string; stages?: [StageArt, StageArt, StageArt]; fill: number; foot: number };
 
 /** 이미지로 바꾼 종. 여기 없는 종은 몬스터 SVG */
 const IMAGE_ART: Partial<Record<SpeciesId, ImageArtEntry>> = {
   // cloud: { front: cloudFront, back: cloudBack },
+  // 이 PC에만 있는 테스트 그림 (파일이 없으면 비어 있음 — localSprites.ts)
+  ...LOCAL_SPRITES,
 };
 
 export function creatureArt(id: SpeciesId, images: Partial<Record<SpeciesId, ImageArtEntry>> = IMAGE_ART): CreatureArt {
   const img = images[id];
-  if (img) return { type: 'image', front: img.front, back: img.back, fill: img.fill ?? 1, foot: img.foot ?? 1 };
+  if (img) {
+    const art: CreatureArt = { type: 'image', front: img.front, back: img.back, fill: img.fill ?? 1, foot: img.foot ?? 1 };
+    if (img.stages) art.stages = img.stages;
+    return art;
+  }
   const def = speciesDef(id);
   return { type: 'monster', kind: def.kind, golden: def.legend, fill: MONSTER_FILL, foot: MONSTER_FOOT };
 }
 
 /** 이미지 그림에서 보는 쪽에 맞는 파일과 뒤집기 여부 */
-export function imageView(art: Extract<CreatureArt, { type: 'image' }>, view: 'front' | 'back' | 'mini'): { src: string; flip: boolean } {
-  if (view !== 'back') return { src: art.front, flip: false };
-  return art.back ? { src: art.back, flip: false } : { src: art.front, flip: true };
+export function imageView(art: Extract<CreatureArt, { type: 'image' }>, view: 'front' | 'back' | 'mini', stage: 1 | 2 | 3 = 1): { src: string; flip: boolean } {
+  const pick = art.stages?.[stage - 1] ?? art;
+  if (view !== 'back') return { src: pick.front, flip: false };
+  return pick.back ? { src: pick.back, flip: false } : { src: pick.front, flip: true };
 }

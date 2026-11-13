@@ -4,7 +4,7 @@ import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { MonsterSprite } from '../../art/MonsterSprite';
 import type { SpeciesId } from '../../domain/field/creatures';
-import { creatureArt } from './creatureArt';
+import { creatureArt, imageView } from './creatureArt';
 import { speciesColor } from './creatureSprite';
 
 const cache = new Map<string, HTMLImageElement>();
@@ -13,15 +13,15 @@ const cache = new Map<string, HTMLImageElement>();
  * 구운 이미지를 돌려준다. 아직 읽는 중이어도 이미지를 돌려주고, 다 읽기 전에는 그리지 않는 쪽이 알아서 건너뛴다.
  * 주의: React가 그리는 중(컴포넌트 본문·useEffect 안)에 부르면 몬스터 SVG를 굽지 못해 null — rAF·setTimeout 안에서 부른다.
  */
-/** mood: 'sleep'이면 눈 감은 얼굴로 구운 그림(이미지 그림 종은 mood 없이 같은 그림) */
-export function companionImage(id: SpeciesId, size = 96, mood: 'idle' | 'sleep' = 'idle'): HTMLImageElement | null {
-  const key = `${id}:${size}:${mood}`;
+/** stage: 이미지 그림이 진화 단계별로 있으면 그 단계 그림. mood: 'sleep'이면 눈 감은 얼굴로 구운 그림(이미지 그림 종은 mood 없이 같은 그림) */
+export function companionImage(id: SpeciesId, size = 96, mood: 'idle' | 'sleep' = 'idle', stage: 1 | 2 | 3 = 1): HTMLImageElement | null {
+  const key = `${id}:${size}:${mood}:${stage}`;
   const hit = cache.get(key);
   if (hit) return hit;
   try {
     const art = creatureArt(id);
     let src: string;
-    if (art.type === 'image') src = art.front;
+    if (art.type === 'image') src = imageView(art, 'front', stage).src;
     else {
       const host = document.createElement('div');
       const root = createRoot(host);
