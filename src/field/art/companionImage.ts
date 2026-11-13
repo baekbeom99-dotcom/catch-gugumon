@@ -4,7 +4,8 @@ import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { MonsterSprite } from '../../art/MonsterSprite';
 import type { SpeciesId } from '../../domain/field/creatures';
-import { creatureArt, imageView } from './creatureArt';
+import { creatureArt, imageView, stageSheets } from './creatureArt';
+import { DIR_ROW, frameAt, type SheetDir } from './spriteSheet';
 import { speciesColor } from './creatureSprite';
 
 const cache = new Map<string, HTMLImageElement>();
@@ -40,4 +41,43 @@ export function companionImage(id: SpeciesId, size = 96, mood: 'idle' | 'sleep' 
   } catch {
     return null;
   }
+}
+
+/** 캔버스에 한 칸만 오려 그릴 시트 한 장면 */
+export interface SheetFrame {
+  img: HTMLImageElement;
+  /** 시트 안 칸 번호(가로)·줄(세로)과 칸 한 변 */
+  col: number;
+  row: number;
+  side: number;
+  /** 정지 그림 대비 칸 크기 배율, 칸 안 발끝 높이 — fill에 곱하고 foot을 바꿔 그린다 */
+  scale: number;
+  foot: number;
+}
+
+const sheetCache = new Map<string, HTMLImageElement>();
+
+function sheetImg(url: string): HTMLImageElement {
+  let img = sheetCache.get(url);
+  if (!img) {
+    img = new Image();
+    img.src = url;
+    sheetCache.set(url, img);
+  }
+  return img;
+}
+
+/**
+ * 지금 그릴 시트 장면. 시트가 없는 종·아직 못 읽은 이미지면 undefined → 정지 그림.
+ * anim: 걷기·가만히·잠, dir: 걷기·가만히의 방향, elapsedMs: 프레임을 고를 시간
+ */
+export function companionSheet(id: SpeciesId, stage: 1 | 2 | 3, anim: 'idle' | 'walk' | 'sleep', dir: SheetDir, elapsedMs: number): SheetFrame | undefined {
+  const art = creatureArt(id);
+  const sheets = stageSheets(art, stage);
+  if (!sheets) return undefined;
+  const a = anim === 'sleep' ? (sheets.sleep ?? sheets.idle) : sheets[anim];
+  const row = a === sheets.sleep ? 0 : DIR_ROW[dir];
+  const img = sheetImg(a.url);
+  if (!(img.complete && img.naturalWidth > 0)) return undefined;
+  return { img, col: frameAt(a.ms, elapsedMs), row, side: sheets.side, scale: sheets.scale, foot: sheets.foot };
 }

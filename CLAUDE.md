@@ -19,7 +19,7 @@ React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/fiel
 | `src/field/shop/` | 마을 상점 팝업: `ShopPopup`, `CapsuleTab`(캡슐 탭), `CapsulePractice`(단 선택 없이 무작위 출제, 1회 5개), `PotionTab`·`HealPractice`(회복 연습), `PracticeCard`(연습 문제 카드), `shopText`(글), `shop.css` |
 | `src/field/world/` | 필드 걷기: `FieldScreen`, `fieldRenderer`(캔버스), `Joystick`, `FieldHud`(왼쪽 위 캡슐·도감·체력), `loadField`, `maps/`(필드마다 지도·타일 그림) |
 | `src/field/battle/` | 야생 전투: `WildBattleScreen`, `useQuestionFeed`(문제 받기), `BattleBars`(`HpBar`·`TimerBar` — 눈금·구간 색만, 글자 없음), `battleText`(화면 글), `SkillPicker`(기술 버튼 3개 한 줄·이름만, 특수만 설명 한 줄), `skillUse`(발동·글·`gaugeStops`/`gaugeZones`·`skillLines`/`buttonLines` 버튼 문구 — 선택창·관리 화면 카드도 같은 함수) |
-| `src/field/art/` | 그림: `creatureArt`(구구몬 그림 등록표), `creatureSprite`, `companionImage`, `hero`(주인공), `pixelArt`(픽셀 그림 틀·표지판), `CapsuleBall` |
+| `src/field/art/` | 그림: `creatureArt`(구구몬 그림 등록표), `creatureSprite`, `companionImage`, `spriteSheet`(시트 프레임·방향 순수 함수), `localSprites`(이 PC 전용 테스트 그림·시트 등록), `hero`(주인공), `pixelArt`(픽셀 그림 틀·표지판), `CapsuleBall` |
 | `src/field/fx/` | 효과: `effects`(효과 목록), `playFx`(틀기) |
 | `src/field/` | 기술 화면: `SkillOfferDialog`(기술 선택창: 새 기술 + 그 자리 기술 하나), `SkillManager`(도감 기술 관리: 주속성 사슬·부속성 자리·특수 자리 세 구역), `SkillCard`, `skillText`(기술 글) |
 | `src/field/` | 그 밖: `StarterScreen`, `FieldDexScreen`, `useFieldSession`(저장 안 되는 만남 상태), `debugFlags`(디버그 스위치), `DevFieldGallery`(#/dev/field) |
@@ -85,6 +85,7 @@ npm run build                # 배포용 빌드 (tsc -b && vite build)
 | 속성·기술 효과 | `src/field/fx/effects.ts`(효과 옵션·`center`: 그린 화소의 무게중심, 잴 때는 `tests/field/fxMeasure.ts`; 글자 든 효과는 `noMirror`)와 `src/domain/field/elements.ts`의 `ELEMENT_FX`(평소 4칸: 주①②③+부 — 개정 3에서 실제 쓰이는 칸)·`SPECIAL_FX`(특수 효과, 스턴 포함)·`STRONG_FX`(강력 4칸, 보관만 하고 쓰지 않음) | `#/dev/field`에서 속성별 버튼으로 확인, 효과 시간 ≤ 0.6초(`tests/field/elements.test.ts`) |
 | 전투 화면 글 | `src/field/battle/battleText.ts` | E2E가 글을 찾으면 `e2e/field.spec.ts`도 |
 | 구구몬 그림 교체 | 파일을 `src/field/art/creatures/`에 넣고 `src/field/art/creatureArt.ts`의 `IMAGE_ART`에 한 줄 | `#/dev/field`에서 앞·뒤·동행 크기 확인 (퀴즈 모험 몬스터 그림은 그대로) |
+| 움직이는 시트(걷기·가만히·맞음·잠) | `node scripts/cut-sprites.mjs [번호...]`가 원본(SpriteCollab, `SPRITE_SRC`)에서 `src/field/art/creatures/pmd/<번호>-front·back·idle·walk·hurt·sleep.png`+`manifest.json`을 만든다 (.gitignore — 저장소·배포에 넣지 않음, 없으면 정지 그림·SVG) | `#/dev/field`에서 가만히·걷기 4방향·맞음·잠 확인 |
 | 주인공 그림 | `src/field/art/hero.ts` (32×32 글자 배열) | `tests/field/pixelArt.test.ts`가 크기 확인 |
 | 지도·타일 | `src/field/world/maps/<필드>.ts`·`<필드>Tiles.ts` | `tests/field/maps.test.ts` |
 | 효과 추가 | `src/field/fx/effects.ts`의 `EFFECTS`에 한 줄 → 틀 곳에서 `playFx(canvas, '이름', 자리)` | `#/dev/field`에서 버튼으로 확인, 이름 목록 테스트(`pixelArt.test.ts`) |

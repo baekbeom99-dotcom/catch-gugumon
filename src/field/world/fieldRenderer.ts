@@ -2,6 +2,7 @@ import type { MapId } from '../../domain/field/fields';
 import type { Dir, FieldMap, Tile } from '../../domain/field/movement';
 import { WATER_FRAME_MS } from '../../domain/field/tuning';
 import { TILE_PX, VIEW_TILES_W } from './padDirection';
+import type { SheetFrame } from '../art/companionImage';
 import { HERO_SPRITES, heroFrame } from '../art/hero';
 import { type TileSet, bakeTiles } from '../art/pixelArt';
 import { type RoamerSprite, drawRoamers } from './roamerLayer';
@@ -42,6 +43,8 @@ export interface Companion {
   /** 그림 둘레 여백만큼 키우는 배율, 발끝 높이(0~1) — creatureArt 등록표 값 */
   fill: number;
   foot: number;
+  /** 시트 장면 (있고 다 읽었으면 정지 그림 img 대신 이걸 그린다) */
+  sheet?: SheetFrame;
 }
 
 export interface Anim {
@@ -117,7 +120,11 @@ export function drawField(
     const left = Math.round(companion.x * tile) - cx;
     const top = Math.round(companion.y * tile) - cy;
     const img = companion.img;
-    if (img && img.complete && img.naturalWidth > 0) {
+    const sh = companion.sheet;
+    if (sh) {
+      const r = companionRect(left, top, tile, { scale: companion.scale, fill: companion.fill * sh.scale, foot: sh.foot });
+      ctx.drawImage(sh.img, sh.col * sh.side, sh.row * sh.side, sh.side, sh.side, r.x, r.y, r.size, r.size);
+    } else if (img && img.complete && img.naturalWidth > 0) {
       const r = companionRect(left, top, tile, companion);
       ctx.drawImage(img, r.x, r.y, r.size, r.size);
     } else {

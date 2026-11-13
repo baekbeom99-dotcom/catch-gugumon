@@ -9,8 +9,9 @@ import type { MonsterMood } from '../art/MonsterSprite';
 import { SPECIES } from '../domain/field/creatures';
 import { displayName } from '../domain/field/growth';
 import { companionImage } from './art/companionImage';
-import { creatureArt } from './art/creatureArt';
-import { creatureSprite, speciesColor } from './art/creatureSprite';
+import { creatureArt, stageSheets } from './art/creatureArt';
+import { SheetSprite, creatureSprite, speciesColor } from './art/creatureSprite';
+import { DIR_ROW, HURT_ROW, type SheetDir } from './art/spriteSheet';
 import { CapsuleBall } from './art/CapsuleBall';
 import { CAPSULE_NAMES, CAPSULE_TYPES } from '../domain/field/capsules';
 import { HERO_DIRS, HERO_SPRITES } from './art/hero';
@@ -24,6 +25,54 @@ const MOODS: MonsterMood[] = ['idle', 'hit', 'happy', 'sleep'];
 const STAGES = [1, 2, 3] as const;
 const row = { display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' } as const;
 const box = { background: '#f3f0e8', borderRadius: 8, padding: 8 } as const;
+
+const DIR_NAMES: Record<SheetDir, string> = { down: '앞', right: '오른쪽', up: '뒤', left: '왼쪽' };
+
+/** 시트(걷기·가만히·맞음·잠)가 있는 종만: 단계별로 움직임을 재생해 본다 */
+function SheetPreview({ id }: { id: (typeof SPECIES)[number]['id'] }) {
+  const art = creatureArt(id);
+  return (
+    <>
+      {STAGES.map((st) => {
+        const sh = stageSheets(art, st);
+        if (!sh) return null;
+        const cap = (t: string) => <small style={{ display: 'block', textAlign: 'center' }}>{t}</small>;
+        return (
+          <div key={st} style={{ ...row, marginTop: 6 }} data-testid={`dev-sheet-${id}-${st}`}>
+            <strong style={{ width: '100%' }}>
+              시트 {displayName(id, st)} (칸 {sh.side}px)
+            </strong>
+            {(['down', 'up'] as const).map((d) => (
+              <figure key={'i' + d} style={{ margin: 0 }}>
+                <SheetSprite sheets={sh} anim={sh.idle} row={DIR_ROW[d]} px={72} />
+                {cap(`가만히 ${DIR_NAMES[d]}`)}
+              </figure>
+            ))}
+            {(['down', 'right', 'up', 'left'] as const).map((d) => (
+              <figure key={'w' + d} style={{ margin: 0 }}>
+                <SheetSprite sheets={sh} anim={sh.walk} row={DIR_ROW[d]} px={72} />
+                {cap(`걷기 ${DIR_NAMES[d]}`)}
+              </figure>
+            ))}
+            {sh.hurt &&
+              (['front', 'back'] as const).map((v) => (
+                <figure key={'h' + v} style={{ margin: 0 }}>
+                  <SheetSprite sheets={sh} anim={sh.hurt!} row={HURT_ROW[v]} px={72} />
+                  {cap(v === 'front' ? '맞음 앞' : '맞음 뒤')}
+                </figure>
+              ))}
+            {sh.sleep && (
+              <figure style={{ margin: 0 }}>
+                <SheetSprite sheets={sh} anim={sh.sleep} row={0} px={72} />
+                {cap('잠')}
+              </figure>
+            )}
+          </div>
+        );
+      })}
+    </>
+  );
+}
 
 function DebugSwitches() {
   const [flags, setFlags] = useState(debugFlags);
@@ -189,6 +238,7 @@ export function DevFieldGallery() {
               {creatureSprite(s.id, { view: 'mini', color: speciesColor(s.id), size: 40 })}
               <CompanionPreview id={s.id} />
             </div>
+            <SheetPreview id={s.id} />
           </div>
         ))}
       </section>

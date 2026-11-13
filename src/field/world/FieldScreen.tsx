@@ -5,7 +5,8 @@ import { displayName } from '../../domain/field/growth';
 import { useSessionStore } from '../../store/useSessionStore';
 import type { FieldNotice } from '../../store/fieldData';
 import { skillDef } from '../../domain/field/skills';
-import { companionImage } from '../art/companionImage';
+import { companionImage, companionSheet } from '../art/companionImage';
+import { type SheetDir, dirFromDelta } from '../art/spriteSheet';
 import { creatureArt } from '../art/creatureArt';
 import { STAGE_SCALE } from '../art/creatureSprite';
 import { playFx, preloadFx, prefersReducedMotion } from '../fx/playFx';
@@ -204,6 +205,8 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
     /** 동행이 서 있는 칸 (걸음이 끝날 때마다 주인공이 방금 떠난 칸으로) */
     cx: 0,
     cy: 0,
+    /** 동행이 마지막으로 향한 방향 (서 있을 때 이 방향 그림) */
+    compDir: 'down' as SheetDir,
     /** 알림 창이 떠 있으면 걷지 않는다 */
     noticeOpen: false,
     /** 상점 팝업이 떠 있으면 걷지 않는다 */
@@ -503,10 +506,14 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
         const fromY = s.move ? s.cy + (s.move.fy - s.cy) * t : s.cy;
         const art = creatureArt(compId);
         const compStage = species[compId]?.stage ?? 1;
-        comp = { x: fromX, y: fromY, img: companionImage(compId, 96, 'idle', compStage), scale: STAGE_SCALE[compStage], fill: art.fill, foot: art.foot };
+        // 동행이 가는 쪽 = 지금 걸음에서 동행이 향하는 칸(주인공이 떠나는 칸) 방향
+        const d = s.move ? dirFromDelta(s.move.fx - s.cx, s.move.fy - s.cy) : null;
+        if (d) s.compDir = d;
+        const sheet = companionSheet(compId, compStage, d ? 'walk' : 'idle', s.compDir, now);
+        comp = { x: fromX, y: fromY, img: companionImage(compId, 96, 'idle', compStage), scale: STAGE_SCALE[compStage], fill: art.fill, foot: art.foot, sheet };
       }
       const stepT = s.move ? Math.min(1, (now - s.move.start) / STEP_MS) : null;
-      const sprites = s.roamers.length > 0 ? buildSprites(s.roamers, (r) => useGameStore.getState().field.species[r.species]?.stage ?? 1) : undefined;
+      const sprites = s.roamers.length > 0 ? buildSprites(s.roamers, (r) => useGameStore.getState().field.species[r.species]?.stage ?? 1, now) : undefined;
       const cam = drawField(ctx, map, view, hx, hy, s.facing, comp, { now, step: stepT }, sprites);
       s.camX = cam.cx;
       s.camY = cam.cy;

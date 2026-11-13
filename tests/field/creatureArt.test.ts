@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { SPECIES } from '../../src/domain/field/creatures';
-import { creatureArt, imageView, MONSTER_FILL, MONSTER_FOOT } from '../../src/field/art/creatureArt';
+import { creatureArt, imageView, stageSheets, MONSTER_FILL, MONSTER_FOOT } from '../../src/field/art/creatureArt';
 import { buildLocalSprites } from '../../src/field/art/localSprites';
 import { companionRect } from '../../src/field/world/fieldRenderer';
 
@@ -76,3 +76,43 @@ describe('로컬 스프라이트 등록', () => {
     expect(buildLocalSprites({ './creatures/pmd/0001-front.png': 'a' }, map)).toEqual({});
   });
 });
+
+describe('시트 등록', () => {
+  const map = { cloud: { ids: ['0001'], fill: 1.0, foot: 0.98 } };
+  const files = {
+    './creatures/pmd/0001-front.png': 'f', './creatures/pmd/0001-back.png': 'b',
+    './creatures/pmd/0001-idle.png': 'i', './creatures/pmd/0001-walk.png': 'w',
+    './creatures/pmd/0001-hurt.png': 'h', './creatures/pmd/0001-sleep.png': 's',
+  };
+  const manifest = {
+    '0001': {
+      side: 70, baseSide: 44, foot: 0.986,
+      idle: { ms: [667, 100, 100], rows: 4 }, walk: { ms: [67, 67], rows: 4 },
+      hurt: { ms: [33, 133], rows: 2 }, sleep: { ms: [500, 583], rows: 1 },
+    },
+  };
+  it('manifest가 있으면 단계에 시트를 붙이고 크기 보정값을 채운다', () => {
+    const sh = buildLocalSprites(files, map, manifest).cloud?.stages?.[0].sheets;
+    expect(sh?.idle).toEqual({ url: 'i', ms: [667, 100, 100], rows: 4 });
+    expect(sh?.walk.url).toBe('w');
+    expect(sh?.hurt?.rows).toBe(2);
+    expect(sh?.sleep?.url).toBe('s');
+    expect(sh?.scale).toBeCloseTo(70 / 44, 5);
+    expect(sh?.foot).toBe(0.986);
+    expect(sh?.side).toBe(70);
+  });
+  it('manifest나 시트 파일이 없으면 시트 없이 정지 그림만', () => {
+    expect(buildLocalSprites(files, map).cloud?.stages?.[0].sheets).toBeUndefined();
+    const noWalk = { ...files };
+    delete (noWalk as Record<string, string>)['./creatures/pmd/0001-walk.png'];
+    const r = buildLocalSprites(noWalk, map, manifest);
+    expect(r.cloud?.stages?.[0].sheets).toBeUndefined();
+    expect(r.cloud?.stages?.[0].front).toBe('f');
+  });
+  it('stageSheets: 시트 있는 이미지만 돌려준다', () => {
+    const imgs = buildLocalSprites(files, map, manifest);
+    expect(stageSheets(creatureArt('cloud', imgs), 2)?.side).toBe(70);
+    expect(stageSheets(creatureArt('cloud', {}), 1)).toBeUndefined();
+  });
+});
+

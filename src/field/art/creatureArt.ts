@@ -19,10 +19,34 @@ export const MONSTER_FILL = 1.45;
 /** MonsterSprite에서 발끝이 그림 높이의 어디쯤인지 (viewBox -24~200 중 발끝 ≈ 195) */
 export const MONSTER_FOOT = 0.98;
 
+/** 시트 한 가지(걷기 등): 가로=프레임, 세로=줄. ms는 프레임별 보이는 시간 */
+export interface SheetAnim {
+  url: string;
+  ms: number[];
+  rows: number;
+}
+
+/**
+ * 한 단계의 시트 묶음 (scripts/cut-sprites.mjs 가 만든다). 칸은 모두 side×side 정사각형.
+ * scale = side / 정지 그림 크기: 시트 칸이 더 크므로 이만큼 키워 그려야 몸이 정지 그림과 같은 크기다.
+ * foot = 칸 높이 중 발끝 위치(0~1)
+ */
+export interface StageSheets {
+  side: number;
+  scale: number;
+  foot: number;
+  idle: SheetAnim;
+  walk: SheetAnim;
+  hurt?: SheetAnim;
+  sleep?: SheetAnim;
+}
+
 /** 진화 단계 하나의 그림 */
 export interface StageArt {
   front: string;
   back?: string;
+  /** 움직이는 시트 (선택, 없으면 정지 그림) */
+  sheets?: StageSheets;
 }
 
 export interface ImageArtEntry {
@@ -58,6 +82,12 @@ export function creatureArt(id: SpeciesId, images: Partial<Record<SpeciesId, Ima
   }
   const def = speciesDef(id);
   return { type: 'monster', kind: def.kind, golden: def.legend, fill: MONSTER_FILL, foot: MONSTER_FOOT };
+}
+
+/** 이 단계의 시트 묶음 (없으면 undefined = 정지 그림) */
+export function stageSheets(art: CreatureArt, stage: 1 | 2 | 3 = 1): StageSheets | undefined {
+  if (art.type !== 'image') return undefined;
+  return art.stages?.[stage - 1]?.sheets;
 }
 
 /** 이미지 그림에서 보는 쪽에 맞는 파일과 뒤집기 여부 */

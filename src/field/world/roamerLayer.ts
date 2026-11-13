@@ -2,9 +2,10 @@
 import { ROAM_JUMP_MS, ROAM_MOVE_MS } from '../../domain/field/tuning';
 import type { Pos } from '../../domain/field/movement';
 import type { Roamer } from '../../domain/field/roam';
-import { companionImage } from '../art/companionImage';
+import { type SheetFrame, companionImage, companionSheet } from '../art/companionImage';
 import { creatureArt } from '../art/creatureArt';
 import { STAGE_SCALE } from '../art/creatureSprite';
+import { type SheetDir, dirFromDelta } from '../art/spriteSheet';
 
 export interface RoamerSprite {
   roamer: Roamer;
@@ -12,22 +13,34 @@ export interface RoamerSprite {
   scale: number;
   fill: number;
   foot: number;
+  /** 시트 장면 (시트가 있는 종, 다 읽었을 때) */
+  sheet?: SheetFrame;
 }
+
+/** 종마다 마지막으로 향한 방향 (서 있을 때 이 방향 그림을 쓴다) */
+const lastDir = new Map<string, SheetDir>();
 
 type RectFn = (left: number, top: number, tile: number, c: { scale: number; fill: number; foot: number }) => { x: number; y: number; size: number };
 
 /** 구구몬 목록 → 그릴 거리. rAF 안에서만 부른다 (그림 굽기 때문) */
-export function buildSprites(roamers: Roamer[], stageOf: (r: Roamer) => 1 | 2 | 3): RoamerSprite[] {
+export function buildSprites(roamers: Roamer[], stageOf: (r: Roamer) => 1 | 2 | 3, now = 0): RoamerSprite[] {
   return roamers.map((roamer) => {
     const art = creatureArt(roamer.species);
     const sleeping = roamer.motion === 'sleep';
     const stage = stageOf(roamer);
+    let anim: 'idle' | 'walk' | 'sleep' = sleeping ? 'sleep' : 'idle';
+    if (roamer.motion === 'move') {
+      anim = 'walk';
+      const d = dirFromDelta(roamer.x - roamer.fromX, roamer.y - roamer.fromY);
+      if (d) lastDir.set(roamer.species, d);
+    }
     return {
       roamer,
       img: companionImage(roamer.species, 96, sleeping ? 'sleep' : 'idle', stage),
       scale: STAGE_SCALE[stage],
       fill: art.fill,
       foot: art.foot,
+      sheet: companionSheet(roamer.species, stage, anim, lastDir.get(roamer.species) ?? 'down', now),
     };
   });
 }
@@ -68,11 +81,14 @@ export function drawRoamers(ctx: CanvasRenderingContext2D, sprites: RoamerSprite
     const pose = roamerPose(sp.roamer, now);
     const left = Math.round(pose.x * tile) - cx;
     const top = Math.round((pose.y - pose.lift) * tile) - cy;
-    const r = rectOf(left, top, tile, sp);
-    const h = Math.round(r.size * pose.breathe);
+    const sh = sp.sheet;
+    const r = rectOf(left, top, tile, sh ? { scale: sp.scale, fill: sp.fill * sh.scale, foot: sh.foot } : sp);
+    const h = Math.round(r.size * (sh ? 1 : pose.breathe)); // 시트는 그림이 움직이니 숨쉬기 늘림 없음
     const y = r.y + r.size - h; // 발끝은 그대로, 위로만 늘고 줄어든다
     const img = sp.img;
-    if (img && img.complete && img.naturalWidth > 0) {
+    if (sh) {
+      ctx.drawImage(sh.img, sh.col * sh.side, sh.row * sh.side, sh.side, sh.side, r.x, y, r.size, h);
+    } else if (img && img.complete && img.naturalWidth > 0) {
       ctx.drawImage(img, r.x, y, r.size, h);
     } else {
       ctx.fillStyle = '#ffb74d';
