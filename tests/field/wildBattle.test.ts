@@ -62,12 +62,12 @@ describe('wildBattle: 문제 시간·정답', () => {
     expect(tick(s, 100, ok).timeLeftMs).toBe(6900);
     for (const phase of ['pick', 'hit', 'counter', 'struck', 'hint', 'dizzy'] as const) expect(tick({ ...s, phase }, 100, ok)).toEqual({ ...s, phase });
   });
-  it('시간이 다 되면 피격(timedOut), 체력 −25, 힌트로', () => {
+  it('시간이 다 되면 피격(timedOut), 체력 −13, 힌트로', () => {
     let s = createWild('normal', 5, 100);
     for (let i = 0; i < 27; i++) s = tick(s, 250, ok);
     expect(s).toMatchObject({ phase: 'question', timeLeftMs: 250 });
     s = tick(s, 250, ok);
-    expect(s).toMatchObject({ phase: 'struck', timedOut: true, allyHp: 75, timeLeftMs: 0 });
+    expect(s).toMatchObject({ phase: 'struck', timedOut: true, allyHp: 87, timeLeftMs: 0 });
     expect(resumeWild(s).phase).toBe('hint');
     expect(resumeWild(resumeWild(s))).toMatchObject({ phase: 'question', timeLeftMs: 7000 });
   });
@@ -81,7 +81,7 @@ describe('wildBattle: 문제 시간·정답', () => {
 });
 
 describe('wildBattle: 적의 공격', () => {
-  it.each([['weak', 5], ['normal', 4], ['strong', 3], ['mighty', 2], ['legend', 3]] as const)('%s: 오답 %i번에 쓰러지고 힌트 없이 끝', (t, n) => {
+  it.each([['weak', 10], ['normal', 8], ['strong', 6], ['mighty', 4], ['legend', 6]] as const)('%s: 오답 %i번에 쓰러지고 힌트 없이 끝', (t, n) => {
     let s = createWild(t, 5, 100);
     for (let i = 0; i < n - 1; i++) {
       s = answerWild(s, false, ok);
@@ -93,12 +93,12 @@ describe('wildBattle: 적의 공격', () => {
     expect(resumeWild(last)).toBe(last);
   });
   it('시간 초과로 쓰러져도 힌트 없이 끝', () => {
-    let s = createWild('mighty', 5, 50);
+    let s = createWild('mighty', 5, TIER_RULES.mighty.damage);
     for (let i = 0; i < 20; i++) s = tick(s, 250, ok);
     expect(s).toMatchObject({ phase: 'fainted', allyHp: 0, timedOut: true });
   });
   it('오답은 timedOut false, 맞힌 수는 그대로', () => {
-    expect(answerWild(createWild('normal', 5, 100), false, ok)).toMatchObject({ phase: 'struck', timedOut: false, allyHp: 75, correct: 0, cells: 0 });
+    expect(answerWild(createWild('normal', 5, 100), false, ok)).toMatchObject({ phase: 'struck', timedOut: false, allyHp: 87, correct: 0, cells: 0 });
   });
   it('question이 아니면 answerWild는 그대로(연타)', () => {
     const a = answerWild(createWild('normal', 5, 100), true, ok);
@@ -117,8 +117,8 @@ describe('wildBattle: 적의 공격', () => {
     expect(tick({ ...stunned, timeLeftMs: 100 }, 250, seq()).phase).toBe('struck');
   });
   it('damageOf', () => {
-    expect(damageOf(createWild('weak', 5, 100))).toBe(20);
-    expect(damageOf(createWild('mighty', 5, 100))).toBe(50);
+    expect(damageOf(createWild('weak', 5, 100))).toBe(10);
+    expect(damageOf(createWild('mighty', 5, 100))).toBe(25);
   });
 });
 
@@ -406,16 +406,16 @@ describe('wildBattle: resolveAnswer — 특수 기술', () => {
     const s = answer(at(1000), ['mushroom-1', 'mushroom-3'], 'special', 'light').state;
     expect(s.guard).toBe(true);
     const q = resumeWild(s);
-    expect(damageOf(q)).toBe(13); // 25 → 12.5 → 13
+    expect(damageOf(q)).toBe(7); // 13 → 6.5 → 7
     const hit1 = answerWild(q, false, ok);
-    expect(hit1).toMatchObject({ allyHp: 87, guard: false, phase: 'struck' });
-    expect(answerWild(resumeWild(resumeWild(hit1)), false, ok).allyHp).toBe(62);
-    expect(damageOf({ ...createWild('strong', 5, 100), guard: true })).toBe(17);
+    expect(hit1).toMatchObject({ allyHp: 93, guard: false, phase: 'struck' });
+    expect(answerWild(resumeWild(resumeWild(hit1)), false, ok).allyHp).toBe(80);
+    expect(damageOf({ ...createWild('strong', 5, 100), guard: true })).toBe(9);
   });
   it('방어는 시간 초과 공격에도', () => {
     let s: WildState = { ...createWild('normal', 5, 100), guard: true, timeLeftMs: 250 };
     s = tick(s, 250, ok);
-    expect(s).toMatchObject({ phase: 'struck', allyHp: 87, guard: false, timedOut: true });
+    expect(s).toMatchObject({ phase: 'struck', allyHp: 93, guard: false, timedOut: true });
   });
   it('여유: 다음 문제 시간 +3초, 고르기를 거쳐도', () => {
     const s = answer(at(1000), ['jelly-1', 'jelly-3'], 'special', 'light').state;
@@ -457,7 +457,7 @@ describe('wildBattle: 스턴 (다음 적 공격 1회 무효)', () => {
     const hit = answerWild(q, false, ok);
     expect(hit).toMatchObject({ phase: 'struck', allyHp: 100, stun: false, guard: true, lastStrike: { blocked: true, damage: 0 } });
     // 그 다음 공격은 방어로 절반
-    expect(answerWild(resumeWild(resumeWild(hit)), false, ok)).toMatchObject({ allyHp: 87, guard: false });
+    expect(answerWild(resumeWild(resumeWild(hit)), false, ok)).toMatchObject({ allyHp: 93, guard: false });
   });
   it('시간 초과 공격도 막는다', () => {
     const q = { ...resumeWild(stunned()), timeLeftMs: 250 };
@@ -487,13 +487,13 @@ describe('wildBattle: enemyStrike — 스턴 → 회피 → 크리티컬, 저장
   };
   it.each([
     // [이름, 상태, 난수(회피, 크리티컬), 피해, 회피, 크리티컬]
-    ['보통', {}, [0.5, 0.5], 25, false, false],
+    ['보통', {}, [0.5, 0.5], 13, false, false],
     ['회피 경계 0.0499', {}, [0.0499], 0, true, false],
-    ['회피 경계 0.05는 안 피함', {}, [0.05, 0.5], 25, false, false],
-    ['크리티컬 경계 0.0999', {}, [0.5, 0.0999], 50, false, true],
-    ['크리티컬 경계 0.10은 보통', {}, [0.5, 0.1], 25, false, false],
-    ['방어 + 크리티컬 = 절반(올림) 뒤 ×2', { guard: true }, [0.5, 0], 26, false, true],
-    ['방어', { guard: true }, [0.5, 0.5], 13, false, false],
+    ['회피 경계 0.05는 안 피함', {}, [0.05, 0.5], 13, false, false],
+    ['크리티컬 경계 0.0999', {}, [0.5, 0.0999], 26, false, true],
+    ['크리티컬 경계 0.10은 보통', {}, [0.5, 0.1], 13, false, false],
+    ['방어 + 크리티컬 = 절반(올림) 뒤 ×2', { guard: true }, [0.5, 0], 14, false, true],
+    ['방어', { guard: true }, [0.5, 0.5], 7, false, false],
   ] as const)('%s', (_n, over, rolls, damage, dodged, crit) => {
     const before = q(over);
     const r = enemyStrike(before, seq(...rolls));
@@ -509,8 +509,8 @@ describe('wildBattle: enemyStrike — 스턴 → 회피 → 크리티컬, 저장
     expect(r.state).toMatchObject({ stun: false, guard: true, allyHp: 100 });
   });
   it('체력보다 큰 피해면 0에서 멈추고 쓰러짐 (반환 피해는 굴린 값 그대로)', () => {
-    const r = enemyStrike(q({ allyHp: 30 }), seq(0.5, 0));
-    expect(r.damage).toBe(50);
+    const r = enemyStrike(q({ allyHp: 20 }), seq(0.5, 0));
+    expect(r.damage).toBe(26);
     expect(r.state).toMatchObject({ allyHp: 0, phase: 'fainted' });
   });
   it.each([
@@ -531,8 +531,8 @@ describe('wildBattle: enemyStrike — 스턴 → 회피 → 크리티컬, 저장
     expect(answerWild(before, false, ok).attackCount).toBe(1);
     expect(tick({ ...before, timeLeftMs: 100 }, 250, ok).attackCount).toBe(1);
   });
-  it('크리티컬로 쓰러질 수 있다 (보통 25 × 2)', () => {
-    expect(answerWild(q({ allyHp: 50 }), false, seq(0.5, 0))).toMatchObject({ phase: 'fainted', allyHp: 0 });
+  it('크리티컬로 쓰러질 수 있다 (보통 13 × 2)', () => {
+    expect(answerWild(q({ allyHp: 20 }), false, seq(0.5, 0))).toMatchObject({ phase: 'fainted', allyHp: 0 });
   });
 });
 
@@ -711,21 +711,21 @@ describe('wildBattle: 2번 때릴 때마다 적이 한 번 공격 (주기 공격
     expect(s).toMatchObject({ attackCount: 2, phase: 'hit' });
     expect(counterDue(s)).toBe(true);
     const c = counterAttack(s, seq(0.5, 0.5))!;
-    expect(c).toMatchObject({ damage: 25, dodged: false, crit: false, blocked: false });
-    expect(c.state).toMatchObject({ phase: 'counter', attackCount: 0, allyHp: 75, lastStrike: { damage: 25 } });
+    expect(c).toMatchObject({ damage: 13, dodged: false, crit: false, blocked: false });
+    expect(c.state).toMatchObject({ phase: 'counter', attackCount: 0, allyHp: 87, lastStrike: { damage: 13 } });
     // 연출 뒤 힌트 없이 바로 새 문제 (버튼 2개 이상이면 고르기)
     expect(resumeWild(c.state, 1)).toMatchObject({ phase: 'question', elapsedMs: 0, timeLeftMs: 7000 });
     expect(resumeWild(c.state, 3).phase).toBe('pick');
   });
   it('주기 공격도 크리티컬·회피·스턴(막힘)·방어를 따른다', () => {
     const due = { ...at(0), phase: 'hit' as const, attackCount: 2 };
-    expect(counterAttack(due, seq(0.5, 0))!.state.allyHp).toBe(50);
+    expect(counterAttack(due, seq(0.5, 0))!.state.allyHp).toBe(74);
     expect(counterAttack(due, seq(0))!).toMatchObject({ dodged: true, damage: 0, state: { allyHp: 100, attackCount: 0, phase: 'counter' } });
     expect(counterAttack({ ...due, stun: true }, seq())!).toMatchObject({ blocked: true, damage: 0, state: { stun: false, attackCount: 0 } });
-    expect(counterAttack({ ...due, guard: true }, ok)!.state).toMatchObject({ allyHp: 87, guard: false });
+    expect(counterAttack({ ...due, guard: true }, ok)!.state).toMatchObject({ allyHp: 93, guard: false });
   });
   it('주기 공격으로 쓰러지면 끝', () => {
-    const due = { ...at(0), phase: 'hit' as const, attackCount: 2, allyHp: 20 };
+    const due = { ...at(0), phase: 'hit' as const, attackCount: 2, allyHp: 10 };
     expect(counterAttack(due, ok)!.state).toMatchObject({ phase: 'fainted', allyHp: 0 });
   });
   it('어지러워지면(체력 0) 반격 없음', () => {
@@ -740,7 +740,7 @@ describe('wildBattle: 2번 때릴 때마다 적이 한 번 공격 (주기 공격
     expect(s).toMatchObject({ attackCount: 1, cells: 0 });
     s = resumeWild(s);
     s = answerWild(s, false, ok);
-    expect(s).toMatchObject({ phase: 'struck', attackCount: 1, allyHp: 75 });
+    expect(s).toMatchObject({ phase: 'struck', attackCount: 1, allyHp: 87 });
     s = resumeWild(resumeWild(s));
     s = hitOnce(s);
     expect(counterDue(s)).toBe(true);

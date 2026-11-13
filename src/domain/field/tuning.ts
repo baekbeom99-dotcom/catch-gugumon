@@ -99,11 +99,11 @@ export const TIER_CHANCE = { weak: 0.15, normal: 0.65, strong: 0.15, mighty: 0.0
  * expScale 경험치 배율, ultimateCatch 끝내 잡을 확률.
  */
 export const TIER_RULES = {
-  weak: { levels: [-5, -3], timeMs: 7000, hitsToDizzy: 3, damage: 20, expScale: 0.6, ultimateCatch: 0.3 },
-  normal: { levels: [-1, 1], timeMs: 7000, hitsToDizzy: 4, damage: 25, expScale: 1, ultimateCatch: 0.25 },
-  strong: { levels: [3, 5], timeMs: 5000, hitsToDizzy: 4, damage: 34, expScale: 1.6, ultimateCatch: 0.15 },
-  mighty: { levels: [6, 9], timeMs: 5000, hitsToDizzy: 6, damage: 50, expScale: 3, ultimateCatch: 0.1 },
-  legend: { levels: null, timeMs: 7000, hitsToDizzy: 4, damage: 34, expScale: 3, ultimateCatch: 0.1 },
+  weak: { levels: [-5, -3], timeMs: 7000, hitsToDizzy: 3, damage: 10, expScale: 0.6, ultimateCatch: 0.3 },
+  normal: { levels: [-1, 1], timeMs: 7000, hitsToDizzy: 4, damage: 13, expScale: 1, ultimateCatch: 0.25 },
+  strong: { levels: [3, 5], timeMs: 5000, hitsToDizzy: 4, damage: 17, expScale: 1.6, ultimateCatch: 0.15 },
+  mighty: { levels: [6, 9], timeMs: 5000, hitsToDizzy: 6, damage: 25, expScale: 3, ultimateCatch: 0.1 },
+  legend: { levels: null, timeMs: 7000, hitsToDizzy: 4, damage: 17, expScale: 3, ultimateCatch: 0.1 },
 } as const;
 /** 캡슐을 던질 때 한 번에 빠져나올 확률 / 화낼 확률 */
 export const THROW_ESCAPE = 0.21;

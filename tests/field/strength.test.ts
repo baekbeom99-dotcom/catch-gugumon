@@ -80,12 +80,12 @@ describe('야생 강함 단계', () => {
     expect(throwOdds('normal', NaN)).toEqual(throwOdds('normal'));
   });
 
-  it('쓰러지는 피격 횟수 5·4·3·2, 황금 3', () => {
+  it('쓰러지는 피격 횟수 10·8·6·4, 황금 6', () => {
     expect(
       (['weak', 'normal', 'strong', 'mighty', 'legend'] as const).map((x) =>
         Math.ceil(COMPANION_MAX_HP / TIER_RULES[x].damage),
       ),
-    ).toEqual([5, 4, 3, 2, 3]);
+    ).toEqual([10, 8, 6, 4, 6]);
   });
 
   it('경험치 배율', () =>

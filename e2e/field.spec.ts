@@ -430,7 +430,7 @@ test('오답이면 적이 공격해 내 체력이 줄고, 힌트의 빛나는 �
   await expect(page.getByLabel('내 체력 100')).toBeVisible();
   const answer = await solveWild(page);
   await wrongMoveButton(page, answer).click();
-  const ally = page.getByLabel(/^내 체력 (80|75|66|50)$/);
+  const ally = page.getByLabel(/^내 체력 (90|87|83|75)$/);
   await expect(ally).toBeVisible();
   await expect(page.getByRole('status')).toContainText(/의 .+!/); // "○○의 기술!"
   const shown = Number(((await ally.getAttribute('aria-label')) ?? '').replace(/\D/g, ''));
@@ -457,7 +457,7 @@ test('속성 효과: 정답(내 공격)과 오답(적 공격)에서 콘솔 오�
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
   const answer2 = await solveWild(page);
   await wrongMoveButton(page, answer2).click();
-  await expect(page.getByLabel(/^내 체력 (80|75|66|50)$/)).toBeVisible();
+  await expect(page.getByLabel(/^내 체력 (90|87|83|75)$/)).toBeVisible();
   await page.waitForTimeout(900);
   expect(errors).toEqual([]);
 });
@@ -471,7 +471,7 @@ test('동작 줄이기: 효과 없이도 오답 → 체력이 줄고 힌트로 �
   await expect(page.getByLabel('내 체력 100')).toBeVisible();
   const answer = await solveWild(page);
   await wrongMoveButton(page, answer).click();
-  await expect(page.getByLabel(/^내 체력 (80|75|66|50)$/)).toBeVisible();
+  await expect(page.getByLabel(/^내 체력 (90|87|83|75)$/)).toBeVisible();
   await expect(page.locator('.wild-move--glow')).toHaveCount(1);
   expect(errors).toEqual([]);
 });
@@ -481,7 +481,7 @@ test('시간이 다 되면 적이 공격하고, 쓰러지면 태초마을로 돌
     (window as unknown as { __GUGU_E2E_QUESTION__: unknown }).__GUGU_E2E_QUESTION__ = { factId: '7x8', type: 'product' };
   });
   // 단계를 보통(7초)으로 고정한다: 강함·강력(5초)이면 쓰러짐 글이 보이는 때가 달라진다
-  await standBesideGrass(page, { timer: true, cloud: { hp: 20 }, tier: 'normal' });
+  await standBesideGrass(page, { timer: true, cloud: { hp: 10 }, tier: 'normal' });
   await stepIntoGrass(page);
   await expect(page.locator('.wild__bubble')).toHaveAttribute('data-fact', '7x8');
   await expect(page.getByRole('timer')).toBeVisible();
@@ -519,7 +519,7 @@ test('쓰러지면 도감의 건강한 다른 구구몬이 대신 함께 다닌�
   await standBesideGrass(page, {
     timer: true,
     tier: 'normal',
-    cloud: { hp: 20 },
+    cloud: { hp: 10 },
     others: {
       jelly: { level: 4, exp: 0, stage: 1, caught: 1, firstCaughtAt: 2 },
       horn: { level: 9, exp: 0, stage: 1, caught: 1, firstCaughtAt: 3, hp: 0 },
@@ -576,7 +576,7 @@ test('전투 중 맞고 새로고침하면 필드로 돌아오고, 체력은 줄
   await page.getByRole('button', { name: '싸우자!' }).click();
   const answer = await solveWild(page);
   await wrongMoveButton(page, answer).click();
-  await expect(page.getByLabel(/^내 체력 (80|75|66|50)$/)).toBeVisible();
+  await expect(page.getByLabel(/^내 체력 (90|87|83|75)$/)).toBeVisible();
   await page.reload();
   await expect(page).toHaveURL(/#\/field$/);
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
@@ -1749,14 +1749,14 @@ test('주기 공격: 정답 2번째 뒤에 적이 한 번 공격해 체력이 �
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
   await expect(page.getByLabel('내 체력 100')).toBeVisible();
   await moveButton(page, 56).click();
-  await expect(page.getByLabel('내 체력 75')).toBeVisible();
+  await expect(page.getByLabel('내 체력 87')).toBeVisible();
   await expect(page.getByRole('status')).toHaveText(/의 .+!$/);
   await page.screenshot({ path: `${shot16}/4-counter-375.png` });
   await expect(page.locator('.wild-move--glow')).toHaveCount(0);
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
   await expect(page.locator('.wild__hint')).toHaveCount(0);
   const cloud = await savedCloud(page);
-  expect(cloud.hp).toBe(75);
+  expect(cloud.hp).toBe(87);
   expect(cloud.wounds).toHaveLength(0);
 });
 
@@ -1791,7 +1791,7 @@ test('캡슐 버튼: 야생 체력 1/4 이하에서만 켜지고, 문제를 푸�
 
 test('주② 스턴으로 막은 적 공격은 저장 체력도 그대로, 그다음 공격은 화면과 저장이 같이 준다', async ({ page }) => {
   await fixBattle(page, true); // 늘 빠르게 → 주속성 버튼에서 새싹 휙(주②, 스턴)
-  // 보통(7초·피해 25)
+  // 보통(7초·피해 13)
   await standBesideGrass(page, { tier: 'normal', cloud: { hp: 100, skills: ['cloud-1', 'cloud-2'] } });
   await stepIntoGrass(page);
   await page.getByRole('button', { name: '싸우자!' }).click();
@@ -1808,12 +1808,12 @@ test('주② 스턴으로 막은 적 공격은 저장 체력도 그대로, 그�
   await expect(page.getByLabel('내 체력 100')).toBeVisible();
   await expect(page.locator('.wild__buff--foe')).toHaveCount(0);
   expect((await savedCloud(page)).hp).toBe(100);
-  // 힌트 뒤 다음 문제에서 또 틀리면 이번엔 맞는다 (화면 75 = 저장 75)
+  // 힌트 뒤 다음 문제에서 또 틀리면 이번엔 맞는다 (화면 87 = 저장 87)
   await page.locator('.wild-move--glow').click();
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
   await wrongMoveButton(page, 56).click();
-  await expect(page.getByLabel('내 체력 75')).toBeVisible();
-  expect((await savedCloud(page)).hp).toBe(75);
+  await expect(page.getByLabel('내 체력 87')).toBeVisible();
+  expect((await savedCloud(page)).hp).toBe(87);
 });
 
 // ── 캡슐 던지기 연출과 효과음 (필드 모험 3차 4-1·4-2) ──
