@@ -6,6 +6,8 @@ import { COPY_CHANCE } from '../../src/domain/field/tuning';
 import { useGameStore } from '../../src/store/useGameStore';
 import type { Wound } from '../../src/domain/field/wounds';
 import { currentSave } from '../../src/screens/admin/DataSecurityPanels';
+import { companionState, healthyCompanions } from '../../src/domain/field/companion';
+import { pickCompanion } from '../../src/field/companion';
 
 const NOW = new Date('2026-11-03T09:00:00').getTime();
 
@@ -174,7 +176,7 @@ describe('구구몬 체력·상처 저장', () => {
     const pos = { map: 'meadow' as const, x: 5, y: 8, facing: 'right' as const };
     useGameStore.getState().setFieldPosition(pos);
     const r = useGameStore.getState().damageCompanion('cloud', 25, wound);
-    expect(r).toEqual({ hp: 75, fainted: false, replacedBy: null });
+    expect(r).toEqual({ hp: 75, fainted: false, pick: false });
     const f = useGameStore.getState().field;
     expect(f.species.cloud).toMatchObject({ hp: 75, wounds: [wound] });
     expect(f.position).toEqual(pos);
@@ -183,7 +185,7 @@ describe('구구몬 체력·상처 저장', () => {
   it('damageCompanion: 틀린 문제가 없으면(적의 주기 공격) 체력만 줄고 상처는 그대로', () => {
     useGameStore.getState().damageCompanion('cloud', 25, wound);
     const r = useGameStore.getState().damageCompanion('cloud', 25);
-    expect(r).toEqual({ hp: 50, fainted: false, replacedBy: null });
+    expect(r).toEqual({ hp: 50, fainted: false, pick: false });
     expect(useGameStore.getState().field.species.cloud).toMatchObject({ hp: 50, wounds: [wound] });
   });
 
@@ -191,15 +193,15 @@ describe('구구몬 체력·상처 저장', () => {
     setHp('cloud', 20);
     useGameStore.setState((s) => ({ field: { ...s.field, position: { map: 'meadow', x: 5, y: 8, facing: 'right' } } }));
     const r = useGameStore.getState().damageCompanion('cloud', 25, wound);   // hp 20에서
-    expect(r).toEqual({ hp: 0, fainted: true, replacedBy: null });
+    expect(r).toEqual({ hp: 0, fainted: true, pick: false });
     expect(useGameStore.getState().field.position).toEqual({ map: 'town', ...townStart(), facing: 'down' });
     expect(useGameStore.getState().field.species.cloud).toMatchObject({ hp: 0, wounds: [wound] });
   });
 
   it('damageCompanion: 없는 종이면 아무것도 안 바꿈, 이상한 피해는 정수 0~100', () => {
     const before = JSON.parse(JSON.stringify(useGameStore.getState().field));
-    expect(useGameStore.getState().damageCompanion('horn', 25, wound)).toEqual({ hp: 0, fainted: false, replacedBy: null });
-    expect(useGameStore.getState().damageCompanion('nope' as 'horn', 25, wound)).toEqual({ hp: 0, fainted: false, replacedBy: null });
+    expect(useGameStore.getState().damageCompanion('horn', 25, wound)).toEqual({ hp: 0, fainted: false, pick: false });
+    expect(useGameStore.getState().damageCompanion('nope' as 'horn', 25, wound)).toEqual({ hp: 0, fainted: false, pick: false });
     expect(useGameStore.getState().field).toEqual(before);
     expect(useGameStore.getState().damageCompanion('cloud', -40, wound).hp).toBe(100);
     expect(useGameStore.getState().damageCompanion('cloud', Number.NaN, wound).hp).toBe(100);
@@ -295,7 +297,12 @@ describe('싸운 구구몬으로 정산 (end.companion)', () => {
       field: {
         ...s.field,
         companion: null,
-        species: { ...s.field.species, cloud: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: NOW, hp: 0, wounds: [], skills: ['cloud-1', 'cloud-2'] } },
+        // 젤리몬도 쓰러져 있어 고를 구구몬이 없다 → 쓰러짐 알림
+        species: {
+          ...s.field.species,
+          jelly: { ...s.field.species.jelly!, hp: 0 },
+          cloud: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: NOW, hp: 0, wounds: [], skills: ['cloud-1', 'cloud-2'] },
+        },
       },
     }));
     const r = useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', end: 'fainted', correct: 2 }));
@@ -316,11 +323,15 @@ describe('싸운 구구몬으로 정산 (end.companion)', () => {
   });
 });
 
-describe('쓰러지면 도감의 다른 구구몬이 대신 함께 다님', () => {
+describe('쓰러지면 도감에서 함께 갈 구구몬을 고름 (저절로 바꾸지 않음)', () => {
   const wound: Wound = { factId: '7x8', type: 'product' };
   const entry = (level: number, hp: number, firstCaughtAt: number) => ({ level, exp: 0, stage: 1 as const, caught: 1, firstCaughtAt, hp, wounds: [], skills: ['cloud-1'] });
   const meadow = { map: 'meadow' as const, x: 5, y: 8, facing: 'right' as const };
   const town = () => ({ map: 'town', ...townStart(), facing: 'down' });
+  const state = () => {
+    const s = useGameStore.getState();
+    return companionState(pickCompanion(s), s.field.species);
+  };
 
   beforeEach(() => {
     useGameStore.getState().resetAll();
@@ -334,106 +345,118 @@ describe('쓰러지면 도감의 다른 구구몬이 대신 함께 다님', () =
     }));
   });
 
-  it('체력이 0이 되는 한 번의 저장에서 체력·상처·마을 위치·동행이 함께 바뀐다', () => {
+  it('건강한 다른 구구몬이 있으면: 한 번의 저장에서 체력·상처만 바뀌고, 자리·동행은 그대로 (고르기 대기)', () => {
     const states: ReturnType<typeof useGameStore.getState>['field'][] = [];
     const unsub = useGameStore.subscribe((s) => states.push(s.field));
     const r = useGameStore.getState().damageCompanion('cloud', 25, wound);
     unsub();
-    // 쓰러진 horn(Lv7)은 빼고, 건강한 것 중 레벨이 가장 높은 pebble(Lv6)
-    expect(r).toEqual({ hp: 0, fainted: true, replacedBy: 'pebble' });
+    expect(r).toEqual({ hp: 0, fainted: true, pick: true });
     expect(states).toHaveLength(1);
     const f = states[0];
     expect(f.species.cloud).toMatchObject({ hp: 0, wounds: [wound] });
-    expect(f.position).toEqual(town());
-    expect(f.companion).toBe('pebble');
-    // 대신 다니는 구구몬의 기록은 그대로
-    expect(f.species.pebble).toEqual(entry(6, 60, 4));
+    expect(f.position).toEqual(meadow);
+    expect(f.companion).toBe('cloud');
+    // 저장 상태만 보고 고르기 창을 띄운다 (앱을 닫았다 열어도 같다)
+    expect(state()).toBe('pick');
+    expect(healthyCompanions(f.species, 'cloud')).toEqual(['pebble', 'jelly']);
   });
 
-  it('쓰러지지 않으면 동행은 그대로', () => {
+  it('고르면(setCompanion) 그 자리에서 새 구구몬으로 이어 간다', () => {
+    useGameStore.getState().damageCompanion('cloud', 25, wound);
+    expect(useGameStore.getState().setCompanion('horn')).toBe(false); // 쓰러진 종은 못 고른다
+    expect(useGameStore.getState().setCompanion('jelly')).toBe(true);
+    const f = useGameStore.getState().field;
+    expect(f.companion).toBe('jelly');
+    expect(f.position).toEqual(meadow);
+    expect(state()).toBe('ok');
+  });
+
+  it('쓰러지지 않으면 동행·자리 그대로', () => {
     const r = useGameStore.getState().damageCompanion('cloud', 10, wound);
-    expect(r).toEqual({ hp: 10, fainted: false, replacedBy: null });
+    expect(r).toEqual({ hp: 10, fainted: false, pick: false });
     expect(useGameStore.getState().field.companion).toBe('cloud');
+    expect(useGameStore.getState().field.position).toEqual(meadow);
   });
 
-  it('건강한 다른 구구몬이 없으면 동행은 그대로 (쓰러진 채)', () => {
+  it('건강한 다른 구구몬이 없으면 같은 저장에서 태초마을로, 동행은 쓰러진 채', () => {
     useGameStore.setState((s) => ({ field: { ...s.field, species: { cloud: entry(5, 20, 1), horn: entry(7, 0, 3) } } }));
     const r = useGameStore.getState().damageCompanion('cloud', 25, wound);
-    expect(r).toEqual({ hp: 0, fainted: true, replacedBy: null });
+    expect(r).toEqual({ hp: 0, fainted: true, pick: false });
     const f = useGameStore.getState().field;
     expect(f.companion).toBe('cloud');
     expect(f.position).toEqual(town());
+    expect(state()).toBe('stuck');
+  });
+
+  it('마을에서 다른 구구몬을 살리면 고르기 대기가 된다 (stuck → pick)', () => {
+    useGameStore.setState((s) => ({ field: { ...s.field, species: { cloud: entry(5, 20, 1), horn: entry(7, 0, 3) } } }));
+    useGameStore.getState().damageCompanion('cloud', 25, wound);
+    useGameStore.getState().healSpecies('horn');
+    expect(state()).toBe('pick');
+    // 쓰러진 동행 자신을 살리면 고를 필요가 없다
+    useGameStore.getState().healSpecies('cloud');
+    expect(state()).toBe('ok');
   });
 
   it('이미 쓰러진 종을 또 때려도 아무것도 안 바뀐다 (위치·상처·동행 그대로)', () => {
     useGameStore.setState((s) => ({ field: { ...s.field, species: { ...s.field.species, cloud: entry(5, 0, 1) } } }));
     const before = useGameStore.getState().field;
     const r = useGameStore.getState().damageCompanion('cloud', 25, wound);
-    expect(r).toEqual({ hp: 0, fainted: true, replacedBy: null });
+    expect(r).toEqual({ hp: 0, fainted: true, pick: false });
     expect(useGameStore.getState().field).toBe(before);
     expect(useGameStore.getState().field.position).toEqual(meadow);
     expect(useGameStore.getState().field.species.cloud!.wounds).toEqual([]);
   });
 
-  it('동행이 아닌 종이 쓰러지면 동행은 바뀌지 않는다', () => {
-    useGameStore.setState((s) => ({ field: { ...s.field, companion: 'jelly' } }));
-    const r = useGameStore.getState().damageCompanion('cloud', 25, wound);
-    expect(r.replacedBy).toBeNull();
-    expect(useGameStore.getState().field.companion).toBe('jelly');
-  });
-
-  it('옛 저장(companion null): 화면이 고른 첫 종이 쓰러지면 대신 다닐 종이 정해진다', () => {
+  it('옛 저장(companion null): 화면이 고른 첫 종이 쓰러져도 동행은 null 그대로, 고르기 대기', () => {
     useGameStore.setState((s) => ({ field: { ...s.field, companion: null } }));
     const r = useGameStore.getState().damageCompanion('cloud', 25, wound);
-    expect(r.replacedBy).toBe('pebble');
-    expect(useGameStore.getState().field.companion).toBe('pebble');
+    expect(r.pick).toBe(true);
+    expect(useGameStore.getState().field.companion).toBeNull();
+    expect(state()).toBe('pick');
   });
 
-  it('옛 저장(companion null, 다른 종 없음): 깨지지 않고 동행은 null 그대로', () => {
+  it('옛 저장(companion null, 다른 종 없음): 깨지지 않고 마을로', () => {
     useGameStore.setState((s) => ({ field: { ...s.field, companion: null, species: { cloud: entry(5, 20, 1) } } }));
     const r = useGameStore.getState().damageCompanion('cloud', 25, wound);
-    expect(r).toEqual({ hp: 0, fainted: true, replacedBy: null });
+    expect(r).toEqual({ hp: 0, fainted: true, pick: false });
     expect(useGameStore.getState().field.companion).toBeNull();
+    expect(useGameStore.getState().field.position).toEqual(town());
   });
 
   it('옛 저장(종 기록이 없음): 아무것도 안 바뀐다', () => {
     useGameStore.setState((s) => ({ field: { ...s.field, companion: null, species: {} } }));
     const before = useGameStore.getState().field;
-    expect(useGameStore.getState().damageCompanion('cloud', 25, wound)).toEqual({ hp: 0, fainted: false, replacedBy: null });
+    expect(useGameStore.getState().damageCompanion('cloud', 25, wound)).toEqual({ hp: 0, fainted: false, pick: false });
     expect(useGameStore.getState().field).toBe(before);
   });
 
-  it('finishWildBattle: 대신 다니게 된 종을 쓰러짐 알림에 담고, 경험치는 싸운 종이 받는다', () => {
+  it('finishWildBattle: 고를 구구몬이 있으면 쓰러짐 알림 없이(고르기 창이 대신), 경험치는 싸운 종이 받는다', () => {
     useGameStore.getState().damageCompanion('cloud', 25, wound);
     const r = useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', end: 'fainted', correct: 2 }));
-    expect(r.notices[0]).toEqual({ kind: 'fainted', species: 'cloud', replacedBy: 'pebble' });
+    expect(r.notices.some((n) => n.kind === 'fainted')).toBe(false);
     const f = useGameStore.getState().field;
     expect(f.species.cloud!.exp).toBe(14);
     expect(f.species.pebble!.exp).toBe(0);
-    expect(f.companion).toBe('pebble');
+    expect(f.companion).toBe('cloud');
+    expect(f.position).toEqual(meadow);
   });
 
-  it('finishWildBattle: 대신 다닐 종이 없으면 알림은 예전 그대로', () => {
+  it('finishWildBattle: 고를 구구몬이 없으면 "쓰러졌어" 알림', () => {
     useGameStore.setState((s) => ({ field: { ...s.field, species: { cloud: entry(5, 20, 1) } } }));
     useGameStore.getState().damageCompanion('cloud', 25, wound);
     const r = useGameStore.getState().finishWildBattle(batch({ companion: 'cloud', end: 'fainted', correct: 0 }));
     expect(r.notices[0]).toEqual({ kind: 'fainted', species: 'cloud' });
   });
 
-  it('finishWildBattle: 쓰러지지 않고 끝나면 동행이 달라도 replacedBy가 없다', () => {
+  it('finishWildBattle: 쓰러지지 않고 끝나면 쓰러짐 알림이 없다', () => {
     const r = useGameStore.getState().finishWildBattle(batch({ companion: 'jelly', end: 'escaped', correct: 0 }));
     expect(r.notices.some((n) => n.kind === 'fainted')).toBe(false);
   });
 
-  it('회복해도 원래 동행으로 저절로 돌아가지 않는다', () => {
+  it('고른 동행은 저장 대상(partialize)과 백업 currentSave()에 들어간다', () => {
     useGameStore.getState().damageCompanion('cloud', 25, wound);
-    useGameStore.getState().healSpecies('cloud');
-    expect(useGameStore.getState().field.companion).toBe('pebble');
-    expect(useGameStore.getState().field.species.cloud!.hp).toBe(100);
-  });
-
-  it('대신 다니는 동행은 저장 대상(partialize)과 백업 currentSave()에 들어간다', () => {
-    useGameStore.getState().damageCompanion('cloud', 25, wound);
+    useGameStore.getState().setCompanion('pebble');
     const persisted = useGameStore.persist.getOptions().partialize!(useGameStore.getState()) as { field: { companion: unknown } };
     expect(persisted.field.companion).toBe('pebble');
     expect(currentSave().field.companion).toBe('pebble');

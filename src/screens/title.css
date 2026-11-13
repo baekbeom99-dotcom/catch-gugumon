@@ -129,9 +129,9 @@
   gap: 8px;
 }
 
-.title__hero {
+.title__mon--c {
   margin-bottom: 6px;
-  image-rendering: pixelated;
+  animation: title-hop 1.6s steps(2) 0.4s infinite;
 }
 
 .title__mon--a {
@@ -150,7 +150,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .title__mon--a,
-  .title__mon--b {
+  .title__mon--b,
+  .title__mon--c {
     animation: none;
   }
 }

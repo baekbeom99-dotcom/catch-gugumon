@@ -2,8 +2,6 @@
 import { useNavigate } from 'react-router-dom';
 import { DAN_COLORS } from '../art/colors';
 import { MonsterSprite } from '../art/MonsterSprite';
-import { PixelSprite } from '../field/art/PixelSprite';
-import { HERO_SPRITES } from '../field/art/hero';
 import './title.css';
 
 export function TitleScreen() {
@@ -19,7 +17,7 @@ export function TitleScreen() {
         <span className="title__path" />
         <div className="title__cast">
           <MonsterSprite kind="cloud" color={DAN_COLORS[5]} mood="happy" size={112} className="title__mon title__mon--a" />
-          <PixelSprite art={HERO_SPRITES.down[0]} size={64} className="title__hero" />
+          <MonsterSprite kind="horn" color={DAN_COLORS[7]} mood="happy" size={72} className="title__mon title__mon--c" />
           <MonsterSprite kind="jelly" color={DAN_COLORS[8]} mood="idle" size={100} className="title__mon title__mon--b" />
         </div>
       </div>

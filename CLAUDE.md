@@ -15,11 +15,11 @@ React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/fiel
 | `src/store/useGameStore.ts` | 저장되는 게임 상태와 액션(Zustand persist) |
 | `src/store/saveData.ts` | `SaveData` 형식, `createInitialSave`, `mergeSave`(예전 저장 채우기), `SAVE_KEY` |
 | `src/store/useSessionStore.ts` | 저장 안 되는 화면 상태(진화·레벨업 알림 대기 등) |
-| `src/domain/field/` | 필드 모험 순수 로직: **`tuning`(운영 수치 전부)**, `skills`(기술 표·슬롯 패턴·특수·복사), `fields`(필드·단 구성), `movement`, `wildBattle`, `encounter`(만남), `creatures`(종·기술 이름), `fieldQuestions`, `growth`(경험치·레벨·진화), `strength`(만남 강함 단계), `capsules`(캡슐 4종·개수), `wounds`(체력·상처), `shopQuiz`(상점 연습), `roam`(마을 구구몬 배회), `answerTimer`(문제 시계), `elements`(속성 7가지·기술 효과 표) |
+| `src/domain/field/` | 필드 모험 순수 로직: **`tuning`(운영 수치 전부)**, `companion`(쓰러졌을 때 고를 구구몬 목록·고르기 판정 `companionState`), `skills`(기술 표·슬롯 패턴·특수·복사), `fields`(필드·단 구성), `movement`, `wildBattle`, `encounter`(만남), `creatures`(종·기술 이름), `fieldQuestions`, `growth`(경험치·레벨·진화), `strength`(만남 강함 단계), `capsules`(캡슐 4종·개수), `wounds`(체력·상처), `shopQuiz`(상점 연습), `roam`(마을 구구몬 배회), `answerTimer`(문제 시계), `elements`(속성 7가지·기술 효과 표) |
 | `src/field/shop/` | 마을 상점 팝업: `ShopPopup`, `CapsuleTab`(캡슐 탭), `CapsulePractice`(단 선택 없이 무작위 출제, 1회 5개), `PotionTab`·`HealPractice`(회복 연습), `PracticeCard`(연습 문제 카드), `shopText`(글), `shop.css` |
-| `src/field/world/` | 필드 걷기: `FieldScreen`, `fieldRenderer`(캔버스), `Joystick`, `FieldHud`(왼쪽 위 캡슐·도감·체력), `loadField`, `maps/`(필드마다 지도·타일 그림) |
+| `src/field/world/` | 필드 걷기 (주인공 없음 — 동행 구구몬 한 마리를 직접 조작): `FieldScreen`, `fieldRenderer`(캔버스, `drawField`가 조작하는 구구몬을 그림), `roamerLayer`(마을 구구몬·`playerPose` 정지 그림 통통·반전), `CompanionPickDialog`(쓰러지면 함께 갈 구구몬 고르기), `Joystick`, `FieldHud`(왼쪽 위 캡슐·도감·체력), `loadField`, `maps/`(필드마다 지도·타일 그림) |
 | `src/field/battle/` | 야생 전투: `WildBattleScreen`, `useQuestionFeed`(문제 받기), `BattleBars`(`HpBar`·`TimerBar` — 눈금·구간 색만, 글자 없음), `battleText`(화면 글), `SkillPicker`(기술 버튼 3개 한 줄·이름만, 특수만 설명 한 줄), `skillUse`(발동·글·`gaugeStops`/`gaugeZones`·`skillLines`/`buttonLines` 버튼 문구 — 선택창·관리 화면 카드도 같은 함수) |
-| `src/field/art/` | 그림: `creatureArt`(구구몬 그림 등록표), `creatureSprite`, `companionImage`, `spriteSheet`(시트 프레임·방향·`BATTLE_ROW` 순수 함수: 전투는 내 구구몬 원본 행3(오른쪽 위)·야생 행7(왼쪽 아래) Idle·Hurt·Attack, Attack은 한 번 재생 후 Idle, 칸이 커서 넘쳐 그림), `localSprites`(이 PC 전용 테스트 그림·시트 등록), `hero`(주인공), `pixelArt`(픽셀 그림 틀·표지판), `CapsuleBall` |
+| `src/field/art/` | 그림: `creatureArt`(구구몬 그림 등록표), `creatureSprite`, `companionImage`, `spriteSheet`(시트 프레임·방향·`BATTLE_ROW` 순수 함수: 전투는 내 구구몬 원본 행3(오른쪽 위)·야생 행7(왼쪽 아래) Idle·Hurt·Attack, Attack은 한 번 재생 후 Idle, 칸이 커서 넘쳐 그림), `localSprites`(이 PC 전용 테스트 그림·시트 등록), `pixelArt`(픽셀 그림 틀·표지판), `CapsuleBall` |
 | `src/field/fx/` | 효과: `effects`(효과 목록), `playFx`(틀기) |
 | `src/field/` | 기술 화면: `SkillOfferDialog`(기술 선택창: 새 기술 + 그 자리 기술 하나), `SkillManager`(도감 기술 관리: 주속성 사슬·부속성 자리·특수 자리 세 구역), `SkillCard`, `skillText`(기술 글) |
 | `src/field/` | 그 밖: `StarterScreen`, `FieldDexScreen`, `useFieldSession`(저장 안 되는 만남 상태), `debugFlags`(디버그 스위치), `DevFieldGallery`(#/dev/field) |
@@ -86,12 +86,12 @@ npm run build                # 배포용 빌드 (tsc -b && vite build)
 | 전투 화면 글 | `src/field/battle/battleText.ts` | E2E가 글을 찾으면 `e2e/field.spec.ts`도 |
 | 구구몬 그림 교체 | 파일을 `src/field/art/creatures/`에 넣고 `src/field/art/creatureArt.ts`의 `IMAGE_ART`에 한 줄 | `#/dev/field`에서 앞·뒤·동행 크기 확인 (퀴즈 모험 몬스터 그림은 그대로) |
 | 움직이는 시트(걷기·가만히·맞음·잠) | `node scripts/cut-sprites.mjs [번호...]`가 원본(SpriteCollab, `SPRITE_SRC`)에서 `src/field/art/creatures/pmd/<번호>-front·back·idle·walk·hurt·sleep.png`+`manifest.json`을 만든다 (.gitignore — 저장소·배포에 넣지 않음, 없으면 정지 그림·SVG) | `#/dev/field`에서 가만히·걷기 4방향·맞음·잠·전투 공격 재생 확인 |
-| 주인공 그림 | `src/field/art/hero.ts` (32×32 글자 배열) | `tests/field/pixelArt.test.ts`가 크기 확인 |
+| 쓰러짐 뒤 고르기 | `src/domain/field/companion.ts`(`healthyCompanions`·`companionState`), 창은 `src/field/world/CompanionPickDialog.tsx`, 글은 `battleText.pickTitle` | `tests/field/companionPick.test.ts`, `tests/field/fieldStore.test.ts` |
 | 지도·타일 | `src/field/world/maps/<필드>.ts`·`<필드>Tiles.ts` | `tests/field/maps.test.ts` |
 | 효과 추가 | `src/field/fx/effects.ts`의 `EFFECTS`에 한 줄 → 틀 곳에서 `playFx(canvas, '이름', 자리)` | `#/dev/field`에서 버튼으로 확인, 이름 목록 테스트(`pixelArt.test.ts`) |
 
 - **날아가는 효과:** `FxSpec`의 `motion: 'travel'`(+`travelMs`·`orb` 구슬 색)이면 `playFx(..., { from })`가 쏘는 구구몬에서 맞는 구구몬까지 구슬을 날린 뒤 도착 지점에서 터뜨린다(이동 + 터짐 ≤ 0.6초, 효과음·흔들림은 `moveFxRoute`의 `arriveMs`만큼 늦춤). 바닥에서 솟는 효과·특수 기술은 `burst` 그대로. **줄기 효과:** `motion: 'beam'`(+`beam: { reach, axisY }`)은 물줄기·번개줄기·불 뿜기(`water-jet`·`chain-lightning`·`fire-breath`·`flamethrower`)처럼 입에서 뻗는 효과 — `fx/beam.ts`가 효과를 따로 그린 뒤 쏘는 구구몬 입에서 맞는 구구몬 쪽으로 돌려(적 공격은 가로로 뒤집어) 붙이고 맞는 구구몬 한가운데에서 자른다. `travelMs`는 줄기 끝이 닿는 시간(효과음·피해 글 지연), `until ÷ speed`와 합쳐 ≤ 0.6초. `from`이 없으면 예전처럼 `at`에서 바로 재생.
-- **디버그:** 개발 서버(`npx vite --port 5188` 등)에서 `#/dev/field` — 구구몬 그림 전부(표정·진화·뒷모습·동행 한 칸), 주인공 네 방향, 효과 버튼, 만남 100%·레전드 스위치. 배포 빌드에는 없다.
+- **디버그:** 개발 서버(`npx vite --port 5188` 등)에서 `#/dev/field` — 구구몬 그림 전부(표정·진화·뒷모습·동행 한 칸), 캡슐, 효과 버튼, 만남 100%·레전드 스위치. 배포 빌드에는 없다.
 - `companionImage`는 React를 따로 그려 굽는다: React가 그리는 중(컴포넌트 본문·useEffect)에 부르면 null. rAF·setTimeout 안에서 부른다.
 
 ## 모델 분배

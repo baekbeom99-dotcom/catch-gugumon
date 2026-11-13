@@ -52,8 +52,8 @@ export interface FieldData {
 export type FieldNotice =
   | { kind: 'levelUp'; species: SpeciesId; level: number }
   | { kind: 'evolve'; species: SpeciesId; stage: 2 | 3 }
-  /** replacedBy: 쓰러지면서 대신 함께 다니게 된 종 (없으면 동행 그대로) */
-  | { kind: 'fainted'; species: SpeciesId; replacedBy?: SpeciesId }
+  /** 쓰러졌고 고를 다른 구구몬이 없어 마을로 왔다 (있으면 알림 대신 고르기 창) */
+  | { kind: 'fainted'; species: SpeciesId }
   /** 기술을 가졌다: learned 레벨이 올라 배움, copied 야생 구구몬(fromSpecies)에게서 따라 배움 */
   | { kind: 'skill'; species: SpeciesId; skillId: SkillId; how: 'learned' | 'copied'; fromSpecies?: SpeciesId };
 

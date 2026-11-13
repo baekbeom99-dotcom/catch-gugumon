@@ -1,9 +1,8 @@
 import type { MapId } from '../../domain/field/fields';
-import type { Dir, FieldMap, Tile } from '../../domain/field/movement';
+import type { FieldMap, Tile } from '../../domain/field/movement';
 import { WATER_FRAME_MS } from '../../domain/field/tuning';
 import { TILE_PX, VIEW_TILES_W } from './padDirection';
 import type { SheetFrame } from '../art/companionImage';
-import { HERO_SPRITES, heroFrame } from '../art/hero';
 import { type TileSet, bakeTiles } from '../art/pixelArt';
 import { type RoamerSprite, drawRoamers } from './roamerLayer';
 
@@ -33,6 +32,7 @@ export interface View {
   h: number;
 }
 
+/** 조작하는 구구몬 한 마리 (주인공 대신 이 구구몬이 걷는다) */
 export interface Companion {
   /** 칸 좌표 (소수 가능) */
   x: number;
@@ -45,6 +45,10 @@ export interface Companion {
   foot: number;
   /** 시트 장면 (있고 다 읽었으면 정지 그림 img 대신 이걸 그린다) */
   sheet?: SheetFrame;
+  /** 정지 그림만: 좌우 반전(오른쪽을 볼 때), 위로 뜬 높이(칸 단위, 통통), 세로 숨쉬기 배율 */
+  flip?: boolean;
+  lift?: number;
+  breathe?: number;
 }
 
 export interface Anim {
@@ -77,19 +81,18 @@ export function companionRect(left: number, top: number, tile: number, c: Pick<C
   return { x: Math.round(left + tile / 2 - size / 2), y: Math.round(top + tile - size * c.foot), size };
 }
 
-/** hx, hy: 주인공의 칸 좌표(소수 가능, 걷는 중 보간) */
+/** 조작하는 구구몬(player)의 칸 좌표(소수 가능, 걷는 중 보간)에 카메라를 맞춘다 */
 export function drawField(
   ctx: CanvasRenderingContext2D,
   map: FieldMap,
   view: View,
-  hx: number,
-  hy: number,
-  facing: Dir,
-  companion?: Companion,
+  player: Companion,
   anim: Anim = { now: 0, step: null },
   roamers: RoamerSprite[] = [],
 ): { cx: number; cy: number } {
   const { tile, w, h } = view;
+  const hx = player.x;
+  const hy = player.y;
   ctx.imageSmoothingEnabled = false;
   ctx.fillStyle = '#000';
   ctx.fillRect(0, 0, w, h);
@@ -113,30 +116,36 @@ export function drawField(
       }
     }
   }
-  // 마을에서 돌아다니는 구구몬: 동행·주인공 아래에 그린다
+  // 마을에서 돌아다니는 구구몬: 조작하는 구구몬 아래에 그린다
   if (roamers.length > 0) drawRoamers(ctx, roamers, tile, cx, cy, anim.now, companionRect);
-  // 동행: 주인공 뒤 칸 (구운 그림, 아직 못 읽었으면 색 동그라미). 주인공보다 먼저 그려 주인공을 가리지 않는다
-  if (companion) {
-    const left = Math.round(companion.x * tile) - cx;
-    const top = Math.round(companion.y * tile) - cy;
-    const img = companion.img;
-    const sh = companion.sheet;
-    if (sh) {
-      const r = companionRect(left, top, tile, { scale: companion.scale, fill: companion.fill * sh.scale, foot: sh.foot });
-      ctx.drawImage(sh.img, sh.col * sh.side, sh.row * sh.side, sh.side, sh.side, r.x, r.y, r.size, r.size);
-    } else if (img && img.complete && img.naturalWidth > 0) {
-      const r = companionRect(left, top, tile, companion);
-      ctx.drawImage(img, r.x, r.y, r.size, r.size);
-    } else {
-      ctx.fillStyle = '#42a5f5';
-      ctx.beginPath();
-      ctx.arc(left + tile / 2, top + tile / 2, tile * 0.38, 0, Math.PI * 2);
-      ctx.fill();
-    }
-  }
-  // 주인공: 바라보는 쪽 그림, 걷는 중이면 발을 번갈아
-  const px = Math.round(hx * tile) - cx;
-  const py = Math.round(hy * tile) - cy;
-  ctx.drawImage(bakeTiles(HERO_SPRITES[facing][heroFrame(anim.step)]), px, py, tile, tile);
+  drawPlayer(ctx, player, tile, cx, cy);
   return { cx, cy };
+}
+
+/** 조작하는 구구몬: 시트가 있으면 그 장면, 없으면 정지 그림(반전·통통·숨쉬기), 아직 못 읽었으면 색 동그라미 */
+function drawPlayer(ctx: CanvasRenderingContext2D, p: Companion, tile: number, cx: number, cy: number) {
+  const left = Math.round(p.x * tile) - cx;
+  const top = Math.round((p.y - (p.lift ?? 0)) * tile) - cy;
+  const sh = p.sheet;
+  const img = p.img;
+  if (sh) {
+    const r = companionRect(left, top, tile, { scale: p.scale, fill: p.fill * sh.scale, foot: sh.foot });
+    ctx.drawImage(sh.img, sh.col * sh.side, sh.row * sh.side, sh.side, sh.side, r.x, r.y, r.size, r.size);
+  } else if (img && img.complete && img.naturalWidth > 0) {
+    const r = companionRect(left, top, tile, p);
+    const hgt = Math.round(r.size * (p.breathe ?? 1));
+    const y = r.y + r.size - hgt; // 발끝은 그대로, 위로만 늘고 줄어든다
+    if (p.flip) {
+      ctx.save();
+      ctx.translate(r.x * 2 + r.size, 0);
+      ctx.scale(-1, 1);
+      ctx.drawImage(img, r.x, y, r.size, hgt);
+      ctx.restore();
+    } else ctx.drawImage(img, r.x, y, r.size, hgt);
+  } else {
+    ctx.fillStyle = '#42a5f5';
+    ctx.beginPath();
+    ctx.arc(left + tile / 2, top + tile / 2, tile * 0.38, 0, Math.PI * 2);
+    ctx.fill();
+  }
 }

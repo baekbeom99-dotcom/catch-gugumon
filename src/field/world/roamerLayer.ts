@@ -75,6 +75,16 @@ export function roamerPose(r: Roamer, now: number): Pose {
   return { x, y, lift, breathe };
 }
 
+/**
+ * 조작하는 구구몬의 정지 그림(시트 없는 종) 움직임: 걷는 중(step 0~1)이면 한 칸에 한 번 통통, 서 있으면 숨쉬기.
+ * 정지 그림은 앞모습이 왼쪽 아래를 보므로 오른쪽을 볼 때만 좌우를 뒤집는다.
+ */
+export function playerPose(step: number | null, now: number, facing: 'up' | 'down' | 'left' | 'right'): { lift: number; breathe: number; flip: boolean } {
+  const flip = facing === 'right';
+  if (step !== null) return { lift: Math.sin(Math.min(1, Math.max(0, step)) * Math.PI) * 0.12, breathe: 1, flip };
+  return { lift: 0, breathe: 1 + Math.sin(now / 280) * 0.035, flip };
+}
+
 /** 지도 위 구구몬들을 그린다. cx·cy는 카메라 왼쪽 위(화면 픽셀), tile은 한 칸의 화면 픽셀 */
 export function drawRoamers(ctx: CanvasRenderingContext2D, sprites: RoamerSprite[], tile: number, cx: number, cy: number, now: number, rectOf: RectFn) {
   for (const sp of sprites) {

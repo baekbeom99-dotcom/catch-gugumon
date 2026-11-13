@@ -1,7 +1,7 @@
 /**
  * 필드 픽셀 그림 — 16×16 글자 배열(팔레트 글자 → 색). 우리 팔레트로 새로 그린 것이다 (원작 타일을 옮겨 그리지 않음).
  * 여기에는 그림 틀(형식·굽기·뒤집기)과 어느 필드에서나 쓰는 덧그림(표지판·출구 화살표)만 둔다.
- * 주인공은 hero.ts, 구구몬 그림은 creatureArt.ts.
+ * 구구몬 그림은 creatureArt.ts (필드에서는 구구몬이 직접 걷는다).
  * 필드마다 다른 타일은 그 필드 지도 파일(world/maps/*Tiles.ts)에 함께 있어서 그 필드를 불러올 때만 내려받는다.
  */
 import type { Dir, FieldMap } from '../../domain/field/movement';
@@ -35,7 +35,7 @@ export function recolor(art: PixelArt, over: Record<string, string>): PixelArt {
 
 const baked = new WeakMap<PixelArt, HTMLCanvasElement>();
 
-/** 그림을 제 크기(타일 16×16, 주인공 32×32) 오프스크린 캔버스에 처음 한 번만 굽는다 (그 뒤로는 drawImage로 키워 그림) */
+/** 그림을 제 크기(타일 16×16, 32×32 그림도 그대로) 오프스크린 캔버스에 처음 한 번만 굽는다 (그 뒤로는 drawImage로 키워 그림) */
 export function bakeTiles(art: PixelArt): HTMLCanvasElement {
   const hit = baked.get(art);
   if (hit) return hit;

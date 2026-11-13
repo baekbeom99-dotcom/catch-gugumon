@@ -1,6 +1,6 @@
 /**
  * 개발 전용 필드 모험 검수 화면 (#/dev/field) — 배포 빌드에는 라우트가 없다.
- * 그림 교체·효과 추가·수치 조정을 한 뒤 여기서 바로 본다: 구구몬 그림(앞·뒤·진화·동행), 주인공 네 방향, 효과, 디버그 스위치.
+ * 그림 교체·효과 추가·수치 조정을 한 뒤 여기서 바로 본다: 구구몬 그림(앞·뒤·진화·동행·걷기 시트), 캡슐, 효과, 디버그 스위치.
  */
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -14,8 +14,6 @@ import { SheetSprite, creatureSprite, speciesColor } from './art/creatureSprite'
 import { BATTLE_ROW, DIR_ROW, type SheetDir } from './art/spriteSheet';
 import { CapsuleBall } from './art/CapsuleBall';
 import { CAPSULE_NAMES, CAPSULE_TYPES } from '../domain/field/capsules';
-import { HERO_DIRS, HERO_SPRITES } from './art/hero';
-import { PixelSprite } from './art/PixelSprite';
 import { debugFlags, setDebugFlag } from './debugFlags';
 import { ELEMENT_FX, ELEMENT_NAMES, SPECIAL_FX, STRONG_FX, type Element } from '../domain/field/elements';
 import { EFFECTS, type FxName, type FxSpec } from './fx/effects';
@@ -214,18 +212,8 @@ export function DevFieldGallery() {
       <EffectButtons />
 
       <section>
-        <h2>주인공 (art/hero.ts)</h2>
+        <h2>캡슐</h2>
         <div style={row}>
-          {HERO_DIRS.flatMap((d) =>
-            HERO_SPRITES[d].map((art, i) => (
-              <figure key={d + i} style={{ ...box, margin: 0, textAlign: 'center' }}>
-                <PixelSprite art={art} size={64} />
-                <figcaption>
-                  {d} {i}
-                </figcaption>
-              </figure>
-            )),
-          )}
           {CAPSULE_TYPES.map((t) => (
             <figure key={t} style={{ ...box, margin: 0, textAlign: 'center' }}>
               <CapsuleBall type={t} size={64} />
