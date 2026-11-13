@@ -2,6 +2,7 @@
  * 효과 틀기 — pixelfx(MIT, NOTICE.md)의 효과를 캔버스 위에 한 번 틀어 주는 얇은 함수.
  * 어떤 효과가 있는지·옵션은 effects.ts에 있다. '동작 줄이기'를 켠 기기에서는 틀지 않는다.
  */
+import { BEAM_FRAME_H, BEAM_PAD, beamPlan, drawBeam } from './beam';
 import { EFFECTS, fxTravelMs, type FxName, type FxSpec, goldPalette, paletteLength, TRANSITION_H, TRANSITION_W } from './effects';
 import type { FxModule } from 'pixelfx';
 
@@ -92,23 +93,34 @@ export async function playFx(
     canvas.width = w;
     canvas.height = h;
     if (!ctx) return true;
-    const frame = core.createFrame(w, h);
-    const img = new ImageData(w, h);
+    // 줄기 효과(beam)는 쏘는 구구몬 입에서 맞는 구구몬 쪽으로 돌려 그린다: 효과는 따로 둔 그림 틀에 그리고 매 장면 돌려서 옮긴다
+    const beam = opts.from && spec.motion === 'beam' && spec.beam ? spec.beam : null;
+    const off = beam ? document.createElement('canvas') : null;
+    const bw = beam ? Math.ceil(beam.reach + BEAM_PAD * 2) : w;
+    const bh = beam ? BEAM_FRAME_H : h;
+    if (off) {
+      off.width = bw;
+      off.height = bh;
+    }
+    const offCtx = off?.getContext('2d') ?? null;
+    const plan = beam && opts.from ? beamPlan({ x: opts.from.x / FX_PIXEL, y: opts.from.y / FX_PIXEL }, { x: at.x / FX_PIXEL, y: at.y / FX_PIXEL }, beam.reach) : null;
+    const frame = core.createFrame(bw, bh);
+    const img = new ImageData(bw, bh);
     const baseFlip = !!spec.options?.flip;
     const palette = opts.gold ? goldPalette(paletteLength(mod)) : undefined;
-    const mirror = !!opts.mirror && !spec.noMirror;
+    const mirror = !!opts.mirror && !spec.noMirror && !beam; // 줄기는 돌릴 때 뒤집는다
     const cx = (spec.center?.dx ?? 0) * (mirror ? -1 : 1);
     const cy = spec.center?.dy ?? 0;
     const fx = core.createFx(mod, {
       ...spec.options,
       ...(palette ? { palette } : {}),
       flip: mirror ? !baseFlip : baseFlip,
-      x: spec.screen ? 0 : Math.round(at.x / FX_PIXEL - cx),
-      y: spec.screen ? 0 : Math.round(at.y / FX_PIXEL - cy),
+      x: beam ? BEAM_PAD : spec.screen ? 0 : Math.round(at.x / FX_PIXEL - cx),
+      y: beam ? BEAM_FRAME_H / 2 : spec.screen ? 0 : Math.round(at.y / FX_PIXEL - cy),
     });
     const until = spec.until ?? Infinity;
     // 날아가는 효과: 먼저 구슬이 from → at으로 travelMs 동안 날아가고, 도착한 뒤에 효과(터짐)가 시작한다
-    const travelMs = fxTravelMs(name, !!opts.from);
+    const travelMs = spec.motion === 'travel' ? fxTravelMs(name, !!opts.from) : 0;
     const orb = spec.orb ?? ['#ffffff', '#ffd23a'];
     const a = opts.from ? { x: opts.from.x / FX_PIXEL, y: opts.from.y / FX_PIXEL } : { x: 0, y: 0 };
     const b = { x: at.x / FX_PIXEL, y: at.y / FX_PIXEL };
@@ -138,7 +150,11 @@ export async function playFx(
           core.clearFrame(frame);
           fx.draw(frame);
           core.composite(frame, img.data, null);
-          ctx.putImageData(img, 0, 0);
+          if (beam && offCtx && off && plan) {
+            offCtx.putImageData(img, 0, 0);
+            ctx.clearRect(0, 0, w, h);
+            drawBeam(ctx, off, plan, beam.axisY);
+          } else ctx.putImageData(img, 0, 0);
           if (fx.t >= until || fx.done()) {
             if (!spec.hold) ctx.clearRect(0, 0, w, h);
             return resolve(true);

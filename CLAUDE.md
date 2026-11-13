@@ -89,7 +89,7 @@ npm run build                # 배포용 빌드 (tsc -b && vite build)
 | 지도·타일 | `src/field/world/maps/<필드>.ts`·`<필드>Tiles.ts` | `tests/field/maps.test.ts` |
 | 효과 추가 | `src/field/fx/effects.ts`의 `EFFECTS`에 한 줄 → 틀 곳에서 `playFx(canvas, '이름', 자리)` | `#/dev/field`에서 버튼으로 확인, 이름 목록 테스트(`pixelArt.test.ts`) |
 
-- **날아가는 효과:** `FxSpec`의 `motion: 'travel'`(+`travelMs`·`orb` 구슬 색)이면 `playFx(..., { from })`가 쏘는 구구몬에서 맞는 구구몬까지 구슬을 날린 뒤 도착 지점에서 터뜨린다(이동 + 터짐 ≤ 0.6초, 효과음·흔들림은 `moveFxRoute`의 `arriveMs`만큼 늦춤). 바닥에서 솟는 효과·특수 기술은 `burst` 그대로.
+- **날아가는 효과:** `FxSpec`의 `motion: 'travel'`(+`travelMs`·`orb` 구슬 색)이면 `playFx(..., { from })`가 쏘는 구구몬에서 맞는 구구몬까지 구슬을 날린 뒤 도착 지점에서 터뜨린다(이동 + 터짐 ≤ 0.6초, 효과음·흔들림은 `moveFxRoute`의 `arriveMs`만큼 늦춤). 바닥에서 솟는 효과·특수 기술은 `burst` 그대로. **줄기 효과:** `motion: 'beam'`(+`beam: { reach, axisY }`)은 물줄기·번개줄기·불 뿜기(`water-jet`·`chain-lightning`·`fire-breath`·`flamethrower`)처럼 입에서 뻗는 효과 — `fx/beam.ts`가 효과를 따로 그린 뒤 쏘는 구구몬 입에서 맞는 구구몬 쪽으로 돌려(적 공격은 가로로 뒤집어) 붙이고 맞는 구구몬 한가운데에서 자른다. `travelMs`는 줄기 끝이 닿는 시간(효과음·피해 글 지연), `until ÷ speed`와 합쳐 ≤ 0.6초. `from`이 없으면 예전처럼 `at`에서 바로 재생.
 - **디버그:** 개발 서버(`npx vite --port 5188` 등)에서 `#/dev/field` — 구구몬 그림 전부(표정·진화·뒷모습·동행 한 칸), 주인공 네 방향, 효과 버튼, 만남 100%·레전드 스위치. 배포 빌드에는 없다.
 - `companionImage`는 React를 따로 그려 굽는다: React가 그리는 중(컴포넌트 본문·useEffect)에 부르면 null. rAF·setTimeout 안에서 부른다.
 

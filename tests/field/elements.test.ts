@@ -215,10 +215,22 @@ describe('날아가는 효과(motion·travelMs)', () => {
       const mod = await spec.load();
       const burst = (Math.min(spec.until ?? Infinity, mod.meta?.duration ?? Infinity) / spec.speed) * 1000;
       expect(burst + spec.travelMs!).toBeLessThanOrEqual(FX_TOTAL_MAX_MS + 1);
+    } else if (spec.motion === 'beam') {
+      expect(spec.travelMs).toBeGreaterThan(0);
+      expect(spec.beam!.reach).toBeGreaterThan(40);
+      const mod = await spec.load();
+      const real = (Math.min(spec.until ?? Infinity, mod.meta?.duration ?? Infinity) / spec.speed) * 1000;
+      expect(real + spec.travelMs!).toBeLessThanOrEqual(FX_TOTAL_MAX_MS + 1);
     } else {
       expect(spec.travelMs).toBeUndefined();
       expect(spec.orb).toBeUndefined();
+      expect(spec.beam).toBeUndefined();
     }
+  });
+
+  it('줄기 효과(입에서 뻗는 물줄기·번개줄기·불 뿜기)는 정해 둔 네 개뿐이다', () => {
+    const now = FX_NAMES.filter((n) => (EFFECTS as Record<string, FxSpec>)[n].motion === 'beam');
+    expect([...now].sort()).toEqual(['chain-lightning', 'fire-breath', 'flamethrower', 'water-jet']);
   });
 
   it('특수 기술·전환·명중·잡기, 바닥에서 솟는 효과는 날아가지 않는다', () => {

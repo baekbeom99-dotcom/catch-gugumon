@@ -6,6 +6,7 @@
  *   2. 틀 곳에서 playFx(canvas, '이름', 자리) — 미리 받으려면 preloadFx('이름')
  *   3. #/dev/field 화면(개발 서버)에서 버튼을 눌러 바로 볼 수 있다
  * 날아가는 효과(motion: 'travel')는 fireball·ball-lightning·boulder·vine-whip: 쏘는 구구몬에서 맞는 구구몬까지 작은 구슬이 날아간 뒤 터진다. 날아가는 시간(travelMs)과 터짐(until ÷ speed)을 합쳐 0.6초 안.
+ * 줄기 효과(motion: 'beam')는 water-jet·chain-lightning·fire-breath·flamethrower: 쏘는 구구몬 입에서 맞는 구구몬 쪽으로 줄기·불꽃이 뻗는다 (beam.ts). beam: { reach, axisY }는 줄기 모양.
  * 효과는 보기만 하는 것이라 게임 시간·규칙에 손대지 않는다.
  */
 import type { FxModule } from 'pixelfx';
@@ -39,9 +40,15 @@ export interface FxSpec {
    * 움직임: 'travel'이면 공격하는 구구몬에서 맞는 구구몬까지 작은 구슬이 날아간 뒤 도착 지점에서 효과가 터진다.
    * 없거나 'burst'면 맞는 구구몬 위에서 바로 터진다 (바닥에서 솟는 효과·특수 효과 등).
    */
-  motion?: 'travel' | 'burst';
+  motion?: 'travel' | 'burst' | 'beam';
   /** travel일 때 구슬이 날아가는 시간 (ms, 150~300). 터지는 시간(until ÷ speed)과 합쳐 600ms 안 */
   travelMs?: number;
+  /**
+   * beam일 때 줄기 모양 (효과 화소 단위): 효과 원점이 쏘는 입, 오른쪽으로 reach만큼 뻗고, 줄기 가운데 줄은 원점보다 axisY만큼 아래(+)·위(-)에 있다.
+   * beam의 travelMs는 줄기 끝이 맞는 구구몬에 닿는 시간(ms)이라 효과음·피해 글이 그만큼 늦고, until ÷ speed와 합쳐 600ms 안이다.
+   * 쏘는 구구몬 입에서 맞는 구구몬 쪽으로 돌려 그리고 맞는 구구몬 한가운데에서 잘라 낸다 (beam.ts)
+   */
+  beam?: { reach: number; axisY: number };
   /** travel일 때 날아가는 구슬의 색 [가운데, 가장자리] */
   orb?: [string, string];
   /** 개발 화면에 보이는 설명 */
@@ -52,6 +59,8 @@ export interface FxSpec {
 export const FX_TOTAL_MAX_MS = 600;
 export const TRAVEL_MS_MIN = 150;
 export const TRAVEL_MS_MAX = 300;
+/** 줄기 효과(beam)의 끝이 맞는 구구몬에 닿는 시간 (ms) */
+export const BEAM_ARRIVE_MS = 100;
 
 /** 황금 구구몬이 쏠 때의 금색 팔레트 — 효과마다 기본 색 개수(6·8·9)가 달라 그 길이에 맞춰 만든다 (어두운 금 → 흰빛) */
 const GOLD_RAMP = ['#3a1d05', '#6b3a0c', '#a8620f', '#e0961c', '#ffcf3a', '#ffe680', '#fff6cf', '#ffffff'];
@@ -195,8 +204,11 @@ export const EFFECTS = {
   'water-jet': {
     center: { dx: 88.3, dy: 8.7 },
     load: () => import('pixelfx/fx/water/water-jet'),
-    until: 0.6,
+    until: 0.5,
     speed: 1,
+    motion: 'beam',
+    travelMs: BEAM_ARRIVE_MS,
+    beam: { reach: 160, axisY: 9 },
     hold: false,
     screen: false,
     note: '물 2번 — 물줄기 쏘기 (왼쪽에서 오른쪽으로, 반복 효과라 0.6초까지만)',
@@ -222,8 +234,11 @@ export const EFFECTS = {
   'chain-lightning': {
     center: { dx: 92.5, dy: -21.7 },
     load: () => import('pixelfx/fx/lightning/chain-lightning'),
-    until: 1.2,
+    until: 1.0,
     speed: 2,
+    motion: 'beam',
+    travelMs: BEAM_ARRIVE_MS,
+    beam: { reach: 186, axisY: -22 },
     hold: false,
     screen: false,
     note: '번개 2번 — 이어지는 번개 (1.8초 중 1.2초까지 빠르게, 왼쪽에서 오른쪽으로)',
@@ -282,8 +297,11 @@ export const EFFECTS = {
   'fire-breath': {
     center: { dx: 79.3, dy: -20.6 },
     load: () => import('pixelfx/fx/fire/fire-breath'),
-    until: 0.7,
+    until: 0.6,
     speed: 1.2,
+    motion: 'beam',
+    travelMs: BEAM_ARRIVE_MS,
+    beam: { reach: 132, axisY: -6 },
     hold: false,
     screen: false,
     note: '불 2번 — 불 뿜기 (왼쪽에서 오른쪽으로, 반복 효과라 0.7초까지 1.2배속)',
@@ -587,8 +605,11 @@ export const EFFECTS = {
   flamethrower: {
     center: { dx: 86.3, dy: -11.6 },
     load: () => import('pixelfx/fx/fire/flamethrower'),
-    until: 0.9,
+    until: 0.75,
     speed: 1.5,
+    motion: 'beam',
+    travelMs: BEAM_ARRIVE_MS,
+    beam: { reach: 135, axisY: -6 },
     hold: false,
     screen: false,
     note: '불 강력 1 — 길게 뿜는 불줄기 (왼쪽에서 오른쪽으로, 반복 효과)',
@@ -680,10 +701,10 @@ export const EFFECTS = {
 
 export type FxName = keyof typeof EFFECTS;
 
-/** 이 효과가 `from`에서 `at`까지 날아가는 시간 (ms). 날아가지 않으면 0 */
+/** 이 효과가 `from`에서 `at`에 닿는 시간 (ms) — 날아가는 구슬(travel)이나 뻗는 줄기(beam)의 닿는 시간. 해당 없으면 0 */
 export function fxTravelMs(name: FxName, hasFrom = true): number {
   const spec: FxSpec = EFFECTS[name];
-  return hasFrom && !spec.screen && spec.motion === 'travel' ? (spec.travelMs ?? 0) : 0;
+  return hasFrom && !spec.screen && (spec.motion === 'travel' || spec.motion === 'beam') ? (spec.travelMs ?? 0) : 0;
 }
 
 export const FX_NAMES = Object.keys(EFFECTS) as FxName[];

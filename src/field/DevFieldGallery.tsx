@@ -68,7 +68,7 @@ function EffectButtons() {
   const button = (n: FxName) => (
     <button key={n} type="button" className="btn btn--ghost" onClick={() => play(n)} title={EFFECTS[n].note}>
       {n}
-      {(EFFECTS[n] as FxSpec).motion === 'travel' ? ' ➤' : ''}
+      {(EFFECTS[n] as FxSpec).motion === 'travel' ? ' ➤' : (EFFECTS[n] as FxSpec).motion === 'beam' ? ' ═▶' : ''}
     </button>
   );
   return (
