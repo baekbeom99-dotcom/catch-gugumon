@@ -9,6 +9,7 @@ import { useGameStore } from '../store/useGameStore';
 import { HpBar } from './HpBar';
 import { SkillManager } from './SkillManager';
 import { creatureSprite, speciesColor } from './art/creatureSprite';
+import { SpriteCredit } from './art/SpriteCredit';
 import './fieldDex.css';
 
 const GROUPS: { title: string; ids: SpeciesId[] }[] = [
@@ -119,6 +120,7 @@ export function FieldDexScreen() {
         </div>
       )}
       {managing && picked && field.species[picked] && <SkillManager species={picked} onClose={() => setManaging(false)} />}
+      <SpriteCredit />
     </section>
   );
 }

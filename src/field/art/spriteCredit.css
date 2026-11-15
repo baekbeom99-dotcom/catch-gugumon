@@ -1,0 +1,16 @@
+/* 화면 맨 아래에 작게 붙인다 (누르기를 막지 않는다) */
+.sprite-credit {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 5;
+  margin: 0;
+  padding: 4px 10px calc(4px + env(safe-area-inset-bottom, 0px));
+  font-size: 9px;
+  line-height: 1.35;
+  text-align: center;
+  color: #4a3b22;
+  background: rgba(255, 250, 235, 0.88);
+  pointer-events: none;
+}

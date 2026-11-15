@@ -2,6 +2,7 @@
 import { useNavigate } from 'react-router-dom';
 import { DAN_COLORS } from '../art/colors';
 import { MonsterSprite } from '../art/MonsterSprite';
+import { SpriteCredit } from '../field/art/SpriteCredit';
 import './title.css';
 
 export function TitleScreen() {
@@ -30,6 +31,7 @@ export function TitleScreen() {
           필드 모험
         </button>
       </div>
+      <SpriteCredit />
     </section>
   );
 }
