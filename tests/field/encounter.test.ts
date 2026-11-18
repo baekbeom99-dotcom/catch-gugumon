@@ -33,8 +33,9 @@ describe('종 표', () => {
     expect(LEGEND_LEVEL).toBe(20);
     expect(STARTERS).toEqual(['c034', 'c035', 'c036']);
   });
-  it('49종, 기술 3개씩, 이름 있음', () => {
-    expect(SPECIES).toHaveLength(49);
+  it('48종(013 없음), 기술 3개씩, 이름 있음', () => {
+    expect(SPECIES).toHaveLength(48);
+    expect(SPECIES.map((s) => s.id)).not.toContain('c013');
     for (const s of SPECIES) {
       expect(s.moves).toHaveLength(3);
       expect(s.name.length).toBeGreaterThan(0);

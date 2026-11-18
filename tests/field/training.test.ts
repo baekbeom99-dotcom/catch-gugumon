@@ -95,7 +95,7 @@ describe('judgeChallenge', () => {
 
 describe('pickLegendReward', () => {
   it('이미 받은 단이면 null', () => {
-    expect(pickLegendReward(seededRng(1), [], 12, { 12: 'c013' })).toBeNull();
+    expect(pickLegendReward(seededRng(1), [], 12, { 12: 'c014' })).toBeNull();
   });
   it('가진 종을 제외하고 뽑음', () => {
     const owned = LEGEND_SPECIES.slice(1);

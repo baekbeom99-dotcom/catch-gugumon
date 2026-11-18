@@ -17,9 +17,9 @@ export type { SpeciesId };
 export const SPECIES_IDS: readonly SpeciesId[] = ALL_SPECIES;
 
 /**
- * 예전 저장 이전표 (v1.60, 11종 → 49종): 옛 종 id → 새 종 id.
- * 저장을 읽을 때(mergeField) 도감 키·본 종·동행·가진 기술 id(`옛id-슬롯` → `새id-슬롯`)를 모두 이 표로 옮긴다.
- * 새 종이 서로 겹치지 않아 기록이 합쳐질 일은 없다. 이 표는 지우지 않는다(오래 안 연 저장도 옮겨야 한다)
+ * 예전 저장 이전표 (v1.60, 11종 → 49종 / 013을 뺀 뒤 c013 → c046): 옛 종 id → 새 종 id.
+ * 저장을 읽을 때(mergeField) 도감 키·본 종·동행·가진 기술 id(`옛id-슬롯` → `새id-슬롯`)·레전드 보상을 모두 이 표로 옮긴다.
+ * 옮길 새 종 기록이 이미 있으면 그 기록을 지킨다. 이 표는 지우지 않는다(오래 안 연 저장도 옮겨야 한다)
  */
 export const OLD_SPECIES_MAP: Readonly<Record<string, SpeciesId>> = {
   cloud: 'c034',
@@ -33,6 +33,9 @@ export const OLD_SPECIES_MAP: Readonly<Record<string, SpeciesId>> = {
   'legend-fluff': 'c015',
   'legend-horn': 'c047',
   'legend-ghost': 'c048',
+  // 013(주황머리몬)은 마을 사람 그림이 되어 종에서 빠졌다: 같은 빛 속성 레전드 c046으로 옮긴다.
+  // c046 기록이 이미 있으면 c046을 지키고 c013 기록은 버린다 (mergeField)
+  c013: 'c046',
 };
 
 /** 옛 종 id면 새 id로, 아니면 그대로 */
@@ -263,7 +266,7 @@ export function mergeTraining(raw: unknown): TrainingData {
     if (isCount(m.bestMs) && isNum(m.at)) t.mastered[d] = { bestMs: m.bestMs, at: m.at };
   }
   for (const d of [12, 13] as const) {
-    const sp = has(legend, d) ? legend[d] : undefined;
+    const sp = has(legend, d) ? migrateSpeciesId(legend[d]) : undefined;
     if (isSpecies(sp)) t.legendGranted[d] = sp;
   }
   return t;
@@ -279,8 +282,11 @@ export function mergeField(initial: FieldData, persisted: unknown, townRowsAdded
 
   const species: FieldData['species'] = {};
   if (p.species && typeof p.species === 'object') {
-    for (const [raw, v] of Object.entries(p.species as Record<string, unknown>)) {
-      // 옛 종 키(cloud 등)는 새 종 키로 옮긴다 (OLD_SPECIES_MAP)
+    const rawEntries = Object.entries(p.species as Record<string, unknown>);
+    // 지금 종 키를 먼저 읽고, 옛 종 키(cloud·c013 등)는 그 뒤에 새 종 키로 옮긴다 (OLD_SPECIES_MAP).
+    // 그래서 c013과 c046이 둘 다 있으면 저장 순서와 상관없이 c046 기록이 남는다
+    const ordered = [...rawEntries.filter(([raw]) => !has(OLD_SPECIES_MAP, raw)), ...rawEntries.filter(([raw]) => has(OLD_SPECIES_MAP, raw))];
+    for (const [raw, v] of ordered) {
       const k = migrateSpeciesId(raw);
       if (!isSpecies(k) || species[k]) continue;
       const entry = mergeEntry(k, v);

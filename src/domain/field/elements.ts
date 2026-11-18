@@ -22,7 +22,7 @@ export const ELEMENT_NAMES: Record<Element, string> = {
 };
 
 /**
- * 주속성이 같은 종 (설계서 2-1 표) — 속성마다 7종, 그림 색을 보고 정했다.
+ * 주속성이 같은 종 (설계서 2-1 표) — 속성마다 7종(빛만 6종: 013을 종에서 뺐다), 그림 색을 보고 정했다.
  * 종의 속성은 이 표 한 곳에서만 정한다 (MAIN_ELEMENT·SUB_ELEMENT는 여기서 만든다)
  */
 export const ELEMENT_GROUPS: Record<Element, readonly SpeciesId[]> = {
@@ -32,16 +32,23 @@ export const ELEMENT_GROUPS: Record<Element, readonly SpeciesId[]> = {
   poison: ['c006', 'c008', 'c011', 'c014', 'c032', 'c042', 'c050'],
   thunder: ['c005', 'c019', 'c025', 'c027', 'c033', 'c039', 'c045'],
   earth: ['c001', 'c007', 'c010', 'c012', 'c026', 'c037', 'c049'],
-  light: ['c013', 'c015', 'c020', 'c040', 'c041', 'c044', 'c046'],
+  light: ['c015', 'c020', 'c040', 'c041', 'c044', 'c046'],
 };
 
 /**
- * 부속성 규칙: 주속성 그룹 번호 m(ELEMENTS 차례), 그룹 안 차례 j(0~6)이면 ELEMENTS[(m + 1 + j % 6) % 7].
- * 늘 주속성과 다르고, 속성마다 부속성으로 꼭 7번씩 쓰인다
+ * 그룹 앞에서 빠진 종 수 — 빛은 맨 앞 c013(부속성 불)을 뺐다.
+ * 남은 종의 차례를 그만큼 밀어 부속성이 013을 빼기 전과 같게 한다 (저장된 기술이 바뀌지 않게)
+ */
+const REMOVED_BEFORE: Partial<Record<Element, number>> = { light: 1 };
+
+/**
+ * 부속성 규칙: 주속성 그룹 번호 m(ELEMENTS 차례), 그룹 안 차례 j(0~6)이면 ELEMENTS[(m + 1 + (j + 빠진 수) % 6) % 7].
+ * 늘 주속성과 다르다. 속성마다 부속성으로 7번씩 쓰이고, 013이 빠진 불만 6번이다
  */
 function subFor(main: Element, j: number): Element {
   const m = ELEMENTS.indexOf(main);
-  return ELEMENTS[(m + 1 + (j % 6)) % ELEMENTS.length];
+  const k = j + (REMOVED_BEFORE[main] ?? 0);
+  return ELEMENTS[(m + 1 + (k % 6)) % ELEMENTS.length];
 }
 
 const mainTable = {} as Record<SpeciesId, Element>;

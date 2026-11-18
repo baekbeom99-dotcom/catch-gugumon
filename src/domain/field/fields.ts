@@ -11,7 +11,7 @@ export const CHALLENGE_DAN: Dan = 12;
 /** 레전드 단 */
 export const LEGEND_DAN: Dan = 13;
 
-/** 필드마다 단과 나오는 종 (레전드 12종은 어느 필드에서나 드물게 — creatures.ts의 LEGEND_SPECIES) */
+/** 필드마다 단과 나오는 종 (레전드 11종은 어느 필드에서나 드물게 — creatures.ts의 LEGEND_SPECIES) */
 export const FIELDS: Record<FieldId, { name: string; dans: Dan[]; species: SpeciesId[] }> = {
   meadow: {
     name: '초원',

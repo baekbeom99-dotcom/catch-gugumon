@@ -26,7 +26,7 @@ function oldField() {
   };
 }
 
-describe('예전 저장 이전표 (옛 11종 → 새 49종)', () => {
+describe('예전 저장 이전표 (옛 11종 → 새 종)', () => {
   beforeEach(() => {
     useGameStore.getState().resetAll();
   });
@@ -35,18 +35,20 @@ describe('예전 저장 이전표 (옛 11종 → 새 49종)', () => {
     expect(OLD_SPECIES_MAP).toEqual({
       cloud: 'c034', ghost: 'c035', jelly: 'c036', antenna: 'c033', pebble: 'c037', mushroom: 'c042', fluff: 'c040', horn: 'c031',
       'legend-fluff': 'c015', 'legend-horn': 'c047', 'legend-ghost': 'c048',
+      c013: 'c046',
     });
-    const targets = Object.values(OLD_SPECIES_MAP);
+    const targets = Object.entries(OLD_SPECIES_MAP).filter(([k]) => k !== 'c013').map(([, v]) => v);
     expect(new Set(targets).size).toBe(targets.length);
     for (const t of targets) expect(SPECIES_IDS).toContain(t);
     // 옛 종의 속성 (예전 설계서 2-1 표) — 옮겨도 주속성이 바뀌지 않게 골랐다
     const oldMain: Record<string, string> = {
       cloud: 'grass', ghost: 'fire', jelly: 'water', antenna: 'thunder', pebble: 'earth', mushroom: 'poison', fluff: 'light', horn: 'water',
       'legend-fluff': 'light', 'legend-horn': 'water', 'legend-ghost': 'fire',
+      c013: 'light',
     };
     for (const [old, to] of Object.entries(OLD_SPECIES_MAP)) expect(MAIN_ELEMENT[to]).toBe(oldMain[old]);
     // 옛 레전드는 새 레전드로
-    for (const old of ['legend-fluff', 'legend-horn', 'legend-ghost']) expect(speciesDef(OLD_SPECIES_MAP[old]).legend).toBe(true);
+    for (const old of ['legend-fluff', 'legend-horn', 'legend-ghost', 'c013']) expect(speciesDef(OLD_SPECIES_MAP[old]).legend).toBe(true);
   });
 
   it('id 옮기기: 옛 종·옛 기술 id만 바꾸고 나머지는 그대로', () => {
@@ -112,5 +114,73 @@ describe('예전 저장 이전표 (옛 11종 → 새 49종)', () => {
     expect(f.species.c034?.skills).toEqual(['c034-1', 'c034-2', 'c034-3', 'c035-4']);
     const backup = JSON.stringify(currentSave());
     for (const old of Object.keys(OLD_SPECIES_MAP)) expect(backup).not.toContain(`"${old}"`);
+  });
+});
+
+/** 013(주황머리몬)을 종에서 뺀 v1.xx 전 저장: c013 기록이 있는 저장 */
+function entry(level: number, hp: number, skills: string[], caught = 1) {
+  return { level, exp: 4, stage: 1, caught, firstCaughtAt: 50, hp, wounds: [{ factId: '13x7', type: 'product' }], skills };
+}
+
+describe('013을 종에서 뺀 뒤 옛 저장 (c013 → c046)', () => {
+  beforeEach(() => {
+    useGameStore.getState().resetAll();
+  });
+
+  it('id 옮기기: c013과 c013 기술은 c046으로', () => {
+    expect(migrateSpeciesId('c013')).toBe('c046');
+    expect(migrateSkillId('c013-5')).toBe('c046-5');
+    expect(migrateSkillId('c046-2')).toBe('c046-2');
+    expect(SPECIES_IDS).not.toContain('c013');
+  });
+
+  it('c013만 있으면 c046으로 옮긴다 (레벨·체력·상처·잡은 수 그대로, 도감·동행도)', () => {
+    const f = mergeField(initialField(), {
+      starterChosen: true,
+      companion: 'c013',
+      species: { c034: entry(5, 100, ['c034-1']), c013: entry(22, 37, ['c013-1', 'c013-2', 'c013-3', 'c013-5'], 2) },
+      seen: ['c034', 'c013'],
+    });
+    expect(Object.keys(f.species).sort()).toEqual(['c034', 'c046']);
+    expect(f.species.c046).toEqual({
+      level: 22, exp: 4, stage: 1, caught: 2, firstCaughtAt: 50, hp: 37,
+      wounds: [{ factId: '13x7', type: 'product' }],
+      skills: ['c046-1', 'c046-2', 'c046-3', 'c046-5'],
+    });
+    expect(f.companion).toBe('c046');
+    expect(f.seen).toEqual(['c034', 'c046']);
+  });
+
+  it('c013과 c046이 둘 다 있으면 순서와 상관없이 c046 기록만 남는다', () => {
+    const c046 = entry(8, 90, ['c046-1']);
+    const c013 = entry(30, 10, ['c013-1', 'c013-2']);
+    for (const species of [{ c013, c046 }, { c046, c013 }]) {
+      const f = mergeField(initialField(), { species, seen: ['c013', 'c046'], companion: 'c013' });
+      expect(Object.keys(f.species)).toEqual(['c046']);
+      expect(f.species.c046).toMatchObject({ level: 8, hp: 90, skills: ['c046-1'] });
+      expect(f.seen).toEqual(['c046']);
+      expect(f.companion).toBe('c046');
+    }
+  });
+
+  it('다른 구구몬이 따라 배운 c013 기술도 c046 기술로', () => {
+    const f = mergeField(initialField(), { species: { c034: entry(30, 100, ['c034-1', 'c034-2', 'c034-3', 'c013-4']) } });
+    expect(f.species.c034?.skills).toContain('c046-4');
+    expect(JSON.stringify(f)).not.toContain('c013');
+  });
+
+  it('트레이닝센터 레전드 보상으로 받은 c013도 c046으로', () => {
+    const f = mergeField(initialField(), { training: { studied: {}, mastered: {}, legendGranted: { 12: 'c013', 13: 'c047' } } });
+    expect(f.training.legendGranted).toEqual({ 12: 'c046', 13: 'c047' });
+  });
+
+  it('옮긴 저장을 다시 읽어도 그대로, localStorage 저장(mergeSave)도 옮겨진다', () => {
+    const raw = { starterChosen: true, companion: 'c013', species: { c013: entry(12, 60, ['c013-1']) }, seen: ['c013'] };
+    const once = mergeField(initialField(), raw);
+    expect(mergeField(initialField(), JSON.parse(JSON.stringify(once)))).toEqual(once);
+    const merged = mergeSave(createInitialSave(NOW), { ...createInitialSave(NOW), field: raw });
+    expect(merged.field.companion).toBe('c046');
+    expect(merged.field.species.c046?.level).toBe(12);
+    expect(JSON.stringify(merged.field)).not.toContain('c013');
   });
 });

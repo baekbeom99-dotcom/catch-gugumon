@@ -9,8 +9,8 @@ import { EFFECTS, FX_NAMES, FX_TOTAL_MAX_MS, TRAVEL_MS_MAX, TRAVEL_MS_MIN, goldP
 import { WILD_HIT_ANIM_MS } from '../../src/domain/field/tuning';
 
 describe('속성 표', () => {
-  it('종 49개 모두 속성이 있다', () => {
-    expect(SPECIES).toHaveLength(49);
+  it('종 48개 모두 속성이 있다', () => {
+    expect(SPECIES).toHaveLength(48);
     for (const s of SPECIES) expect(ELEMENT_NAMES[elementOf(s.id)]).toBeTruthy();
     // 시작 구구몬 3종: 풀·불·물
     expect([elementOf('c034'), elementOf('c035'), elementOf('c036')]).toEqual(['grass', 'fire', 'water']);
@@ -50,8 +50,8 @@ describe('속성 표', () => {
     for (const n of Object.values(SPECIAL_FX)) expect(FX_NAMES).toContain(n);
   });
 
-  it('skillFxName: 245개 기술(복사해 부속성 자리에 앉은 모습 포함) 모두 ELEMENT_FX의 4칸 안 — 윗단계여도 강력 효과(STRONG_FX)는 안 쓴다', () => {
-    expect(SKILLS).toHaveLength(245);
+  it('skillFxName: 240개 기술(복사해 부속성 자리에 앉은 모습 포함) 모두 ELEMENT_FX의 4칸 안 — 윗단계여도 강력 효과(STRONG_FX)는 안 쓴다', () => {
+    expect(SKILLS).toHaveLength(240);
     const strong = new Set(Object.values(STRONG_FX).flat());
     for (const def of SKILLS) {
       // 복사: 다른 종(구름몬·버섯몬)에게 앉힌 모습도 원래 종의 속성·fxIndex 그대로
@@ -155,7 +155,7 @@ describe('황금 팔레트', () => {
 
 
 describe('주·부 속성과 상성', () => {
-  it('주속성 배정표: 속성마다 7종, 49종이 한 번씩 (설계서 2-1 표)', () => {
+  it('주속성 배정표: 빛만 6종·나머지 7종, 48종이 한 번씩 (설계서 2-1 표, 013은 종이 아님)', () => {
     expect(ELEMENT_GROUPS).toEqual({
       fire: ['c002', 'c009', 'c021', 'c028', 'c030', 'c035', 'c048'],
       water: ['c004', 'c024', 'c031', 'c036', 'c038', 'c043', 'c047'],
@@ -163,15 +163,17 @@ describe('주·부 속성과 상성', () => {
       poison: ['c006', 'c008', 'c011', 'c014', 'c032', 'c042', 'c050'],
       thunder: ['c005', 'c019', 'c025', 'c027', 'c033', 'c039', 'c045'],
       earth: ['c001', 'c007', 'c010', 'c012', 'c026', 'c037', 'c049'],
-      light: ['c013', 'c015', 'c020', 'c040', 'c041', 'c044', 'c046'],
+      light: ['c015', 'c020', 'c040', 'c041', 'c044', 'c046'],
     });
+    for (const el of ELEMENTS) expect(ELEMENT_GROUPS[el]).toHaveLength(el === 'light' ? 6 : 7);
     const all = Object.values(ELEMENT_GROUPS).flat();
-    expect(all).toHaveLength(49);
+    expect(all).toHaveLength(48);
+    expect(all).not.toContain('c013');
     expect([...all].sort()).toEqual([...SPECIES_IDS].sort());
     for (const el of ELEMENTS) for (const id of ELEMENT_GROUPS[el]) expect(MAIN_ELEMENT[id]).toBe(el);
   });
 
-  it('부속성: 주속성과 다르고, 속성마다 부속성으로 7번씩 (규칙 ELEMENTS[(m + 1 + j % 6) % 7])', () => {
+  it('부속성: 주속성과 다르고, 속성마다 부속성으로 7±1번 (규칙 ELEMENTS[(m + 1 + (j + 빈 자리) % 6) % 7])', () => {
     const count = new Map<Element, number>();
     for (const s of SPECIES) {
       expect(elementOf(s.id)).toBe(MAIN_ELEMENT[s.id]);
@@ -179,19 +181,30 @@ describe('주·부 속성과 상성', () => {
       expect(subElementOf(s.id)).not.toBe(elementOf(s.id));
       count.set(SUB_ELEMENT[s.id], (count.get(SUB_ELEMENT[s.id]) ?? 0) + 1);
     }
-    for (const el of ELEMENTS) expect(count.get(el)).toBe(7);
-    ELEMENTS.forEach((el, m) => ELEMENT_GROUPS[el].forEach((id, j) => expect(SUB_ELEMENT[id]).toBe(ELEMENTS[(m + 1 + (j % 6)) % 7])));
+    for (const el of ELEMENTS) {
+      expect(count.get(el)).toBeGreaterThanOrEqual(6);
+      expect(count.get(el)).toBeLessThanOrEqual(8);
+    }
+    // 빠진 c013(빛 차례 0, 부속성 불) 자리만 비어 불이 6번, 나머지는 7번
+    expect(Object.fromEntries(ELEMENTS.map((el) => [el, count.get(el)]))).toEqual({ fire: 6, water: 7, grass: 7, poison: 7, thunder: 7, earth: 7, light: 7 });
+    ELEMENTS.forEach((el, m) =>
+      ELEMENT_GROUPS[el].forEach((id, j) => expect(SUB_ELEMENT[id]).toBe(ELEMENTS[(m + 1 + ((j + (el === 'light' ? 1 : 0)) % 6)) % 7])),
+    );
+    // 남은 빛 종의 부속성은 013을 빼기 전과 같다 (저장된 기술이 바뀌지 않게)
+    expect(ELEMENT_GROUPS.light.map((id) => SUB_ELEMENT[id])).toEqual(['water', 'grass', 'poison', 'thunder', 'earth', 'fire']);
     // 시작 구구몬 고정값
     expect([SUB_ELEMENT.c034, SUB_ELEMENT.c035, SUB_ELEMENT.c036]).toEqual(['poison', 'light', 'earth']);
   });
 
-  it('필드 배정: 사막 12·물가 13·초원 12·레전드 12 = 49, 겹침 없음, 017 없음', () => {
+  it('필드 배정: 사막 12·물가 13·초원 12·레전드 11 = 48, 겹침 없음, 013·017 없음', () => {
     expect(FIELDS.desert.species).toHaveLength(12);
     expect(FIELDS.waterside.species).toHaveLength(13);
     expect(FIELDS.meadow.species).toHaveLength(12);
-    expect(LEGEND_SPECIES).toHaveLength(12);
+    expect(LEGEND_SPECIES).toHaveLength(11);
     const all = [...FIELDS.desert.species, ...FIELDS.waterside.species, ...FIELDS.meadow.species, ...LEGEND_SPECIES];
-    expect(new Set(all).size).toBe(49);
+    expect(new Set(all).size).toBe(48);
+    expect(SPECIES_IDS).toHaveLength(48);
+    expect(SPECIES_IDS as readonly string[]).not.toContain('c013');
     expect([...all].sort()).toEqual([...SPECIES_IDS].sort());
     expect(SPECIES_IDS as readonly string[]).not.toContain('c017');
     expect(SPECIES_IDS[0]).toBe('c001');
@@ -200,7 +213,7 @@ describe('주·부 속성과 상성', () => {
     expect(FIELDS.desert.species.every((id) => num(id) >= 1 && num(id) <= 12)).toBe(true);
     expect(FIELDS.waterside.species.every((id) => num(id) >= 20 && num(id) <= 32)).toBe(true);
     expect(FIELDS.meadow.species.every((id) => num(id) >= 33 && num(id) <= 44)).toBe(true);
-    expect([...LEGEND_SPECIES]).toEqual(['c013', 'c014', 'c015', 'c016', 'c018', 'c019', 'c045', 'c046', 'c047', 'c048', 'c049', 'c050']);
+    expect([...LEGEND_SPECIES]).toEqual(['c014', 'c015', 'c016', 'c018', 'c019', 'c045', 'c046', 'c047', 'c048', 'c049', 'c050']);
   });
 
   it('matchup 49쌍 전수', () => {

@@ -6,11 +6,12 @@ import {
 import { SUB_FAST_RATIO, TIER_RULES } from '../../src/domain/field/tuning';
 import { ELEMENTS, MAIN_ELEMENT, SUB_ELEMENT } from '../../src/domain/field/elements';
 import { SPECIES, SPECIES_IDS } from '../../src/domain/field/creatures';
+import { legendSlot, LEGEND_SPECIES, RETIRED_NUMBERS, speciesSlot } from '../../src/domain/field/speciesIds';
 
 
 describe('기술 고정표', () => {
-  it('49종 x 5 = 245개, id는 종-슬롯', () => {
-    expect(SKILLS).toHaveLength(245);
+  it('48종 x 5 = 240개, id는 종-슬롯', () => {
+    expect(SKILLS).toHaveLength(240);
     for (const s of SPECIES) {
       const list = speciesSkills(s.id);
       expect(list.map((k) => k.slot)).toEqual([1, 2, 3, 4, 5]);
@@ -73,12 +74,14 @@ describe('기술 고정표', () => {
     }
   });
 
-  it('특수 배정 규칙: 종 차례대로 5가지를 돌아가며 (고르게 — 종류마다 9~10종)', () => {
+  it('특수 배정 규칙: 종 차례(뺀 013 자리도 센다)대로 5가지를 돌아가며 (고르게 — 종류마다 9~10종)', () => {
     expect(SPECIAL_CYCLE).toEqual(['heal', 'guard', 'clue', 'calm', 'charge']);
-    SPECIES_IDS.forEach((id, i) => expect(SPECIAL_OF_SPECIES[id]).toBe(SPECIAL_CYCLE[i % 5]));
+    SPECIES_IDS.forEach((id) => expect(SPECIAL_OF_SPECIES[id]).toBe(SPECIAL_CYCLE[speciesSlot(id) % 5]));
     const count = new Map<string, number>();
     for (const id of SPECIES_IDS) count.set(SPECIAL_OF_SPECIES[id], (count.get(SPECIAL_OF_SPECIES[id]) ?? 0) + 1);
     for (const n of count.values()) expect(n === 9 || n === 10).toBe(true);
+    // 013(차례 12, clue)이 빠져 clue·charge가 9종
+    expect(Object.fromEntries(count)).toEqual({ heal: 10, guard: 10, clue: 9, calm: 10, charge: 9 });
     // 스턴은 주②에만 (특수 슬롯에는 배정하지 않는다)
     expect(Object.values(SPECIAL_OF_SPECIES)).not.toContain('stun');
     // 시작 구구몬 고정값
@@ -94,6 +97,18 @@ describe('기술 고정표', () => {
     expect([M2_EFFECT_OF_SPECIES.c034, M2_EFFECT_OF_SPECIES.c035, M2_EFFECT_OF_SPECIES.c036]).toEqual(['guard', 'stun', 'heal']);
     // c001(특수 heal)은 차례상 stun
     expect(M2_EFFECT_OF_SPECIES.c001).toBe('stun');
+  });
+
+  it('옛 차례(speciesSlot·legendSlot): 013 뒤의 종은 한 칸 밀린다 — 013을 빼도 특수·주②·레전드 서식지가 그대로', () => {
+    expect(RETIRED_NUMBERS).toEqual([13]);
+    expect(speciesSlot('c001')).toBe(0);
+    expect(speciesSlot('c012')).toBe(11);
+    expect(speciesSlot('c014')).toBe(13);
+    expect(speciesSlot('c050')).toBe(48);
+    expect(LEGEND_SPECIES.map(legendSlot)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+    // 013을 빼기 전 값 고정
+    expect([SPECIAL_OF_SPECIES.c012, SPECIAL_OF_SPECIES.c014, SPECIAL_OF_SPECIES.c050]).toEqual(['guard', 'calm', 'calm']);
+    expect([M2_EFFECT_OF_SPECIES.c014, M2_EFFECT_OF_SPECIES.c050]).toEqual(['heal', 'stun']);
   });
 
   it('종 표의 moves는 [슬롯1·2·5] 이름', () => {

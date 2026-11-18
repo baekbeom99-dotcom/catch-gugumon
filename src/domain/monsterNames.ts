@@ -1,7 +1,7 @@
 import type { MonsterKind } from './battle';
 import type { SpeciesId } from './field/speciesIds';
 
-/** 필드 모험 구구몬 49종 이름 (번호 = 그림 폴더 번호, 017은 주인공이라 없음) */
+/** 필드 모험 구구몬 48종 이름 (번호 = 그림 폴더 번호, 017은 주인공·013은 마을 사람 그림이라 없음) */
 export const GUGUMON_NAMES: Record<SpeciesId, string> = {
   c001: '단추사자몬',
   c002: '빨강토끼몬',
@@ -15,7 +15,6 @@ export const GUGUMON_NAMES: Record<SpeciesId, string> = {
   c010: '회색토끼몬',
   c011: '분홍뿔몬',
   c012: '까만강아지몬',
-  c013: '주황머리몬',
   c014: '보라눈몬',
   c015: '해골궁수몬',
   c016: '네모초록몬',

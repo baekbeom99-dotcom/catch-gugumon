@@ -5,8 +5,8 @@ import { TOWN_ROWS_ADDED as R } from '../src/domain/field/tuning';
 
 test.use({ viewport: { width: 375, height: 812 } });
 
-/** 레전드 12종의 종 id (013~016·018·019·045~050) */
-const LEGEND_ID = /^c0(13|14|15|16|18|19|45|46|47|48|49|50)$/;
+/** 레전드 11종의 종 id (014~016·018·019·045~050) */
+const LEGEND_ID = /^c0(14|15|16|18|19|45|46|47|48|49|50)$/;
 
 /** 첫 구구몬(꽃등짐몬)을 이미 고른 저장본 — 기술은 1개라 전투에서 고르기 없이 바로 문제 */
 const STARTER_FIELD = {
@@ -236,7 +236,7 @@ interface GrassOptions {
   others?: Record<string, Record<string, unknown>>;
   /**
    * 동행을 꽃등짐몬(c034) 대신 이 종으로 (c034 값·기술 id도 이 종으로 옮긴다).
-   * 49종은 특수·주② 효과가 종마다 달라, 스턴은 c023(수박곰몬, 풀·주② 스턴), 회복은 c022(키위곰몬, 풀·특수 회복)를 쓴다
+   * 48종은 특수·주② 효과가 종마다 달라, 스턴은 c023(수박곰몬, 풀·주② 스턴), 회복은 c022(키위곰몬, 풀·특수 회복)를 쓴다
    */
   as?: string;
 }
@@ -1444,12 +1444,12 @@ test('구구몬이 있는 칸을 탭해도 말풍선이 뜬다', async ({ page }
 
 // ── 왼쪽 위 표시·태초마을로·도감 체력 ──
 
-test('HUD에 도감 1/49과 캡슐 3개씩, 동행 체력이 보인다', async ({ page }) => {
+test('HUD에 도감 1/48과 캡슐 3개씩, 동행 체력이 보인다', async ({ page }) => {
   await seedStarter(page);
   await page.goto('/#/field');
   const hud = page.getByRole('group', { name: '필드 정보' });
   await expect(hud).toBeVisible();
-  await expect(hud).toContainText('도감 1/49');
+  await expect(hud).toContainText('도감 1/48');
   await expect(hud.getByLabel('초원 캡슐 3개')).toBeVisible();
   await expect(hud.getByLabel('황금 캡슐 0개')).toBeVisible();
   await expect(hud.getByLabel('동행 체력 100')).toBeVisible();

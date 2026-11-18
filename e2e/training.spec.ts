@@ -5,8 +5,8 @@ import { collectErrors } from './helpers';
 
 test.use({ viewport: { width: 375, height: 812 } });
 
-/** 레전드 12종의 종 id (013~016·018·019·045~050) */
-const LEGEND_ID = /^c0(13|14|15|16|18|19|45|46|47|48|49|50)$/;
+/** 레전드 11종의 종 id (014~016·018·019·045~050) */
+const LEGEND_ID = /^c0(14|15|16|18|19|45|46|47|48|49|50)$/;
 
 type Training = {
   studied: Record<number, true>;

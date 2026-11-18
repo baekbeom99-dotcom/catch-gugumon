@@ -10,7 +10,7 @@
  */
 import type { Rng } from '../random';
 import { MAIN_ELEMENT, SUB_ELEMENT, type Element } from './elements';
-import { SPECIES_IDS, type SpeciesId } from './speciesIds';
+import { SPECIES_IDS, speciesSlot, type SpeciesId } from './speciesIds';
 import { COPY_CHANCE, MAX_SKILLS, SUB_FAST_RATIO } from './tuning';
 
 export type SkillId = string;
@@ -57,7 +57,7 @@ const MAIN_TIER: Record<number, 1 | 2 | 3> = { 1: 1, 2: 2, 5: 3 };
 
 /**
  * 속성 기술 이름 틀 (설계서 2-2): 주속성 [주①, 주②, 주③] — 같은 속성 종은 이름이 같다.
- * 종이 49종이라 종마다 이름을 쓰지 않고 속성마다 하나씩 쓴다
+ * 종이 48종이라 종마다 이름을 쓰지 않고 속성마다 하나씩 쓴다
  */
 export const MAIN_SKILL_NAMES: Record<Element, readonly [string, string, string]> = {
   fire: ['불씨 톡', '불꽃 뿜기', '활활 불기둥'],
@@ -89,14 +89,15 @@ export const SPECIAL_SKILL_NAMES: Record<Exclude<SpecialKind, 'stun'>, string> =
   charge: '찌릿 충전',
 };
 
-/** 특수 배정 차례: 종 목록 차례대로 이 5가지를 돌아가며 준다 (고르게 나뉜다) */
+/** 특수 배정 차례: 종 목록 차례대로 이 5가지를 돌아가며 준다 (고르게 나뉜다). 차례는 뺀 종 자리도 센다(speciesSlot) */
 export const SPECIAL_CYCLE: readonly Exclude<SpecialKind, 'stun'>[] = ['heal', 'guard', 'clue', 'calm', 'charge'];
 /** 주② 효과 차례: 종 목록 차례대로 돌아가며 주되, 그 종 특수와 같으면 다음 것 */
 export const M2_CYCLE: readonly SpecialKind[] = ['stun', 'heal', 'guard'];
 
 const specialTable = {} as Record<SpeciesId, SpecialKind>;
 const m2Table = {} as Record<SpeciesId, SpecialKind>;
-SPECIES_IDS.forEach((id, i) => {
+SPECIES_IDS.forEach((id) => {
+  const i = speciesSlot(id);
   const sp = SPECIAL_CYCLE[i % SPECIAL_CYCLE.length];
   let m2 = M2_CYCLE[i % M2_CYCLE.length];
   if (m2 === sp) m2 = M2_CYCLE[(i + 1) % M2_CYCLE.length];
@@ -141,7 +142,7 @@ function build(species: SpeciesId): SkillDef[] {
   });
 }
 
-/** 기술 전부: 49종 × 5 = 245개 */
+/** 기술 전부: 48종 × 5 = 240개 */
 export const SKILLS: readonly SkillDef[] = SPECIES_IDS.flatMap(build);
 
 const BY_ID = new Map<SkillId, SkillDef>(SKILLS.map((k) => [k.id, k]));

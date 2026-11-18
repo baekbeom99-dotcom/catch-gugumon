@@ -1,10 +1,10 @@
-/** 구구몬 종 표 — 49종(번호 001~050, 017 빼고). 진화 없이 종마다 한 단계 */
+/** 구구몬 종 표 — 48종(번호 001~050, 013·017 빼고). 진화 없이 종마다 한 단계 */
 import type { MonsterKind } from '../battle';
 import { GUGUMON_NAMES } from '../monsterNames';
 import type { FieldId } from './fields';
 import { FIELDS } from './fields';
 import { speciesSkills } from './skills';
-import { LEGEND_SPECIES, SPECIES_IDS, type SpeciesId } from './speciesIds';
+import { LEGEND_SPECIES, legendSlot, SPECIES_IDS, type SpeciesId } from './speciesIds';
 import { MAIN_ELEMENT, type Element } from './elements';
 
 export { LEGEND_SPECIES, SPECIES_IDS, speciesNumber } from './speciesIds';
@@ -68,7 +68,7 @@ function movesOf(id: SpeciesId): [string, string, string] {
 export const SPECIES: readonly SpeciesDef[] = SPECIES_IDS.map((id): SpeciesDef => {
   const legend = isLegend(id);
   const field = legend ? 'legend' : fieldOf(id);
-  const home = legend ? LEGEND_HOMES[(LEGEND_SPECIES as readonly SpeciesId[]).indexOf(id) % LEGEND_HOMES.length] : (field as FieldId);
+  const home = legend ? LEGEND_HOMES[legendSlot(id) % LEGEND_HOMES.length] : (field as FieldId);
   return { id, svgKind: FALLBACK_SVG[MAIN_ELEMENT[id]], name: GUGUMON_NAMES[id], field, home, moves: movesOf(id), legend };
 });
 

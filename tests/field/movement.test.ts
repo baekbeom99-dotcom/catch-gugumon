@@ -58,7 +58,7 @@ describe('fieldDans', () => {
     expect(fieldDans('waterside', false)).toEqual([3, 6, 9]);
   });
   it('필드별 몬스터', () => {
-    // 사막 001~012, 물가 020~032, 초원 033~044 (레전드 12종은 따로)
+    // 사막 001~012, 물가 020~032, 초원 033~044 (레전드 11종은 따로)
     expect(FIELDS.meadow.species).toEqual(['c033', 'c034', 'c035', 'c036', 'c037', 'c038', 'c039', 'c040', 'c041', 'c042', 'c043', 'c044']);
     expect(FIELDS.desert.species).toEqual(['c001', 'c002', 'c003', 'c004', 'c005', 'c006', 'c007', 'c008', 'c009', 'c010', 'c011', 'c012']);
     expect(FIELDS.waterside.species).toHaveLength(13);
