@@ -96,7 +96,8 @@ export function creatureArt(id: SpeciesId, images: Partial<Record<SpeciesId, Ima
     return art;
   }
   const def = speciesDef(id);
-  return { type: 'monster', kind: def.kind, golden: def.legend, fill: MONSTER_FILL, foot: MONSTER_FOOT };
+  // 그림이 아직 없는 종: 주속성으로 고른 임시 SVG (creatures.ts의 FALLBACK_SVG)
+  return { type: 'monster', kind: def.svgKind, golden: def.legend, fill: MONSTER_FILL, foot: MONSTER_FOOT };
 }
 
 /** 이 단계의 시트 묶음 (없으면 undefined = 정지 그림) */

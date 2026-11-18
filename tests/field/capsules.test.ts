@@ -11,7 +11,7 @@ describe('캡슐 4종', () => {
   });
 
   it('종 → 캡슐', () =>
-    expect(['cloud', 'horn', 'ghost', 'legend-horn'].map((s) => capsuleFor(s as SpeciesId))).toEqual(['meadow', 'waterside', 'desert', 'legend']));
+    expect(['c034', 'c031', 'c001', 'c047'].map((s) => capsuleFor(s as SpeciesId))).toEqual(['meadow', 'waterside', 'desert', 'legend']));
 
   it('모든 종이 네 캡슐 중 하나에 맞는다', () => {
     for (const id of SPECIES_IDS) expect(CAPSULE_TYPES).toContain(capsuleFor(id));

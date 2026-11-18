@@ -1,10 +1,9 @@
 /** 함께 다니는(조작하는) 구구몬 고르기 — 순수 계산(React 없음) */
-import { MONSTER_KINDS } from '../battle';
-import { LEGEND_SPECIES, type SpeciesId } from './creatures';
+import { SPECIES_IDS, type SpeciesId } from './speciesIds';
 import { isFainted } from './wounds';
 
 /** 종 목록 순서 (저장의 SPECIES_IDS와 같은 순서) — 마지막 동률을 가를 때 쓴다 */
-const ORDER: readonly SpeciesId[] = [...MONSTER_KINDS, ...LEGEND_SPECIES];
+const ORDER: readonly SpeciesId[] = SPECIES_IDS;
 
 type Pickable = { level: number; hp: number; firstCaughtAt: number };
 

@@ -653,22 +653,18 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
             <span className="fieldmode__growth-title">
               {notice0.kind === 'levelUp'
                 ? '레벨이 올랐어!'
-                : notice0.kind === 'evolve'
-                  ? '진화했어!'
-                  : notice0.kind === 'skill'
-                    ? notice0.how === 'copied'
-                      ? battleText.skillCopiedTitle
-                      : battleText.skillLearnedTitle
-                    : '쓰러졌어…'}
+                : notice0.kind === 'skill'
+                  ? notice0.how === 'copied'
+                    ? battleText.skillCopiedTitle
+                    : battleText.skillLearnedTitle
+                  : '쓰러졌어…'}
             </span>
             <span className="fieldmode__growth-body">
               {notice0.kind === 'levelUp'
                 ? `${displayName(notice0.species, noticeStage)} Lv${notice0.level}`
-                : notice0.kind === 'evolve'
-                  ? displayName(notice0.species, notice0.stage)
-                  : notice0.kind === 'skill'
-                    ? skillNoticeText(notice0)
-                    : `${displayName(notice0.species, noticeStage)} — ${battleText.faintedField}`}
+                : notice0.kind === 'skill'
+                  ? skillNoticeText(notice0)
+                  : `${displayName(notice0.species, noticeStage)} — ${battleText.faintedField}`}
             </span>
             <span className="fieldmode__growth-hint">탭하면 닫혀요</span>
           </button>

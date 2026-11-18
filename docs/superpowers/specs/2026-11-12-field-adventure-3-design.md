@@ -77,6 +77,8 @@
 
 종마다 **주속성·부속성**(`MAIN_ELEMENT`/`SUB_ELEMENT` 표 하나, 지역을 반영). 기존 `elementOf(id)`는 주속성을 돌려주도록 유지하고 `subElementOf(id)`를 더한다.
 
+> v1.60: 구구몬이 49종으로 바뀌었다. 종·필드·주속성·부속성 표는 `MVP_DESIGN.md` 4-6절(코드는 `elements.ts`의 `ELEMENT_GROUPS`와 부속성 규칙). 아래 11종 표는 옛 저장 이전표(`fieldData.ts`의 `OLD_SPECIES_MAP`)를 읽을 때만 참고.
+
 | 지역 | 구구몬 | 주속성 | 부속성 |
 |---|---|---|---|
 | 초원 | 새싹몬 `cloud` | 풀 | 빛 |
@@ -116,6 +118,8 @@
   | `clue` 힌트 | 다음 문제의 틀린 보기 하나를 미리 지움 | fluff, legend-fluff |
   | `calm` 여유 | 다음 문제 시간 `CALM_BONUS_MS`(=3000) 늘림 | jelly, ghost |
   | `charge` 충전 | 다음 속성 기술 위력 `+1`칸 | antenna, pebble, legend-ghost |
+
+  > v1.60: 49종에서는 종 차례대로 heal·guard·clue·calm·charge를 돌아가며 배정(`SPECIAL_CYCLE`), 주② 효과는 stun·heal·guard를 돌아가며(특수와 겹치면 다음, `M2_CYCLE`). 기술 이름은 속성별 틀(`MAIN_SKILL_NAMES`·`SUB_SKILL_NAMES`)과 특수 종류별 이름(`SPECIAL_SKILL_NAMES`).
 
   특수 기술 성공 시 피해는 위력 2칸(속성 없음, 상성 보통)에 위 효과가 붙는다.
 - 순수 함수: `speciesSkills(species)`, `skillDef(id)`, `learnedAt(species, level)`, `newlyLearned(species, from, to)`, `defaultSkills(species, level)`(익힌 것 전부, 최대 5), `weakestSkill(held: SkillId[]): SkillDef`(가진 **속성 기술** 중 `basePower` 가장 낮은 것, 같으면 슬롯 번호 작은 것), `rollCopy(rng, wildSpecies, wildLevel, held)`, `fastSeconds(def, timeMs)`.

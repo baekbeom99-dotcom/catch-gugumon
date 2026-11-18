@@ -11,7 +11,7 @@ import {
   speciesDef,
 } from '../../src/domain/field/creatures';
 import { encounterChance, rollEncounter, stepOnTile } from '../../src/domain/field/encounter';
-import { LEGEND_DAN } from '../../src/domain/field/fields';
+import { FIELDS, LEGEND_DAN } from '../../src/domain/field/fields';
 import { tierLevelRange } from '../../src/domain/field/strength';
 import { seededRng, type Rng } from '../../src/domain/random';
 
@@ -31,21 +31,23 @@ describe('종 표', () => {
     expect(LEGEND_CHANCE).toBe(0.02);
     expect(UNSEEN_WEIGHT).toBe(2);
     expect(LEGEND_LEVEL).toBe(20);
-    expect(STARTERS).toEqual(['cloud', 'jelly', 'pebble']);
+    expect(STARTERS).toEqual(['c034', 'c035', 'c036']);
   });
-  it('11종, 기술 3개씩, 이름 있음', () => {
-    expect(SPECIES).toHaveLength(11);
+  it('49종, 기술 3개씩, 이름 있음', () => {
+    expect(SPECIES).toHaveLength(49);
     for (const s of SPECIES) {
       expect(s.moves).toHaveLength(3);
       expect(s.name.length).toBeGreaterThan(0);
       expect(speciesDef(s.id)).toBe(s);
     }
-    expect(speciesDef('cloud').moves).toEqual(['잎사귀 톡', '새싹 휙', '꽃잎 바람']);
-    expect(speciesDef('cloud').name).toBe('새싹몬');
-    expect(speciesDef('ghost').field).toBe('desert');
-    expect(speciesDef('legend-fluff').legend).toBe(true);
-    expect(speciesDef('legend-fluff').kind).toBe('fluff');
-    expect(speciesDef('legend-fluff').name).toBe('황금 왕관몬');
+    expect(speciesDef('c034').moves).toEqual(['잎사귀 톡', '덩굴 휘리릭', '꽃잎 바람']);
+    expect(speciesDef('c034').name).toBe('꽃등짐몬');
+    expect(speciesDef('c035').field).toBe('meadow');
+    expect(speciesDef('c001').field).toBe('desert');
+    expect(speciesDef('c015').legend).toBe(true);
+    expect(speciesDef('c015').field).toBe('legend');
+    // 레전드 이름 앞에 "황금"을 붙이지 않는다
+    expect(speciesDef('c015').name).toBe('해골궁수몬');
   });
 });
 
@@ -74,7 +76,7 @@ describe('rollEncounter', () => {
     for (let i = 0; i < 1000; i++) {
       const e = rollEncounter(rng, { ...base, stepsSinceBattle: 99 });
       if (!e) continue;
-      expect(['cloud', 'mushroom', 'fluff']).toContain(e.species);
+      expect(FIELDS.meadow.species).toContain(e.species);
       expect([2, 4, 8]).toContain(e.dan);
       const [lo, hi] = tierLevelRange(e.tier, 5);
       expect(e.level).toBeGreaterThanOrEqual(lo);
@@ -125,11 +127,17 @@ describe('rollEncounter', () => {
   });
   it('못 본 종이 더 자주', () => {
     const rng = seededRng(4);
-    let fluff = 0;
-    for (let i = 0; i < 1000; i++) {
-      if (rollEncounter(rng, { ...base, seen: ['cloud', 'mushroom'], force: { grass: true } })?.species === 'fluff') fluff++;
+    // 초원 12종 중 c040만 못 봤다: 무게 2 / (11 + 2) ≈ 15%, 본 종 하나는 1 / 13 ≈ 8%
+    const seen = FIELDS.meadow.species.filter((id) => id !== 'c040');
+    let c040 = 0;
+    let c034 = 0;
+    for (let i = 0; i < 2000; i++) {
+      const sp = rollEncounter(rng, { ...base, seen, force: { grass: true } })?.species;
+      if (sp === 'c040') c040++;
+      if (sp === 'c034') c034++;
     }
-    expect(fluff).toBeGreaterThan(400);
+    expect(c040).toBeGreaterThan(c034 * 1.5);
+    expect(c040).toBeGreaterThan(220);
   });
   it('force: 만남 강제, 레전드 강제(해금 조건 유지)', () => {
     const e = rollEncounter(scripted(0.99, 0, 0, 0), { ...base, force: { grass: true } });

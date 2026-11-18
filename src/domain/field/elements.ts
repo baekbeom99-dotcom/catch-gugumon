@@ -2,11 +2,14 @@
  * 구구몬 속성 — 종마다 주속성과 부속성이 있고(기술은 주속성 3·부속성 1·특수 1), 속성마다 기술 효과(평소 4칸·강력 4칸)가 정해져 있다.
  * 순수 데이터만 (React·화면 없음). 효과 그림은 src/field/fx/effects.ts에 있다.
  */
-import type { SpeciesId } from './creatures';
+import type { SpeciesId } from './speciesIds';
 import type { FxName } from '../../field/fx/effects';
 import type { SpecialKind } from './skills';
 
 export type Element = 'grass' | 'poison' | 'light' | 'water' | 'thunder' | 'earth' | 'fire';
+
+/** 속성 차례 (부속성 배정 규칙이 이 차례를 쓴다) */
+export const ELEMENTS: readonly Element[] = ['fire', 'water', 'grass', 'poison', 'thunder', 'earth', 'light'];
 
 export const ELEMENT_NAMES: Record<Element, string> = {
   grass: '풀',
@@ -18,35 +21,43 @@ export const ELEMENT_NAMES: Record<Element, string> = {
   fire: '불',
 };
 
-/** 종의 주속성 (설계서 2-1 표). 황금 레전드는 종마다 따로 정한다 */
-export const MAIN_ELEMENT: Record<SpeciesId, Element> = {
-  cloud: 'grass',
-  mushroom: 'poison',
-  fluff: 'light',
-  jelly: 'water',
-  horn: 'water',
-  antenna: 'thunder',
-  pebble: 'earth',
-  ghost: 'fire',
-  'legend-fluff': 'light',
-  'legend-horn': 'water',
-  'legend-ghost': 'fire',
+/**
+ * 주속성이 같은 종 (설계서 2-1 표) — 속성마다 7종, 그림 색을 보고 정했다.
+ * 종의 속성은 이 표 한 곳에서만 정한다 (MAIN_ELEMENT·SUB_ELEMENT는 여기서 만든다)
+ */
+export const ELEMENT_GROUPS: Record<Element, readonly SpeciesId[]> = {
+  fire: ['c002', 'c009', 'c021', 'c028', 'c030', 'c035', 'c048'],
+  water: ['c004', 'c024', 'c031', 'c036', 'c038', 'c043', 'c047'],
+  grass: ['c003', 'c016', 'c018', 'c022', 'c023', 'c029', 'c034'],
+  poison: ['c006', 'c008', 'c011', 'c014', 'c032', 'c042', 'c050'],
+  thunder: ['c005', 'c019', 'c025', 'c027', 'c033', 'c039', 'c045'],
+  earth: ['c001', 'c007', 'c010', 'c012', 'c026', 'c037', 'c049'],
+  light: ['c013', 'c015', 'c020', 'c040', 'c041', 'c044', 'c046'],
 };
 
-/** 종의 부속성 (주속성과 다르다) */
-export const SUB_ELEMENT: Record<SpeciesId, Element> = {
-  cloud: 'light',
-  mushroom: 'grass',
-  fluff: 'earth',
-  jelly: 'poison',
-  horn: 'earth',
-  antenna: 'water',
-  pebble: 'fire',
-  ghost: 'thunder',
-  'legend-fluff': 'fire',
-  'legend-horn': 'thunder',
-  'legend-ghost': 'light',
-};
+/**
+ * 부속성 규칙: 주속성 그룹 번호 m(ELEMENTS 차례), 그룹 안 차례 j(0~6)이면 ELEMENTS[(m + 1 + j % 6) % 7].
+ * 늘 주속성과 다르고, 속성마다 부속성으로 꼭 7번씩 쓰인다
+ */
+function subFor(main: Element, j: number): Element {
+  const m = ELEMENTS.indexOf(main);
+  return ELEMENTS[(m + 1 + (j % 6)) % ELEMENTS.length];
+}
+
+const mainTable = {} as Record<SpeciesId, Element>;
+const subTable = {} as Record<SpeciesId, Element>;
+for (const el of ELEMENTS) {
+  ELEMENT_GROUPS[el].forEach((id, j) => {
+    mainTable[id] = el;
+    subTable[id] = subFor(el, j);
+  });
+}
+
+/** 종의 주속성 (ELEMENT_GROUPS에서 만든다) */
+export const MAIN_ELEMENT: Readonly<Record<SpeciesId, Element>> = mainTable;
+
+/** 종의 부속성 (주속성과 다르다, 위 규칙) */
+export const SUB_ELEMENT: Readonly<Record<SpeciesId, Element>> = subTable;
 
 /** 종의 속성 = 주속성 */
 export function elementOf(id: SpeciesId): Element {

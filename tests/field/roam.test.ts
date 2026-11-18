@@ -28,38 +28,39 @@ const map = parseMap(
 const inZone = (field: FieldId, p: Pos) => !!map.zones[field]?.some((z) => z.x === p.x && z.y === p.y);
 
 describe('돌아다니는 구구몬', () => {
-  it('서식지는 필드, 레전드는 기본 종의 필드', () => {
-    expect(habitatOf('cloud')).toBe('meadow');
-    expect(habitatOf('jelly')).toBe('waterside');
-    expect(habitatOf('legend-fluff')).toBe('meadow');
-    expect(habitatOf('legend-horn')).toBe('waterside');
-    expect(habitatOf('legend-ghost')).toBe('desert');
+  it('서식지는 필드, 레전드는 정해 둔 필드(사막·물가·초원 차례)', () => {
+    expect(habitatOf('c034')).toBe('meadow');
+    expect(habitatOf('c020')).toBe('waterside');
+    expect(habitatOf('c015')).toBe('meadow');
+    expect(habitatOf('c047')).toBe('meadow');
+    expect(habitatOf('c014')).toBe('waterside');
+    expect(habitatOf('c048')).toBe('desert');
   });
 
   it('종마다 한 마리, 자기 서식지 칸에, 겹치지 않게', () => {
     const rs = createRoamers(
       map,
       [
-        { species: 'cloud', fainted: false },
-        { species: 'jelly', fainted: false },
-        { species: 'legend-fluff', fainted: false },
+        { species: 'c034', fainted: false },
+        { species: 'c020', fainted: false },
+        { species: 'c015', fainted: false },
       ],
       seededRng(1),
       0,
     );
-    expect(rs.map((r) => r.species)).toEqual(['cloud', 'jelly', 'legend-fluff']);
+    expect(rs.map((r) => r.species)).toEqual(['c034', 'c020', 'c015']);
     expect(inZone('meadow', rs[0]) && inZone('waterside', rs[1]) && inZone('meadow', rs[2])).toBe(true);
     expect(new Set(rs.map((r) => `${r.x},${r.y}`)).size).toBe(3);
   });
 
   it('서식지에 칸이 없으면 그 종은 빠진다', () => {
-    const rs = createRoamers(map, [{ species: 'ghost', fainted: false }], seededRng(1), 0); // 사막 칸 없음
+    const rs = createRoamers(map, [{ species: 'c001', fainted: false }], seededRng(1), 0); // 사막 칸 없음
     expect(rs).toEqual([]);
   });
 
   it('1000번 돌려도 서식지 밖·canStand 거짓 칸으로 안 간다', () => {
     const rng = seededRng(7);
-    let r = createRoamers(map, [{ species: 'jelly', fainted: false }], rng, 0)[0];
+    let r = createRoamers(map, [{ species: 'c020', fainted: false }], rng, 0)[0];
     const banned = (p: Pos) => p.x === 8 && p.y === 2;
     const canStand = (p: Pos) => inZone('waterside', p) && !banned(p);
     let moves = 0;
@@ -74,7 +75,7 @@ describe('돌아다니는 구구몬', () => {
   });
 
   it('모션 이동: until 전엔 그대로, 지나면 바뀜, move는 한 칸만', () => {
-    const base: Roamer = { species: 'jelly', x: 8, y: 2, fromX: 8, fromY: 2, facing: 'down', motion: 'idle', since: 0, until: 1000, fainted: false };
+    const base: Roamer = { species: 'c020', x: 8, y: 2, fromX: 8, fromY: 2, facing: 'down', motion: 'idle', since: 0, until: 1000, fainted: false };
     expect(stepRoamer(base, 999, () => 0, () => true)).toBe(base);
     // rng 0 → 첫 가중치(move)
     const moved = stepRoamer(base, 1000, () => 0, () => true);
@@ -86,7 +87,7 @@ describe('돌아다니는 구구몬', () => {
   });
 
   it('갈 칸이 없으면 move 대신 idle', () => {
-    const base: Roamer = { species: 'jelly', x: 8, y: 2, fromX: 8, fromY: 2, facing: 'down', motion: 'idle', since: 0, until: 0, fainted: false };
+    const base: Roamer = { species: 'c020', x: 8, y: 2, fromX: 8, fromY: 2, facing: 'down', motion: 'idle', since: 0, until: 0, fainted: false };
     const r = stepRoamer(base, 0, () => 0, () => false);
     expect(r.motion).toBe('idle');
     expect([r.x, r.y]).toEqual([8, 2]);
@@ -95,7 +96,7 @@ describe('돌아다니는 구구몬', () => {
   });
 
   it('idle·jump·sleep 시간', () => {
-    const base: Roamer = { species: 'jelly', x: 8, y: 2, fromX: 8, fromY: 2, facing: 'down', motion: 'idle', since: 0, until: 0, fainted: false };
+    const base: Roamer = { species: 'c020', x: 8, y: 2, fromX: 8, fromY: 2, facing: 'down', motion: 'idle', since: 0, until: 0, fainted: false };
     const stand = () => true;
     expect(stepRoamer(base, 0, () => 0.7, stand).motion).toBe('idle'); // 0.6~0.85
     const j = stepRoamer(base, 0, () => 0.9, stand); // 0.85~0.95
@@ -107,7 +108,7 @@ describe('돌아다니는 구구몬', () => {
   });
 
   it('쓰러진 종은 sleep만, poke해도 sleep', () => {
-    const rs = createRoamers(map, [{ species: 'jelly', fainted: true }], seededRng(3), 0);
+    const rs = createRoamers(map, [{ species: 'c020', fainted: true }], seededRng(3), 0);
     expect(rs[0].motion).toBe('sleep');
     let r = rs[0];
     for (let now = 0; now < 100000; now += 1000) {
@@ -119,7 +120,7 @@ describe('돌아다니는 구구몬', () => {
   });
 
   it('poke하면 jump', () => {
-    const idle: Roamer = { species: 'jelly', x: 8, y: 2, fromX: 8, fromY: 2, facing: 'down', motion: 'idle', since: 0, until: 5000, fainted: false };
+    const idle: Roamer = { species: 'c020', x: 8, y: 2, fromX: 8, fromY: 2, facing: 'down', motion: 'idle', since: 0, until: 5000, fainted: false };
     const p = pokeRoamer(idle, 10);
     expect(p.motion).toBe('jump');
     expect(p.since).toBe(10);
@@ -128,7 +129,7 @@ describe('돌아다니는 구구몬', () => {
   });
 
   it('같은 프레임에 두 마리가 같은 빈 칸을 고르려 하면 한 마리만 간다', () => {
-    const mk = (x: number): Roamer => ({ species: 'jelly', x, y: 1, fromX: x, fromY: 1, facing: 'down', motion: 'idle', since: 0, until: 0, fainted: false });
+    const mk = (x: number): Roamer => ({ species: 'c020', x, y: 1, fromX: x, fromY: 1, facing: 'down', motion: 'idle', since: 0, until: 0, fainted: false });
     const target = { x: 2, y: 1 };
     // 갈 수 있는 칸은 (2,1) 하나뿐, 다른 구구몬이 서 있으면 못 간다. rng 0 → 둘 다 move를 고른다
     const canStandFor = (_r: Roamer, others: Roamer[], p: Pos) => p.x === target.x && p.y === target.y && !others.some((o) => o.x === p.x && o.y === p.y);
@@ -139,7 +140,7 @@ describe('돌아다니는 구구몬', () => {
 
   it('여러 프레임을 돌려도 두 마리가 한 칸에 겹친 적이 없다', () => {
     const rng = seededRng(11);
-    let rs = createRoamers(map, [{ species: 'cloud', fainted: false }, { species: 'legend-fluff', fainted: false }, { species: 'fluff', fainted: false }], rng, 0);
+    let rs = createRoamers(map, [{ species: 'c034', fainted: false }, { species: 'c015', fainted: false }, { species: 'c040', fainted: false }], rng, 0);
     const canStandFor = (_r: Roamer, others: Roamer[], p: Pos) => inZone('meadow', p) && !others.some((o) => o.x === p.x && o.y === p.y);
     for (let now = 0; now < 3000 * 400; now += 400) {
       rs = stepRoamers(rs, now, rng, canStandFor);
@@ -150,20 +151,20 @@ describe('돌아다니는 구구몬', () => {
 
 describe('reviveRoamers (상점 회복 뒤 일어나기)', () => {
   const list = [
-    { species: 'cloud' as const, fainted: true },
-    { species: 'legend-fluff' as const, fainted: true },
-    { species: 'legend-ghost' as const, fainted: false },
+    { species: 'c034' as const, fainted: true },
+    { species: 'c015' as const, fainted: true },
+    { species: 'c048' as const, fainted: false },
   ];
   it('체력이 생긴 쓰러진 구구몬만 일어나 idle로, 자리는 그대로', () => {
     const rs = createRoamers(map, list, seededRng(5), 0);
-    const hp: Record<string, number> = { cloud: 100, 'legend-fluff': 0, 'legend-ghost': 100 };
+    const hp: Record<string, number> = { c034: 100, 'c015': 0, 'c048': 100 };
     const out = reviveRoamers(rs, (id) => hp[id], 1000, seededRng(6));
-    const cloud = out.find((r) => r.species === 'cloud')!;
-    expect(cloud.fainted).toBe(false);
-    expect(cloud.motion).toBe('idle');
-    expect([cloud.x, cloud.y]).toEqual([rs[0].x, rs[0].y]);
-    expect(out.find((r) => r.species === 'legend-fluff')).toBe(rs[1]);
-    expect(out.find((r) => r.species === 'legend-ghost')).toBe(rs[2]);
+    const c034 = out.find((r) => r.species === 'c034')!;
+    expect(c034.fainted).toBe(false);
+    expect(c034.motion).toBe('idle');
+    expect([c034.x, c034.y]).toEqual([rs[0].x, rs[0].y]);
+    expect(out.find((r) => r.species === 'c015')).toBe(rs[1]);
+    expect(out.find((r) => r.species === 'c048')).toBe(rs[2]);
   });
   it('체력 정보가 없으면 그대로', () => {
     const rs = createRoamers(map, list, seededRng(5), 0);

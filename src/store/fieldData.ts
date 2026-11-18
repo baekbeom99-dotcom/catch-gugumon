@@ -1,5 +1,4 @@
 /** 필드 모험 저장 데이터 — 구구몬 도감·동료·마지막 자리 */
-import { MONSTER_KINDS } from '../domain/battle';
 import { FACTS } from '../domain/facts';
 import { FIELD_TYPES } from '../domain/field/fieldQuestions';
 import { CAPSULE_MAX, CAPSULE_START, COMPANION_MAX_HP } from '../domain/field/tuning';
@@ -8,13 +7,45 @@ import { addWound, type Wound } from '../domain/field/wounds';
 import { MAP_IDS, type MapId } from '../domain/field/fields';
 import { type Dir, parseMap } from '../domain/field/movement';
 import { TOWN_EXITS, TOWN_ROWS, TOWN_SIGNS } from '../field/world/maps/town';
-import { LEGEND_SPECIES, type SpeciesId } from '../domain/field/creatures';
+import { LEGEND_SPECIES, SPECIES_IDS as ALL_SPECIES, type SpeciesId } from '../domain/field/speciesIds';
 import { defaultSkills, learnedAt, seatOf, SKILLS, type Seat, type SkillDef, type SkillId } from '../domain/field/skills';
 import { MAX_SKILLS } from '../domain/field/tuning';
 
 export { LEGEND_SPECIES };
 export type { SpeciesId };
-export const SPECIES_IDS: readonly SpeciesId[] = [...MONSTER_KINDS, ...LEGEND_SPECIES];
+export const SPECIES_IDS: readonly SpeciesId[] = ALL_SPECIES;
+
+/**
+ * 예전 저장 이전표 (v1.60, 11종 → 49종): 옛 종 id → 새 종 id.
+ * 저장을 읽을 때(mergeField) 도감 키·본 종·동행·가진 기술 id(`옛id-슬롯` → `새id-슬롯`)를 모두 이 표로 옮긴다.
+ * 새 종이 서로 겹치지 않아 기록이 합쳐질 일은 없다. 이 표는 지우지 않는다(오래 안 연 저장도 옮겨야 한다)
+ */
+export const OLD_SPECIES_MAP: Readonly<Record<string, SpeciesId>> = {
+  cloud: 'c034',
+  ghost: 'c035',
+  jelly: 'c036',
+  antenna: 'c033',
+  pebble: 'c037',
+  mushroom: 'c042',
+  fluff: 'c040',
+  horn: 'c031',
+  'legend-fluff': 'c015',
+  'legend-horn': 'c047',
+  'legend-ghost': 'c048',
+};
+
+/** 옛 종 id면 새 id로, 아니면 그대로 */
+export function migrateSpeciesId(v: unknown): unknown {
+  return typeof v === 'string' && Object.prototype.hasOwnProperty.call(OLD_SPECIES_MAP, v) ? OLD_SPECIES_MAP[v] : v;
+}
+
+/** 옛 기술 id(`cloud-2`, `legend-horn-4`)면 새 id(`c034-2`)로, 아니면 그대로 */
+export function migrateSkillId(v: unknown): unknown {
+  if (typeof v !== 'string') return v;
+  const m = /^(.+)-(\d+)$/.exec(v);
+  if (!m || !Object.prototype.hasOwnProperty.call(OLD_SPECIES_MAP, m[1])) return v;
+  return `${OLD_SPECIES_MAP[m[1]]}-${m[2]}`;
+}
 
 export interface SpeciesEntry {
   level: number;
@@ -48,10 +79,9 @@ export interface FieldData {
   capsules: Capsules;
 }
 
-/** 저장 안 되는 알림: 레벨이 오르거나 진화했을 때 화면에 띄운다 */
+/** 저장 안 되는 알림: 레벨이 올랐을 때 등 화면에 띄운다 (필드 구구몬은 진화하지 않는다) */
 export type FieldNotice =
   | { kind: 'levelUp'; species: SpeciesId; level: number }
-  | { kind: 'evolve'; species: SpeciesId; stage: 2 | 3 }
   /** 쓰러졌고 고를 다른 구구몬이 없어 마을로 왔다 (있으면 알림 대신 고르기 창) */
   | { kind: 'fainted'; species: SpeciesId }
   /** 기술을 가졌다: learned 레벨이 올라 배움, copied 야생 구구몬(fromSpecies)에게서 따라 배움 */
@@ -192,6 +222,7 @@ function mergeEntry(species: SpeciesId, raw: unknown): SpeciesEntry | null {
   if (!raw || typeof raw !== 'object') return null;
   const e = raw as Record<string, unknown>;
   if (!isCount(e.level) || !isCount(e.exp) || !isCount(e.caught) || !isNum(e.firstCaughtAt)) return null;
+  // 예전 저장은 진화 단계 2·3도 있었다: 읽을 수는 있게 받고, 진화가 없어졌으니 늘 1로 둔다
   if (e.stage !== 1 && e.stage !== 2 && e.stage !== 3) return null;
   // 옛 저장(체력·상처 없음)이나 깨진 값은 가득 찬 체력, 상처 없음
   const hp = isNum(e.hp) && Number.isInteger(e.hp) && e.hp >= 0 && e.hp <= COMPANION_MAX_HP ? e.hp : COMPANION_MAX_HP;
@@ -199,8 +230,11 @@ function mergeEntry(species: SpeciesId, raw: unknown): SpeciesEntry | null {
   if (Array.isArray(e.wounds)) for (const w of e.wounds) if (isWound(w)) wounds = addWound(wounds, w);
   // 옛 저장(기술 칸 없음)이나 깨진 칸(배열이 아님)은 예전에 쓰던 기술 + 그 레벨에서 익힌 기술 전부 (기술이 줄지 않게).
   // 배열이면 규칙대로 다듬는다
-  const skills = Array.isArray(e.skills) ? normalizeSkills(species, e.level, e.skills) : legacyCarrySkills(species, e.level);
-  return { level: e.level, exp: e.exp, stage: e.stage, caught: e.caught, firstCaughtAt: e.firstCaughtAt, hp, wounds, skills };
+  // 옛 종의 기술 id(`cloud-2`)는 새 종 id(`c034-2`)로 옮긴 뒤 다듬는다
+  const skills = Array.isArray(e.skills)
+    ? normalizeSkills(species, e.level, e.skills.map(migrateSkillId))
+    : legacyCarrySkills(species, e.level);
+  return { level: e.level, exp: e.exp, stage: 1, caught: e.caught, firstCaughtAt: e.firstCaughtAt, hp, wounds, skills };
 }
 
 /** 새로 얻은 종의 기록 (체력 가득, 상처 없음, 그 레벨까지 익힌 기술) */
@@ -216,15 +250,23 @@ export function mergeField(initial: FieldData, persisted: unknown): FieldData {
 
   const species: FieldData['species'] = {};
   if (p.species && typeof p.species === 'object') {
-    for (const [k, v] of Object.entries(p.species as Record<string, unknown>)) {
-      if (!isSpecies(k)) continue;
+    for (const [raw, v] of Object.entries(p.species as Record<string, unknown>)) {
+      // 옛 종 키(cloud 등)는 새 종 키로 옮긴다 (OLD_SPECIES_MAP)
+      const k = migrateSpeciesId(raw);
+      if (!isSpecies(k) || species[k]) continue;
       const entry = mergeEntry(k, v);
       if (entry) species[k] = entry;
     }
   }
 
   const seen: SpeciesId[] = [];
-  if (Array.isArray(p.seen)) for (const s of p.seen) if (isSpecies(s) && !seen.includes(s)) seen.push(s);
+  if (Array.isArray(p.seen)) {
+    for (const raw of p.seen) {
+      const s = migrateSpeciesId(raw);
+      if (isSpecies(s) && !seen.includes(s)) seen.push(s);
+    }
+  }
+  const companion = migrateSpeciesId(p.companion);
 
   let position = initial.position;
   const pos = p.position as Record<string, unknown> | undefined;
@@ -258,7 +300,7 @@ export function mergeField(initial: FieldData, persisted: unknown): FieldData {
 
   return {
     starterChosen: typeof p.starterChosen === 'boolean' ? p.starterChosen : initial.starterChosen,
-    companion: isSpecies(p.companion) ? p.companion : null,
+    companion: isSpecies(companion) ? companion : null,
     species,
     seen,
     position,

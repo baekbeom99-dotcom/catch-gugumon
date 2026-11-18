@@ -44,7 +44,6 @@ import {
   recordAnswer,
 } from '../domain/progress';
 import { applyItem, buy, type CatalogData, canWearHat, findItem, grantMasterHats, type ItemCategory, type ItemDef, type ItemId } from '../domain/shop';
-import { speciesDef } from '../domain/field/creatures';
 import { addExp, CORRECT_EXP, DUPLICATE_EXP, PARTICIPATION_EXP } from '../domain/field/growth';
 import { type Tier, tierExp } from '../domain/field/strength';
 import { COMPANION_MAX_HP, MAX_SKILLS } from '../domain/field/tuning';
@@ -514,10 +513,10 @@ export const useGameStore = create<GameStore>()(
           const offers: SkillOffer[] = [];
           for (const [id, exp] of total) {
             const before = species[id]!;
-            const grown = addExp(before, exp, speciesDef(id).legend);
+            // 필드 구구몬은 진화하지 않는다 (레벨만 오른다)
+            const grown = addExp(before, exp);
             let entry = grown.entry;
             if (grown.levelsGained > 0) notices.push({ kind: 'levelUp', species: id, level: entry.level });
-            if (grown.evolvedTo) notices.push({ kind: 'evolve', species: id, stage: grown.evolvedTo });
             // 레벨이 오르면 기술 배우기 (같은 set 안에서)
             if (grown.levelsGained > 0) {
               const learn = learnOnLevelUp(id, entry, before.level);

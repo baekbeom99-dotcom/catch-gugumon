@@ -7,55 +7,55 @@ const e = (level: number, hp: number, firstCaughtAt: number) => ({ level, hp, fi
 
 describe('healthyCompanions: 쓰러지면 고를 수 있는 구구몬 목록', () => {
   it('쓰러진 종을 빼고 건강한 종만, 레벨 높은 순', () => {
-    expect(healthyCompanions({ cloud: e(9, 0, 1), jelly: e(4, 100, 2), horn: e(7, 30, 3) }, 'cloud')).toEqual(['horn', 'jelly']);
+    expect(healthyCompanions({ c034: e(9, 0, 1), c036: e(4, 100, 2), c031: e(7, 30, 3) }, 'c034')).toEqual(['c031', 'c036']);
   });
 
   it('레벨이 같으면 먼저 잡은 종 (firstCaughtAt이 빠른 것)', () => {
-    // 종 목록 순서로는 horn이 앞이지만, 먼저 잡은 jelly가 앞
-    expect(healthyCompanions({ cloud: e(5, 0, 1), horn: e(6, 100, 50), jelly: e(6, 100, 20) }, 'cloud')).toEqual(['jelly', 'horn']);
+    // 종 목록 순서로는 c031이 앞이지만, 먼저 잡은 c036가 앞
+    expect(healthyCompanions({ c034: e(5, 0, 1), c031: e(6, 100, 50), c036: e(6, 100, 20) }, 'c034')).toEqual(['c036', 'c031']);
   });
 
   it('레벨·잡은 때도 같으면 종 목록(SPECIES_IDS) 순서', () => {
-    const a = healthyCompanions({ cloud: e(5, 0, 1), horn: e(6, 100, 7), jelly: e(6, 100, 7) }, 'cloud');
-    const b = healthyCompanions({ cloud: e(5, 0, 1), jelly: e(6, 100, 7), horn: e(6, 100, 7) }, 'cloud');
-    expect(a).toEqual(['horn', 'jelly']);
-    expect(b).toEqual(['horn', 'jelly']);
-    expect(SPECIES_IDS.indexOf('horn')).toBeLessThan(SPECIES_IDS.indexOf('jelly'));
+    const a = healthyCompanions({ c034: e(5, 0, 1), c031: e(6, 100, 7), c036: e(6, 100, 7) }, 'c034');
+    const b = healthyCompanions({ c034: e(5, 0, 1), c036: e(6, 100, 7), c031: e(6, 100, 7) }, 'c034');
+    expect(a).toEqual(['c031', 'c036']);
+    expect(b).toEqual(['c031', 'c036']);
+    expect(SPECIES_IDS.indexOf('c031')).toBeLessThan(SPECIES_IDS.indexOf('c036'));
   });
 
   it('다른 쓰러진 종은 후보가 아니다', () => {
-    expect(healthyCompanions({ cloud: e(5, 0, 1), jelly: e(30, 0, 2), horn: e(2, 1, 3) }, 'cloud')).toEqual(['horn']);
+    expect(healthyCompanions({ c034: e(5, 0, 1), c036: e(30, 0, 2), c031: e(2, 1, 3) }, 'c034')).toEqual(['c031']);
   });
 
   it('건강한 다른 종이 없으면 빈 목록', () => {
-    expect(healthyCompanions({ cloud: e(5, 0, 1), jelly: e(9, 0, 2) }, 'cloud')).toEqual([]);
-    expect(healthyCompanions({ cloud: e(5, 0, 1) }, 'cloud')).toEqual([]);
-    expect(healthyCompanions({}, 'cloud')).toEqual([]);
+    expect(healthyCompanions({ c034: e(5, 0, 1), c036: e(9, 0, 2) }, 'c034')).toEqual([]);
+    expect(healthyCompanions({ c034: e(5, 0, 1) }, 'c034')).toEqual([]);
+    expect(healthyCompanions({}, 'c034')).toEqual([]);
   });
 
   it('쓰러진 종 자신은 체력이 남아 있어도 넣지 않는다', () => {
-    expect(healthyCompanions({ cloud: e(50, 100, 1) }, 'cloud')).toEqual([]);
+    expect(healthyCompanions({ c034: e(50, 100, 1) }, 'c034')).toEqual([]);
   });
 
   it('종 목록에 없는 이름(constructor 등)은 무시', () => {
-    const odd = { cloud: e(5, 0, 1), constructor: e(99, 100, 0) } as unknown as Parameters<typeof healthyCompanions>[0];
-    expect(healthyCompanions(odd, 'cloud')).toEqual([]);
+    const odd = { c034: e(5, 0, 1), constructor: e(99, 100, 0) } as unknown as Parameters<typeof healthyCompanions>[0];
+    expect(healthyCompanions(odd, 'c034')).toEqual([]);
   });
 });
 
 describe('companionState: 고르기 창을 띄울지 (저장 상태만 보고 정함)', () => {
   it('건강하면 ok', () => {
-    expect(companionState('cloud', { cloud: e(5, 30, 1), jelly: e(4, 100, 2) })).toBe('ok');
+    expect(companionState('c034', { c034: e(5, 30, 1), c036: e(4, 100, 2) })).toBe('ok');
   });
   it('쓰러졌고 건강한 다른 종이 있으면 pick', () => {
-    expect(companionState('cloud', { cloud: e(5, 0, 1), jelly: e(4, 100, 2) })).toBe('pick');
+    expect(companionState('c034', { c034: e(5, 0, 1), c036: e(4, 100, 2) })).toBe('pick');
   });
   it('쓰러졌고 다른 종이 없거나 다 쓰러졌으면 stuck (마을에서 회복)', () => {
-    expect(companionState('cloud', { cloud: e(5, 0, 1) })).toBe('stuck');
-    expect(companionState('cloud', { cloud: e(5, 0, 1), jelly: e(4, 0, 2) })).toBe('stuck');
+    expect(companionState('c034', { c034: e(5, 0, 1) })).toBe('stuck');
+    expect(companionState('c034', { c034: e(5, 0, 1), c036: e(4, 0, 2) })).toBe('stuck');
   });
   it('기록이 없는 종(옛 저장)은 ok — 창을 띄우지 않는다', () => {
-    expect(companionState('cloud', {})).toBe('ok');
+    expect(companionState('c034', {})).toBe('ok');
   });
 });
 

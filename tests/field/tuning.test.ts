@@ -18,7 +18,6 @@ describe('필드 모험 운영 수치', () => {
       CORRECT_EXP: 2,
       EXP_BASE: 20,
       EXP_PER_LEVEL: 10,
-      EVOLVE_LEVELS: { 2: 8, 3: 18 },
       STEP_MS: 180,
       TURN_TAP_MS: 120,
       TAP_CLOSE_MS: 300,

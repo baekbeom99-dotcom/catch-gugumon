@@ -34,8 +34,6 @@ export const CORRECT_EXP = 2;
 /** 다음 레벨까지 필요한 경험치 = EXP_BASE + 레벨 × EXP_PER_LEVEL */
 export const EXP_BASE = 20;
 export const EXP_PER_LEVEL = 10;
-/** 진화하는 레벨: 2단계 Lv8, 3단계 Lv18 */
-export const EVOLVE_LEVELS = { 2: 8, 3: 18 } as const;
 
 // ── 화면 연출 시간 (ms) — 규칙 결과에는 영향 없음 ──
 /** 한 걸음 걷는 시간 */

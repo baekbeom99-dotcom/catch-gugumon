@@ -39,8 +39,8 @@ const k = (id: string) => skillDef(id);
 /** 보통 단계(7초) 문제 하나: 경과 시간만 정해 둔다 */
 const at = (elapsedMs: number, over: Partial<WildState> = {}): WildState => ({ ...createWild('normal', 5, 100), elapsedMs, ...over });
 /** 구름몬이 held를 가졌을 때의 kind 버튼 */
-const btn = (held: string[], kind: SkillButton['kind'] = 'main') => skillButtons(held, 'cloud').find((b) => b.kind === kind)!;
-const M12 = ['cloud-1', 'cloud-2'];
+const btn = (held: string[], kind: SkillButton['kind'] = 'main') => skillButtons(held, 'c016').find((b) => b.kind === kind)!;
+const M12 = ['c016-1', 'c016-2'];
 /** 빗나가지도 크리티컬도 아니고 효과는 다 성공하는 난수 */
 const ok: Rng = () => 0.3;
 /** 정해 둔 난수를 차례로 (다 쓰고 또 부르면 실패) */
@@ -48,17 +48,17 @@ const seq = (...values: number[]): Rng => () => {
   if (values.length === 0) throw new Error('난수를 너무 많이 씀');
   return values.shift()!;
 };
-const SP = ['cloud-1', 'cloud-3'];
+const SP = ['c016-1', 'c016-3'];
 
 describe('전투 기술: 가진 기술과 고르기 단계', () => {
   it('저장된 기술 목록을 기술 표로 바꾼다 (없으면 그 레벨의 기본 기술)', () => {
-    expect(heldSkills('cloud', { level: 20, skills: ['cloud-1', 'cloud-3'] }).map((d) => d.id)).toEqual(['cloud-1', 'cloud-3']);
-    expect(heldSkills('cloud', { level: 1, skills: [] }).map((d) => d.id)).toEqual(['cloud-1']);
-    expect(heldSkills('cloud', undefined).map((d) => d.id)).toEqual(['cloud-1']);
+    expect(heldSkills('c016', { level: 20, skills: ['c016-1', 'c016-3'] }).map((d) => d.id)).toEqual(['c016-1', 'c016-3']);
+    expect(heldSkills('c016', { level: 1, skills: [] }).map((d) => d.id)).toEqual(['c016-1']);
+    expect(heldSkills('c016', undefined).map((d) => d.id)).toEqual(['c016-1']);
   });
   it('기술 1개면 고르기 없이 바로 문제, 2개 이상이면 고르기부터', () => {
-    const one = heldSkills('cloud', { level: 5, skills: ['cloud-1'] });
-    const two = heldSkills('cloud', { level: 5, skills: ['cloud-1', 'cloud-2'] });
+    const one = heldSkills('c016', { level: 5, skills: ['c016-1'] });
+    const two = heldSkills('c016', { level: 5, skills: ['c016-1', 'c016-2'] });
     expect(createWild('normal', 5, 100, one.length).phase).toBe('question');
     expect(createWild('normal', 5, 100, two.length).phase).toBe('pick');
   });
@@ -66,23 +66,23 @@ describe('전투 기술: 가진 기술과 고르기 단계', () => {
 
 describe('전투 기술: answerWithSkill (빠르게 스위치·문제 시간)', () => {
   it('스위치가 없으면 실제 경과 시간으로 판정', () => {
-    // 새싹 휙(주②): 7초 × 0.5 → 4초
+    // 덩굴 휘리릭(주②): 7초 × 0.5 → 4초
     expect(answerWithSkill(at(4000), btn(M12), M12, 'light', null, ok).upper).toBe(true);
     expect(answerWithSkill(at(4001), btn(M12), M12, 'light', null, ok).upper).toBe(false);
   });
   it('빠르게 스위치 true면 늘 가장 높은 단계, false면 늘 주① (경과 시간은 그대로 둔다)', () => {
     const slow = answerWithSkill(at(6500), btn(M12), M12, 'light', true, ok);
-    expect(slow).toMatchObject({ upper: true, fired: { id: 'cloud-2' }, special: 'stun' });
+    expect(slow).toMatchObject({ upper: true, fired: { id: 'c016-2' }, special: 'stun' });
     expect(slow.state).toMatchObject({ cells: 2, elapsedMs: 6500, stun: true });
     const quick = answerWithSkill(at(0), btn(M12), M12, 'light', false, ok);
-    expect(quick).toMatchObject({ upper: false, fired: { id: 'cloud-1' } });
+    expect(quick).toMatchObject({ upper: false, fired: { id: 'c016-1' } });
     expect(quick.state).toMatchObject({ cells: 2, elapsedMs: 0 });
   });
   it('특수: 스위치 true면 발동, false면 약한 기술이 대신', () => {
     expect(answerWithSkill(at(6500), btn(SP, 'special'), SP, 'light', true, ok).special).toBe('heal');
     const late = answerWithSkill(at(0), btn(SP, 'special'), SP, 'light', false, ok);
     expect(late).toMatchObject({ usedFallback: true, upper: false });
-    expect(late.fired.id).toBe('cloud-1');
+    expect(late.fired.id).toBe('c016-1');
   });
   it('단계 기준은 그 단계 문제 시간(TIER_RULES)만 — 여유로 늘어난 시간은 넣지 않는다', () => {
     // 여유로 10초가 된 문제에서 4.5초 걸림: 7초 기준 4초를 넘었으니 주① (10초 기준이면 5초라 주②가 된다)
@@ -106,35 +106,36 @@ describe('전투 기술: answerWithSkill (빠르게 스위치·문제 시간)', 
 
 describe('전투 기술: 상성·효과 이름·적의 기술', () => {
   it('상성: 속성 기술만 (특수는 null)', () => {
-    expect(skillMatchup(k('cloud-1'), 'water')).toBe(1);
-    expect(skillMatchup(k('cloud-1'), 'fire')).toBe(-1);
-    expect(skillMatchup(k('cloud-1'), 'light')).toBe(0);
-    expect(skillMatchup(k('cloud-3'), 'water')).toBeNull();
+    expect(skillMatchup(k('c016-1'), 'water')).toBe(1);
+    expect(skillMatchup(k('c016-1'), 'fire')).toBe(-1);
+    expect(skillMatchup(k('c016-1'), 'light')).toBe(0);
+    expect(skillMatchup(k('c016-3'), 'water')).toBeNull();
   });
   it('효과 이름: 속성 기술은 fxIndex 칸(부속성은 4번째) — 윗단계여도 같은 칸(강력 효과는 안 씀), 특수는 특수 효과', () => {
-    expect(skillFxName(k('cloud-1'), false)).toBe(ELEMENT_FX.grass[0]);
-    expect(skillFxName(k('cloud-2'), true)).toBe(ELEMENT_FX.grass[1]);
-    expect(skillFxName(k('cloud-5'), true)).toBe(ELEMENT_FX.grass[2]);
-    expect(skillFxName(k('cloud-4'), true)).toBe(ELEMENT_FX.light[3]);
-    expect(skillFxName(k('cloud-1'), true)).not.toBe(STRONG_FX.grass[0]);
-    expect(skillFxName(k('cloud-3'), false)).toBe(SPECIAL_FX.heal);
-    expect(skillFxName(k('mushroom-3'), true)).toBe(SPECIAL_FX.guard);
-    // 복사해 부속성 자리에 앉은 뿔몬 2번(물): 원래 종의 칸(주② = 1번 칸)
-    expect(skillFxName(seatedDef(k('horn-2'), 'cloud'), true)).toBe(ELEMENT_FX.water[1]);
+    expect(skillFxName(k('c016-1'), false)).toBe(ELEMENT_FX.grass[0]);
+    expect(skillFxName(k('c016-2'), true)).toBe(ELEMENT_FX.grass[1]);
+    expect(skillFxName(k('c016-5'), true)).toBe(ELEMENT_FX.grass[2]);
+    expect(skillFxName(k('c016-4'), true)).toBe(ELEMENT_FX.thunder[3]);
+    expect(skillFxName(k('c016-1'), true)).not.toBe(STRONG_FX.grass[0]);
+    expect(skillFxName(k('c016-3'), false)).toBe(SPECIAL_FX.heal);
+    expect(skillFxName(k('c002-3'), true)).toBe(SPECIAL_FX.guard);
+    // 복사해 부속성 자리에 앉은 블루베리곰몬 2번(물): 원래 종의 칸(주② = 1번 칸)
+    expect(skillFxName(seatedDef(k('c031-2'), 'c016'), true)).toBe(ELEMENT_FX.water[1]);
   });
   it('적의 기술: 그 레벨에서 익힌 속성 기술 중 무작위 (특수 제외)', () => {
-    expect(foeSkill('cloud', 2, () => 0.99).id).toBe('cloud-1');
-    expect(foeSkill('cloud', 10, () => 0).id).toBe('cloud-1');
-    expect(foeSkill('cloud', 10, () => 0.99).id).toBe('cloud-2'); // 3번(특수)은 안 나온다
+    expect(foeSkill('c016', 2, () => 0.99).id).toBe('c016-1');
+    expect(foeSkill('c016', 10, () => 0).id).toBe('c016-1');
+    expect(foeSkill('c016', 10, () => 0.99).id).toBe('c016-2'); // 3번(특수)은 안 나온다
     const seen = new Set<string>();
-    for (let i = 0; i < 20; i++) seen.add(foeSkill('cloud', 20, () => i / 20).id);
-    expect([...seen].sort()).toEqual(['cloud-1', 'cloud-2', 'cloud-4', 'cloud-5']);
-    expect(foeSkill('legend-horn', 20, () => 0).name).toMatch(/^황금/);
+    for (let i = 0; i < 20; i++) seen.add(foeSkill('c016', 20, () => i / 20).id);
+    expect([...seen].sort()).toEqual(['c016-1', 'c016-2', 'c016-4', 'c016-5']);
+    // 레전드도 이름 앞에 '황금'이 붙지 않는다: 주속성 이름 틀 그대로 (오징어몬 = 물)
+    expect(foeSkill('c047', 20, () => 0).name).toBe('물방울 톡');
   });
 });
 
 /** 구름몬 Lv20 다섯 기술 */
-const ALL = ['cloud-1', 'cloud-2', 'cloud-3', 'cloud-4', 'cloud-5'];
+const ALL = ['c016-1', 'c016-2', 'c016-3', 'c016-4', 'c016-5'];
 const T7 = TIER_RULES.normal.timeMs;
 const T5 = TIER_RULES.mighty.timeMs;
 
@@ -147,7 +148,7 @@ describe('전투 기술: 정답 글 hitMessage', () => {
   });
   it('윗단계: "⚡ 빠르다!" 한 줄(번호 나열 없음) + 주②의 효과 줄 + 상성 줄, 느리면 명중만', () => {
     expect(hitMessage(answerWithSkill(at(0), btn(M12), M12, 'water', true, ok), 'water', 0, 'main')).toBe(
-      '새싹 휙! ⚡ 빠르다!\n적이 기절했어요! 다음 공격을 한 번 못 해요\n효과가 커요! ▲',
+      '덩굴 휘리릭! ⚡ 빠르다!\n적이 기절했어요! 다음 공격을 한 번 못 해요\n효과가 커요! ▲',
     );
     expect(hitMessage(answerWithSkill(at(0), btn(ALL), ALL, 'light', true, ok), 'light', 0, 'main')).toBe('꽃잎 바람! ⚡ 빠르다!');
     expect(hitMessage(answerWithSkill(at(0), btn(M12), M12, 'light', false, ok), 'light', 0, 'main')).toBe('잎사귀 톡! 명중!');
@@ -157,19 +158,19 @@ describe('전투 기술: 정답 글 hitMessage', () => {
   });
   it('부속성 버튼: 빠르면 "⚡ 빠르다!", 느리면 1번 명중', () => {
     const sub = btn(ALL, 'sub');
-    expect(hitMessage(answerWithSkill(at(0), sub, ALL, 'grass', true, ok), 'grass', 0, 'sub')).toBe('햇살 반짝! ⚡ 빠르다!');
+    expect(hitMessage(answerWithSkill(at(0), sub, ALL, 'grass', true, ok), 'grass', 0, 'sub')).toBe('찌릿 번개공! ⚡ 빠르다!');
     expect(hitMessage(answerWithSkill(at(0), sub, ALL, 'grass', false, ok), 'grass', 0, 'sub')).toBe('잎사귀 톡! 명중!');
   });
   it('주② 회복은 실제로 늘어난 양, 방어는 "다음 공격이 약해져요"', () => {
-    const mush = ['mushroom-1', 'mushroom-2'];
-    const mb = skillButtons(mush, 'mushroom')[0];
-    const r = answerWithSkill(at(0), mb, mush, 'poison', true, ok);
+    const mush = ['c002-1', 'c002-2'];
+    const mb = skillButtons(mush, 'c002')[0];
+    const r = answerWithSkill(at(0), mb, mush, 'light', true, ok);
     expect(r.special).toBe('heal');
-    expect(hitMessage(r, 'poison', 25, 'main')).toBe('데굴데굴! ⚡ 빠르다!\n체력이 25 회복됐어요');
-    expect(hitMessage(r, 'poison', 0, 'main')).toBe('데굴데굴! ⚡ 빠르다!\n체력이 이미 가득해요');
-    const fluff = ['fluff-1', 'fluff-2'];
-    const g = answerWithSkill(at(0), skillButtons(fluff, 'fluff')[0], fluff, 'light', true, ok);
-    expect(hitMessage(g, 'light', 0, 'main')).toBe('꼬리 흔들기! ⚡ 빠르다!\n다음 공격이 약해져요');
+    expect(hitMessage(r, 'light', 25, 'main')).toBe('불꽃 뿜기! ⚡ 빠르다!\n체력이 25 회복됐어요');
+    expect(hitMessage(r, 'light', 0, 'main')).toBe('불꽃 뿜기! ⚡ 빠르다!\n체력이 이미 가득해요');
+    const c003 = ['c003-1', 'c003-2'];
+    const g = answerWithSkill(at(0), skillButtons(c003, 'c003')[0], c003, 'light', true, ok);
+    expect(hitMessage(g, 'light', 0, 'main')).toBe('덩굴 휘리릭! ⚡ 빠르다!\n다음 공격이 약해져요');
   });
   it('적이 기절해 공격을 못 했을 때 글', () => {
     expect(battleText.stunBlocked('왕관몬')).toBe('왕관몬이 기절해서 움직이지 못했어요!');
@@ -180,14 +181,14 @@ describe('전투 기술: 정답 글 hitMessage', () => {
 describe('전투 기술: 주②의 효과 연출 effectPlan', () => {
   it('스턴은 적 위에 스턴 그림·skillStun, 회복·방어는 내 구구몬 위', () => {
     expect(effectPlan(answerWithSkill(at(0), btn(M12), M12, 'light', true, ok))).toEqual({ fx: 'stunned', sfx: 'skillStun', on: 'foe' });
-    const mush = ['mushroom-1', 'mushroom-2'];
-    expect(effectPlan(answerWithSkill(at(0), skillButtons(mush, 'mushroom')[0], mush, 'light', true, ok))).toEqual({
+    const mush = ['c002-1', 'c002-2'];
+    expect(effectPlan(answerWithSkill(at(0), skillButtons(mush, 'c002')[0], mush, 'light', true, ok))).toEqual({
       fx: SPECIAL_FX.heal,
       sfx: 'skillHeal',
       on: 'ally',
     });
-    const fluff = ['fluff-1', 'fluff-2'];
-    expect(effectPlan(answerWithSkill(at(0), skillButtons(fluff, 'fluff')[0], fluff, 'light', true, ok))).toEqual({
+    const c003 = ['c003-1', 'c003-2'];
+    expect(effectPlan(answerWithSkill(at(0), skillButtons(c003, 'c003')[0], c003, 'light', true, ok))).toEqual({
       fx: SPECIAL_FX.guard,
       sfx: 'skillGuard',
       on: 'ally',
@@ -203,13 +204,13 @@ describe('전투 기술: 주②의 효과 연출 effectPlan', () => {
 });
 
 describe('전투 기술: skillSfxPlan (맞는 순간 소리 목록)', () => {
-  const leaf = k('cloud-1'); // 풀 속성 기술
+  const leaf = k('c016-1'); // 풀 속성 기술
   it('내 속성 기술: 평소엔 속성 소리 하나', () => {
     expect(skillSfxPlan('ally', leaf, false, 0)).toEqual(['fxGrass']);
     expect(skillSfxPlan('ally', leaf, false, null)).toEqual(['fxGrass']);
   });
   it('윗단계(upper)면 fxPower가 겹친다', () => {
-    expect(skillSfxPlan('ally', k('cloud-2'), true, 0)).toEqual(['fxGrass', 'fxPower']);
+    expect(skillSfxPlan('ally', k('c016-2'), true, 0)).toEqual(['fxGrass', 'fxPower']);
   });
   it('상성 강함·약함은 소리가 붙고 보통(0)은 없다', () => {
     expect(skillSfxPlan('ally', leaf, false, 1)).toEqual(['fxGrass', 'superEffective']);
@@ -220,11 +221,11 @@ describe('전투 기술: skillSfxPlan (맞는 순간 소리 목록)', () => {
     const r1 = answerWithSkill(at(0), btn(M12), M12, 'light', false, ok);
     const r2 = answerWithSkill(at(0), btn(ALL, 'sub'), ALL, 'light', true, ok);
     expect(skillSfxPlan('ally', r1.fired, r1.upper, 0)).toEqual(['fxGrass']);
-    expect(skillSfxPlan('ally', r2.fired, r2.upper, 0)).toEqual(['fxLight', 'fxPower']);
+    expect(skillSfxPlan('ally', r2.fired, r2.upper, 0)).toEqual(['fxThunder', 'fxPower']);
   });
   it('특수 성공은 특수 소리 하나 (윗단계·상성 없음)', () => {
-    expect(skillSfxPlan('ally', k('cloud-3'), false, null)).toEqual(['skillHeal']);
-    expect(skillSfxPlan('ally', k('cloud-3'), true, 1)).toEqual(['skillHeal']);
+    expect(skillSfxPlan('ally', k('c016-3'), false, null)).toEqual(['skillHeal']);
+    expect(skillSfxPlan('ally', k('c016-3'), true, 1)).toEqual(['skillHeal']);
   });
   it('적 공격은 속성 소리만 (윗단계·상성 소리 없음)', () => {
     expect(skillSfxPlan('foe', leaf, true, 1)).toEqual(['fxGrass']);
@@ -234,19 +235,19 @@ describe('전투 기술: skillSfxPlan (맞는 순간 소리 목록)', () => {
 
 describe('시간 게이지 기점: gaugeStops · tierAt', () => {
   it('주속성 사슬 1개(스타터)는 기점이 없고 늘 1단계', () => {
-    const stops = gaugeStops(btn(['cloud-1']), T7);
+    const stops = gaugeStops(btn(['c016-1']), T7);
     expect(stops).toEqual([]);
     expect(tierAt(stops, 0)).toBe(1);
     expect(tierAt(stops, 9999)).toBe(1);
   });
   it('주속성 사슬 2개(7초): 4초 기점 ②', () => {
-    expect(gaugeStops(btn(M12), T7)).toEqual([{ atMs: 4000, tier: 2, skillName: '새싹 휙' }]);
+    expect(gaugeStops(btn(M12), T7)).toEqual([{ atMs: 4000, tier: 2, skillName: '덩굴 휘리릭' }]);
   });
   it('주속성 사슬 3개(7초): 2초 ③ · 4초 ② (빠른 기점부터), 경계는 판정과 같다', () => {
     const stops = gaugeStops(btn(ALL), T7);
     expect(stops).toEqual([
       { atMs: 2000, tier: 3, skillName: '꽃잎 바람' },
-      { atMs: 4000, tier: 2, skillName: '새싹 휙' },
+      { atMs: 4000, tier: 2, skillName: '덩굴 휘리릭' },
     ]);
     expect(tierAt(stops, 0)).toBe(3);
     expect(tierAt(stops, 2000)).toBe(3);
@@ -261,7 +262,7 @@ describe('시간 게이지 기점: gaugeStops · tierAt', () => {
     ]);
   });
   it('부속성·특수 버튼은 기점 하나 (②)', () => {
-    expect(gaugeStops(btn(ALL, 'sub'), T7)).toEqual([{ atMs: 4000, tier: 2, skillName: '햇살 반짝' }]);
+    expect(gaugeStops(btn(ALL, 'sub'), T7)).toEqual([{ atMs: 4000, tier: 2, skillName: '찌릿 번개공' }]);
     expect(gaugeStops(btn(ALL, 'special'), T5)).toEqual([{ atMs: 3000, tier: 2, skillName: '새싹 쑥쑥' }]);
   });
   it('여유(calm)로 시간이 늘어도 기점(경과 시간)은 그대로 — 단계 시간만 넘긴다', () => {
@@ -270,8 +271,8 @@ describe('시간 게이지 기점: gaugeStops · tierAt', () => {
     expect(CALM_BONUS_MS).toBeGreaterThan(0);
   });
   it('tierAt은 판정(pickFired)과 늘 같다: 0~8초를 100ms마다', () => {
-    for (const held of [['cloud-1'], M12, ALL]) {
-      for (const b of skillButtons(held, 'cloud')) {
+    for (const held of [['c016-1'], M12, ALL]) {
+      for (const b of skillButtons(held, 'c016')) {
         for (const time of [T7, T5]) {
           const stops = gaugeStops(b, time);
           for (let e = 0; e <= 8000; e += 100) {
@@ -293,20 +294,20 @@ describe('시간 게이지 기점: gaugeStops · tierAt', () => {
 
 describe('고르기 버튼 글: buttonLines (단계별 시간 조건은 fastSeconds와 같다)', () => {
   it('주속성 1·2·3번 (7초)', () => {
-    expect(buttonLines(btn(ALL), T7)).toEqual(['1번 잎사귀 톡', '4초 안: 2번 새싹 휙 +기절', '2초 안: 3번 꽃잎 바람']);
-    expect(fastSeconds(k('cloud-2'), T7)).toBe(4);
-    expect(fastSeconds(k('cloud-5'), T7)).toBe(2);
+    expect(buttonLines(btn(ALL), T7)).toEqual(['1번 잎사귀 톡', '4초 안: 2번 덩굴 휘리릭 +기절', '2초 안: 3번 꽃잎 바람']);
+    expect(fastSeconds(k('c016-2'), T7)).toBe(4);
+    expect(fastSeconds(k('c016-5'), T7)).toBe(2);
   });
   it('주속성 (5초): 3초·2초', () => {
-    expect(buttonLines(btn(ALL), T5)).toEqual(['1번 잎사귀 톡', '3초 안: 2번 새싹 휙 +기절', '2초 안: 3번 꽃잎 바람']);
+    expect(buttonLines(btn(ALL), T5)).toEqual(['1번 잎사귀 톡', '3초 안: 2번 덩굴 휘리릭 +기절', '2초 안: 3번 꽃잎 바람']);
   });
   it('스타터(1개)', () => {
-    expect(buttonLines(btn(['cloud-1']), T7)).toEqual(['1번 잎사귀 톡']);
+    expect(buttonLines(btn(['c016-1']), T7)).toEqual(['1번 잎사귀 톡']);
   });
   it('부속성: 빠르면 그 기술, 느리면 1번 (복사 기술도 이름 그대로)', () => {
-    expect(buttonLines(btn(ALL, 'sub'), T7)).toEqual(['4초 안: 햇살 반짝(부속성)', '그보다 느리면 1번 잎사귀 톡']);
-    const copied = ['cloud-1', 'horn-2'];
-    expect(buttonLines(btn(copied, 'sub'), T5)).toEqual(['3초 안: 돌진(부속성)', '그보다 느리면 1번 잎사귀 톡']);
+    expect(buttonLines(btn(ALL, 'sub'), T7)).toEqual(['4초 안: 찌릿 번개공(부속성)', '그보다 느리면 1번 잎사귀 톡']);
+    const copied = ['c016-1', 'c031-2'];
+    expect(buttonLines(btn(copied, 'sub'), T5)).toEqual(['3초 안: 물줄기 쏘기(부속성)', '그보다 느리면 1번 잎사귀 톡']);
   });
   it('특수: 효과 · 못 풀면 약한 기술', () => {
     expect(buttonLines(btn(ALL, 'special'), T7)).toEqual(['4초 안: 회복 효과', '못 풀면 약한 기술']);
@@ -315,25 +316,25 @@ describe('고르기 버튼 글: buttonLines (단계별 시간 조건은 fastSeco
     expect(buttonPower(btn(ALL))).toBe('★★~★★★');
     expect(buttonPower(btn(M12))).toBe('★★');
     expect(buttonPower(btn(ALL, 'sub'))).toBe('★★★');
-    expect(buttonPower(btn(['cloud-1', 'horn-1'], 'sub'))).toBe('★★★');
+    expect(buttonPower(btn(['c016-1', 'c031-1'], 'sub'))).toBe('★★★');
     expect(buttonPower(btn(ALL, 'special'))).toBe('★★');
   });
   it('준비 글·지금 쓰는 기술 줄은 간결하게 ("N초 안" 없음), 자세한 시간은 숨김 글(nowDetail)', () => {
-    expect(readyText(btn(['cloud-1']))).toBe('잎사귀 톡 준비!');
+    expect(readyText(btn(['c016-1']))).toBe('잎사귀 톡 준비!');
     expect(readyText(btn(ALL))).toBe('잎사귀 톡 준비!');
-    expect(readyText(btn(ALL, 'sub'))).toBe('햇살 반짝 준비!');
+    expect(readyText(btn(ALL, 'sub'))).toBe('찌릿 번개공 준비!');
     expect(readyText(btn(SP, 'special'))).toBe('새싹 쑥쑥 준비! 빨리 풀면 회복!');
-    expect(nowText(btn(['cloud-1']))).toBe('잎사귀 톡');
+    expect(nowText(btn(['c016-1']))).toBe('잎사귀 톡');
     expect(nowText(btn(ALL))).toBe('잎사귀 톡');
-    expect(nowText(btn(ALL, 'sub'))).toBe('햇살 반짝');
+    expect(nowText(btn(ALL, 'sub'))).toBe('찌릿 번개공');
     expect(nowText(btn(SP, 'special'))).toBe('새싹 쑥쑥 · 빨리 풀면 회복');
     for (const b of [btn(ALL), btn(ALL, 'sub'), btn(SP, 'special')]) {
       expect(readyText(b)).not.toMatch(/초 안/);
       expect(nowText(b)).not.toMatch(/초 안/);
     }
-    expect(nowDetail(btn(['cloud-1']), T7)).toBe('잎사귀 톡');
+    expect(nowDetail(btn(['c016-1']), T7)).toBe('잎사귀 톡');
     expect(nowDetail(btn(ALL), T7)).toBe('잎사귀 톡 · 4초 안 2번 · 2초 안 3번');
-    expect(nowDetail(btn(ALL, 'sub'), T7)).toBe('햇살 반짝 · 4초 안에 풀어요');
+    expect(nowDetail(btn(ALL, 'sub'), T7)).toBe('찌릿 번개공 · 4초 안에 풀어요');
     expect(nowDetail(btn(SP, 'special'), T7)).toBe('새싹 쑥쑥 · 4초 안에 풀면 회복!');
   });
 });
@@ -394,7 +395,7 @@ describe('시간 막대 구간: gaugeZones (같은 기점에서도 단계가 맞
 describe('위력 별 읽는 글: buttonPowerLabel', () => {
   it('범위와 하나', () => {
     expect(buttonPowerLabel(btn(ALL))).toBe('위력 2~3');
-    expect(buttonPowerLabel(btn(['cloud-1']))).toBe('위력 2');
+    expect(buttonPowerLabel(btn(['c016-1']))).toBe('위력 2');
     expect(buttonPowerLabel(btn(ALL, 'sub'))).toBe('위력 3');
   });
 });
@@ -403,7 +404,7 @@ describe('전투 화면 간결 표시: buttonShortName · buttonHiddenText (선�
   it('주속성 버튼은 가진 단계와 무관하게 1번 기술 이름, 부속성·특수는 그 기술 이름', () => {
     expect(buttonShortName(btn(ALL))).toBe('잎사귀 톡');
     expect(buttonShortName(btn(M12))).toBe('잎사귀 톡');
-    expect(buttonShortName(btn(ALL, 'sub'))).toBe('햇살 반짝');
+    expect(buttonShortName(btn(ALL, 'sub'))).toBe('찌릿 번개공');
     expect(buttonShortName(btn(ALL, 'special'))).toBe('새싹 쑥쑥');
   });
   it('기술 이름은 모두 10글자 이하라 두 줄로 줄바꿈하면 버튼 폭(1/3)에 들어간다', () => {
@@ -432,12 +433,12 @@ describe('전투 굴림 글: 크리티컬·빗나감·효과 실패 (설계서 0
     const crit = answerWithSkill(at(0), btn(M12), M12, 'light', false, seq(0.5, 0));
     expect(hitMessage(crit, 'light', 0, 'main')).toBe('💥 크리티컬!\n잎사귀 톡! 명중!');
     const miss = answerWithSkill(at(0), btn(M12), M12, 'water', true, seq(0.01));
-    expect(hitMessage(miss, 'water', 0, 'main')).toBe('새싹 휙! …빗나갔어요!');
+    expect(hitMessage(miss, 'water', 0, 'main')).toBe('덩굴 휘리릭! …빗나갔어요!');
   });
   it('효과 실패: 주②는 "⚡ 빠르다!" 뒤 "효과가 실패했어요…", 특수 버튼은 명중 뒤 한 줄 (효과 연출 없음)', () => {
     const m2 = answerWithSkill(at(0), btn(M12), M12, 'light', true, seq(0.5, 0.5, 0.9));
     expect(m2.effect).toEqual({ kind: 'stun', ok: false });
-    expect(hitMessage(m2, 'light', 0, 'main')).toBe('새싹 휙! ⚡ 빠르다!\n효과가 실패했어요…');
+    expect(hitMessage(m2, 'light', 0, 'main')).toBe('덩굴 휘리릭! ⚡ 빠르다!\n효과가 실패했어요…');
     expect(effectPlan(m2)).toBeNull();
     const sp = answerWithSkill(at(0, { allyHp: 50 }), btn(SP, 'special'), SP, 'light', true, seq(0.5, 0.5, 0.95));
     expect(sp.special).toBeUndefined();

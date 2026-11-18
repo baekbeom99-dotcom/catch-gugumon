@@ -1,6 +1,7 @@
 /**
  * 구구몬 기술 표 — 종마다 기술 5개(주속성 3·부속성 1·특수 1). 순수 데이터와 계산만 (React 없음).
- * 위력·발동 조건·배우는 레벨은 SLOT_PATTERN, 이름은 SKILL_NAMES, 특수 배정은 SPECIAL_OF_SPECIES 한 곳.
+ * 위력·발동 조건·배우는 레벨은 SLOT_PATTERN, 이름은 속성별 틀(MAIN_SKILL_NAMES·SUB_SKILL_NAMES·SPECIAL_SKILL_NAMES),
+ * 특수·주② 효과 배정은 SPECIAL_CYCLE·M2_CYCLE 규칙 한 곳.
  *
  * 개정 3(설계서 0-1절) — 기술 버튼은 3개:
  *  - 주속성 버튼: 자기 종 주속성 기술(슬롯 1·2·5) 사슬. 느리면 1번, 빠르면 2번, 아주 빠르면 3번이 나간다.
@@ -9,7 +10,7 @@
  */
 import type { Rng } from '../random';
 import { MAIN_ELEMENT, SUB_ELEMENT, type Element } from './elements';
-import type { SpeciesId } from './creatures';
+import { SPECIES_IDS, type SpeciesId } from './speciesIds';
 import { COPY_CHANCE, MAX_SKILLS, SUB_FAST_RATIO } from './tuning';
 
 export type SkillId = string;
@@ -54,62 +55,80 @@ const SUB_SEAT_POWER = SLOT_PATTERN[3].basePower;
 /** 주속성 사슬의 단계: 슬롯 1 → 1번, 슬롯 2 → 2번, 슬롯 5 → 3번 */
 const MAIN_TIER: Record<number, 1 | 2 | 3> = { 1: 1, 2: 2, 5: 3 };
 
-/** 기술 이름 5개 (슬롯 1~5). 1·2·5번은 예전 이름 그대로, 3번 특수·4번 부속성은 새 이름 */
-export const SKILL_NAMES: Record<SpeciesId, string[]> = {
-  cloud: ['잎사귀 톡', '새싹 휙', '새싹 쑥쑥', '햇살 반짝', '꽃잎 바람'],
-  mushroom: ['방울 딸랑', '데굴데굴', '버섯 방패', '덩굴 휘리릭', '무 박치기'],
-  fluff: ['왕관 반짝', '꼬리 흔들기', '반짝 속삭임', '폭신 땅굴', '몸통 박치기'],
-  jelly: ['젤리 톡', '출렁 박치기', '말랑 심호흡', '보글 독방울', '거품 뿜기'],
-  antenna: ['안테나 찌릿', '신호 빔', '찌릿 충전', '물방울 신호', '빙글 돌기'],
-  horn: ['뿔 콕', '돌진', '뿔 방어', '쿵쿵 발구르기', '물결 치기'],
-  pebble: ['블록 쾅', '세눈 빔', '단단 충전', '뜨끈 불꽃', '단단해지기'],
-  ghost: ['외뿔 찌르기', '꼬리 휘두르기', '공룡 심호흡', '번쩍 꼬리', '공룡 함성'],
-  'legend-fluff': ['황금 왕관 빛', '반짝 별가루', '황금 속삭임', '금빛 불꽃', '금빛 박치기'],
-  'legend-horn': ['황금 뿔 콕', '금빛 돌진', '황금 물약 한 모금', '금빛 번개', '반짝 물결'],
-  'legend-ghost': ['황금 외뿔 찌르기', '금빛 꼬리치기', '황금 기운 모으기', '황금 햇살', '황금 함성'],
+/**
+ * 속성 기술 이름 틀 (설계서 2-2): 주속성 [주①, 주②, 주③] — 같은 속성 종은 이름이 같다.
+ * 종이 49종이라 종마다 이름을 쓰지 않고 속성마다 하나씩 쓴다
+ */
+export const MAIN_SKILL_NAMES: Record<Element, readonly [string, string, string]> = {
+  fire: ['불씨 톡', '불꽃 뿜기', '활활 불기둥'],
+  water: ['물방울 톡', '물줄기 쏘기', '큰 물결'],
+  grass: ['잎사귀 톡', '덩굴 휘리릭', '꽃잎 바람'],
+  poison: ['독방울 톡', '보라 포자', '독 구름'],
+  thunder: ['찌릿 톡', '번개 줄기', '우르르 쾅'],
+  earth: ['돌멩이 톡', '바위 굴리기', '쿵쿵 땅울림'],
+  light: ['반짝 깃털', '빛 내려치기', '햇살 폭발'],
 };
 
-/** 종마다 특수 기술 종류 (설계서 2-2) */
-export const SPECIAL_OF_SPECIES: Record<SpeciesId, SpecialKind> = {
-  cloud: 'heal',
-  'legend-horn': 'heal',
-  mushroom: 'guard',
-  horn: 'guard',
-  fluff: 'clue',
-  'legend-fluff': 'clue',
-  jelly: 'calm',
-  ghost: 'calm',
-  antenna: 'charge',
-  pebble: 'charge',
-  'legend-ghost': 'charge',
+/** 부속성 기술(슬롯 4) 이름 — 부속성마다 하나 */
+export const SUB_SKILL_NAMES: Record<Element, string> = {
+  fire: '뜨끈 불꽃',
+  water: '보글 물방울',
+  grass: '새싹 휙',
+  poison: '끈적 독방울',
+  thunder: '찌릿 번개공',
+  earth: '쿵 내려앉기',
+  light: '반짝 빛고리',
 };
+
+/** 특수 기술(슬롯 3) 이름 — 특수 종류마다 하나 (stun은 특수 자리에 안 온다) */
+export const SPECIAL_SKILL_NAMES: Record<Exclude<SpecialKind, 'stun'>, string> = {
+  heal: '새싹 쑥쑥',
+  guard: '단단 방패',
+  clue: '반짝 속삭임',
+  calm: '말랑 심호흡',
+  charge: '찌릿 충전',
+};
+
+/** 특수 배정 차례: 종 목록 차례대로 이 5가지를 돌아가며 준다 (고르게 나뉜다) */
+export const SPECIAL_CYCLE: readonly Exclude<SpecialKind, 'stun'>[] = ['heal', 'guard', 'clue', 'calm', 'charge'];
+/** 주② 효과 차례: 종 목록 차례대로 돌아가며 주되, 그 종 특수와 같으면 다음 것 */
+export const M2_CYCLE: readonly SpecialKind[] = ['stun', 'heal', 'guard'];
+
+const specialTable = {} as Record<SpeciesId, SpecialKind>;
+const m2Table = {} as Record<SpeciesId, SpecialKind>;
+SPECIES_IDS.forEach((id, i) => {
+  const sp = SPECIAL_CYCLE[i % SPECIAL_CYCLE.length];
+  let m2 = M2_CYCLE[i % M2_CYCLE.length];
+  if (m2 === sp) m2 = M2_CYCLE[(i + 1) % M2_CYCLE.length];
+  specialTable[id] = sp;
+  m2Table[id] = m2;
+});
+
+/** 종마다 특수 기술 종류 (위 규칙으로 만든 표) */
+export const SPECIAL_OF_SPECIES: Readonly<Record<SpeciesId, SpecialKind>> = specialTable;
 
 /**
  * 주②가 나갈 때 붙는 효과 (설계서 0-1절, 종마다 하나 — 특수 슬롯 효과와 겹치지 않게).
  * stun 다음 적 공격 1회 무효 · heal 내 체력 회복 · guard 다음 적 공격 절반
  */
-export const M2_EFFECT_OF_SPECIES: Record<SpeciesId, SpecialKind> = {
-  cloud: 'stun',
-  mushroom: 'heal',
-  fluff: 'guard',
-  jelly: 'stun',
-  antenna: 'heal',
-  horn: 'stun',
-  pebble: 'guard',
-  ghost: 'heal',
-  'legend-fluff': 'stun',
-  'legend-horn': 'guard',
-  'legend-ghost': 'heal',
-};
+export const M2_EFFECT_OF_SPECIES: Readonly<Record<SpeciesId, SpecialKind>> = m2Table;
+
+/** 한 종의 기술 이름 5개 (슬롯 1~5) */
+export function skillNamesOf(species: SpeciesId): string[] {
+  const [m1, m2, m3] = MAIN_SKILL_NAMES[MAIN_ELEMENT[species]];
+  const sp = SPECIAL_OF_SPECIES[species] as Exclude<SpecialKind, 'stun'>;
+  return [m1, m2, SPECIAL_SKILL_NAMES[sp], SUB_SKILL_NAMES[SUB_ELEMENT[species]], m3];
+}
 
 function build(species: SpeciesId): SkillDef[] {
+  const names = skillNamesOf(species);
   return SLOT_PATTERN.map((p): SkillDef => {
     const def: SkillDef = {
       id: `${species}-${p.slot}`,
       species,
       slot: p.slot,
       kind: p.kind,
-      name: SKILL_NAMES[species][p.slot - 1],
+      name: names[p.slot - 1],
       basePower: p.basePower,
       fastRatio: p.fastRatio,
       learnLevel: p.learnLevel,
@@ -122,8 +141,8 @@ function build(species: SpeciesId): SkillDef[] {
   });
 }
 
-/** 기술 전부: 11종 × 5 = 55개 */
-export const SKILLS: readonly SkillDef[] = (Object.keys(SKILL_NAMES) as SpeciesId[]).flatMap(build);
+/** 기술 전부: 49종 × 5 = 245개 */
+export const SKILLS: readonly SkillDef[] = SPECIES_IDS.flatMap(build);
 
 const BY_ID = new Map<SkillId, SkillDef>(SKILLS.map((k) => [k.id, k]));
 

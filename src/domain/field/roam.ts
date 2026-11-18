@@ -23,10 +23,9 @@ export interface Roamer {
 
 const DIRS: readonly Dir[] = ['up', 'down', 'left', 'right'];
 
-/** 노는 서식지: 레전드는 기본 종의 필드 */
+/** 노는 서식지: 사는 필드 (레전드는 creatures.ts에서 정해 둔 필드) */
 export function habitatOf(id: SpeciesId): FieldId {
-  const def = speciesDef(id);
-  return def.field === 'legend' ? (speciesDef(def.kind).field as FieldId) : def.field;
+  return speciesDef(id).home;
 }
 
 const idleMs = (rng: Rng) => randomInt(rng, ROAM_IDLE_MIN_MS, ROAM_IDLE_MAX_MS);

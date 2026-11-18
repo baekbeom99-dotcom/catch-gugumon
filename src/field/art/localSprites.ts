@@ -15,17 +15,7 @@ import type { AttackAnim, ImageArtEntry, SheetAnim, StageArt, StageSheets } from
  * 몸 크기는 종마다 달라 fill을 쓰지 않아도 단계마다 manifest의 몸 높이로 자동 맞춘다 (spriteSheet.bodyFill). fill·foot은 종 전체에 덧붙이는 선택 보정.
  */
 export const LOCAL_SPRITE_MAP: Partial<Record<SpeciesId, { ids: string[]; fill?: number; foot?: number }>> = {
-  cloud: { ids: ['0001', '0002', '0003'] }, // 풀: 씨앗·풀 계열
-  ghost: { ids: ['0004', '0005', '0006'] }, // 불: 도마뱀 계열
-  jelly: { ids: ['0007', '0008', '0009'] }, // 물: 거북 계열
-  mushroom: { ids: ['0013', '0014', '0015'] }, // 독: 벌 계열
-  antenna: { ids: ['0025', '0026', '0026'] }, // 번개: 2단계(마지막 번호 되풀이)
-  pebble: { ids: ['0027', '0028', '0028'] }, // 땅: 2단계(마지막 번호 되풀이)
-  fluff: { ids: ['0039', '0040', '0040'] }, // 빛: 2단계(마지막 번호 되풀이)
-  horn: { ids: ['0060', '0061', '0062'] }, // 물: 올챙이 계열
-  'legend-fluff': { ids: ['0035', '0036', '0036'] }, // 황금: 2단계(마지막 번호 되풀이)
-  'legend-horn': { ids: ['0129', '0130', '0130'] }, // 황금: 2단계(마지막 번호 되풀이)
-  'legend-ghost': { ids: ['0037', '0038', '0038'] }, // 황금: 2단계(마지막 번호 되풀이)
+  // 49종으로 바꾸며 비워 둠 — 새 그림(C:\Antigravity\sprite\sprites\<번호>)은 다음 작업에서 연결한다
 };
 
 type Files = Record<string, string>;

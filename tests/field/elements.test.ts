@@ -1,25 +1,24 @@
 import { describe, expect, it } from 'vitest';
 import * as core from 'pixelfx';
-import { ELEMENT_FX, ELEMENT_NAMES, MAIN_ELEMENT, SPECIAL_FX, STRONG_AGAINST, STRONG_FX, SUB_ELEMENT, elementOf, matchup, subElementOf, type Element } from '../../src/domain/field/elements';
+import { ELEMENT_FX, ELEMENT_GROUPS, ELEMENT_NAMES, ELEMENTS, MAIN_ELEMENT, SPECIAL_FX, STRONG_AGAINST, STRONG_FX, SUB_ELEMENT, elementOf, matchup, subElementOf, type Element } from '../../src/domain/field/elements';
 import { SKILLS, seatedDef } from '../../src/domain/field/skills';
 import { skillFxName } from '../../src/field/battle/skillUse';
-import { SPECIES } from '../../src/domain/field/creatures';
+import { LEGEND_SPECIES, SPECIES, SPECIES_IDS } from '../../src/domain/field/creatures';
+import { FIELDS } from '../../src/domain/field/fields';
 import { EFFECTS, FX_NAMES, FX_TOTAL_MAX_MS, TRAVEL_MS_MAX, TRAVEL_MS_MIN, goldPalette, paletteLength, type FxSpec } from '../../src/field/fx/effects';
 import { WILD_HIT_ANIM_MS } from '../../src/domain/field/tuning';
 
 describe('속성 표', () => {
-  it('종 11개 모두 속성이 있고 레전드는 기본 종과 같다', () => {
-    expect(SPECIES).toHaveLength(11);
+  it('종 49개 모두 속성이 있다', () => {
+    expect(SPECIES).toHaveLength(49);
     for (const s of SPECIES) expect(ELEMENT_NAMES[elementOf(s.id)]).toBeTruthy();
-    expect(elementOf('legend-horn')).toBe(elementOf('horn'));
-    expect(elementOf('legend-fluff')).toBe('light');
-    expect(elementOf('ghost')).toBe('fire');
+    // 시작 구구몬 3종: 풀·불·물
+    expect([elementOf('c034'), elementOf('c035'), elementOf('c036')]).toEqual(['grass', 'fire', 'water']);
+    expect(elementOf('c015')).toBe('light');
+    expect(elementOf('c048')).toBe('fire');
   });
 
-  it('설계서 11절: 종마다 속성', () => {
-    expect(
-      Object.fromEntries((['cloud', 'mushroom', 'fluff', 'jelly', 'horn', 'antenna', 'pebble', 'ghost'] as const).map((k) => [k, elementOf(k)])),
-    ).toEqual({ cloud: 'grass', mushroom: 'poison', fluff: 'light', jelly: 'water', horn: 'water', antenna: 'thunder', pebble: 'earth', ghost: 'fire' });
+  it('설계서 2-1절: 속성 이름', () => {
     expect(Object.values(ELEMENT_NAMES)).toEqual(['풀', '독', '빛', '물', '번개', '땅', '불']);
   });
 
@@ -51,12 +50,12 @@ describe('속성 표', () => {
     for (const n of Object.values(SPECIAL_FX)) expect(FX_NAMES).toContain(n);
   });
 
-  it('skillFxName: 55개 기술(복사해 부속성 자리에 앉은 모습 포함) 모두 ELEMENT_FX의 4칸 안 — 윗단계여도 강력 효과(STRONG_FX)는 안 쓴다', () => {
-    expect(SKILLS).toHaveLength(55);
+  it('skillFxName: 245개 기술(복사해 부속성 자리에 앉은 모습 포함) 모두 ELEMENT_FX의 4칸 안 — 윗단계여도 강력 효과(STRONG_FX)는 안 쓴다', () => {
+    expect(SKILLS).toHaveLength(245);
     const strong = new Set(Object.values(STRONG_FX).flat());
     for (const def of SKILLS) {
       // 복사: 다른 종(구름몬·버섯몬)에게 앉힌 모습도 원래 종의 속성·fxIndex 그대로
-      const views = [def, seatedDef(def, def.species === 'cloud' ? 'mushroom' : 'cloud')];
+      const views = [def, seatedDef(def, def.species === 'c034' ? 'c042' : 'c034')];
       for (const view of views) {
         for (const upper of [false, true]) {
           const name = skillFxName(view, upper);
@@ -156,20 +155,52 @@ describe('황금 팔레트', () => {
 
 
 describe('주·부 속성과 상성', () => {
-  it('11종의 주·부 속성 (설계서 2-1 표)', () => {
-    expect(MAIN_ELEMENT).toEqual({
-      cloud: 'grass', mushroom: 'poison', fluff: 'light', jelly: 'water', horn: 'water', antenna: 'thunder',
-      pebble: 'earth', ghost: 'fire', 'legend-fluff': 'light', 'legend-horn': 'water', 'legend-ghost': 'fire',
+  it('주속성 배정표: 속성마다 7종, 49종이 한 번씩 (설계서 2-1 표)', () => {
+    expect(ELEMENT_GROUPS).toEqual({
+      fire: ['c002', 'c009', 'c021', 'c028', 'c030', 'c035', 'c048'],
+      water: ['c004', 'c024', 'c031', 'c036', 'c038', 'c043', 'c047'],
+      grass: ['c003', 'c016', 'c018', 'c022', 'c023', 'c029', 'c034'],
+      poison: ['c006', 'c008', 'c011', 'c014', 'c032', 'c042', 'c050'],
+      thunder: ['c005', 'c019', 'c025', 'c027', 'c033', 'c039', 'c045'],
+      earth: ['c001', 'c007', 'c010', 'c012', 'c026', 'c037', 'c049'],
+      light: ['c013', 'c015', 'c020', 'c040', 'c041', 'c044', 'c046'],
     });
-    expect(SUB_ELEMENT).toEqual({
-      cloud: 'light', mushroom: 'grass', fluff: 'earth', jelly: 'poison', horn: 'earth', antenna: 'water',
-      pebble: 'fire', ghost: 'thunder', 'legend-fluff': 'fire', 'legend-horn': 'thunder', 'legend-ghost': 'light',
-    });
+    const all = Object.values(ELEMENT_GROUPS).flat();
+    expect(all).toHaveLength(49);
+    expect([...all].sort()).toEqual([...SPECIES_IDS].sort());
+    for (const el of ELEMENTS) for (const id of ELEMENT_GROUPS[el]) expect(MAIN_ELEMENT[id]).toBe(el);
+  });
+
+  it('부속성: 주속성과 다르고, 속성마다 부속성으로 7번씩 (규칙 ELEMENTS[(m + 1 + j % 6) % 7])', () => {
+    const count = new Map<Element, number>();
     for (const s of SPECIES) {
       expect(elementOf(s.id)).toBe(MAIN_ELEMENT[s.id]);
       expect(subElementOf(s.id)).toBe(SUB_ELEMENT[s.id]);
       expect(subElementOf(s.id)).not.toBe(elementOf(s.id));
+      count.set(SUB_ELEMENT[s.id], (count.get(SUB_ELEMENT[s.id]) ?? 0) + 1);
     }
+    for (const el of ELEMENTS) expect(count.get(el)).toBe(7);
+    ELEMENTS.forEach((el, m) => ELEMENT_GROUPS[el].forEach((id, j) => expect(SUB_ELEMENT[id]).toBe(ELEMENTS[(m + 1 + (j % 6)) % 7])));
+    // 시작 구구몬 고정값
+    expect([SUB_ELEMENT.c034, SUB_ELEMENT.c035, SUB_ELEMENT.c036]).toEqual(['poison', 'light', 'earth']);
+  });
+
+  it('필드 배정: 사막 12·물가 13·초원 12·레전드 12 = 49, 겹침 없음, 017 없음', () => {
+    expect(FIELDS.desert.species).toHaveLength(12);
+    expect(FIELDS.waterside.species).toHaveLength(13);
+    expect(FIELDS.meadow.species).toHaveLength(12);
+    expect(LEGEND_SPECIES).toHaveLength(12);
+    const all = [...FIELDS.desert.species, ...FIELDS.waterside.species, ...FIELDS.meadow.species, ...LEGEND_SPECIES];
+    expect(new Set(all).size).toBe(49);
+    expect([...all].sort()).toEqual([...SPECIES_IDS].sort());
+    expect(SPECIES_IDS as readonly string[]).not.toContain('c017');
+    expect(SPECIES_IDS[0]).toBe('c001');
+    expect(SPECIES_IDS[SPECIES_IDS.length - 1]).toBe('c050');
+    const num = (id: string) => Number(id.slice(1));
+    expect(FIELDS.desert.species.every((id) => num(id) >= 1 && num(id) <= 12)).toBe(true);
+    expect(FIELDS.waterside.species.every((id) => num(id) >= 20 && num(id) <= 32)).toBe(true);
+    expect(FIELDS.meadow.species.every((id) => num(id) >= 33 && num(id) <= 44)).toBe(true);
+    expect([...LEGEND_SPECIES]).toEqual(['c013', 'c014', 'c015', 'c016', 'c018', 'c019', 'c045', 'c046', 'c047', 'c048', 'c049', 'c050']);
   });
 
   it('matchup 49쌍 전수', () => {

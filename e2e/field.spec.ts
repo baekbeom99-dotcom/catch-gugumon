@@ -4,12 +4,15 @@ import { collectErrors } from './helpers';
 
 test.use({ viewport: { width: 375, height: 812 } });
 
-/** 첫 구구몬(구름몬)을 이미 고른 저장본 — 기술은 1개라 전투에서 고르기 없이 바로 문제 */
+/** 레전드 12종의 종 id (013~016·018·019·045~050) */
+const LEGEND_ID = /^c0(13|14|15|16|18|19|45|46|47|48|49|50)$/;
+
+/** 첫 구구몬(꽃등짐몬)을 이미 고른 저장본 — 기술은 1개라 전투에서 고르기 없이 바로 문제 */
 const STARTER_FIELD = {
   starterChosen: true,
-  companion: 'cloud',
-  species: { cloud: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: 1, skills: ['cloud-1'] } },
-  seen: ['cloud'],
+  companion: 'c034',
+  species: { c034: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: 1, skills: ['c034-1'] } },
+  seen: ['c034'],
 };
 
 /** 페이지가 열리기 전에 첫 구구몬을 고른 저장본을 넣는다 (이미 저장이 있으면 그대로) */
@@ -222,14 +225,19 @@ test('메뉴의 처음 화면으로 돌아간다', async ({ page }) => {
 interface GrassOptions {
   /** 문제 시간이 흐르게 둔다 (기본은 __GUGU_E2E_NO_TIMER__로 멈춤) */
   timer?: boolean;
-  /** 구름몬 기록에 덧붙일 값 (예: { hp: 20 }) */
-  cloud?: Record<string, unknown>;
+  /** 꽃등짐몬 기록에 덧붙일 값 (예: { hp: 20 }) */
+  c034?: Record<string, unknown>;
   /** 야생 강함 단계 고정 (__GUGU_E2E_TIER__) */
   tier?: string;
   /** 저장본의 캡슐 개수 (없으면 기본 3·3·3·0) */
   capsules?: Record<string, number>;
-  /** 구름몬 말고 더 잡아 둔 종 (예: { jelly: { level: 4, ... } }) */
+  /** 꽃등짐몬 말고 더 잡아 둔 종 (예: { c036: { level: 4, ... } }) */
   others?: Record<string, Record<string, unknown>>;
+  /**
+   * 동행을 꽃등짐몬(c034) 대신 이 종으로 (c034 값·기술 id도 이 종으로 옮긴다).
+   * 49종은 특수·주② 효과가 종마다 달라, 스턴은 c023(수박곰몬, 풀·주② 스턴), 회복은 c022(키위곰몬, 풀·특수 회복)를 쓴다
+   */
+  as?: string;
 }
 
 /** 풀숲(6,8) 바로 왼쪽 (5,8)에 오른쪽을 보고 선 저장본 + 만남 100% 스위치 */
@@ -247,26 +255,34 @@ async function standBesideGrass(page: Page, opts: GrassOptions = {}) {
   await page.goto('/#/field');
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
   await page.evaluate(
-    ([starter, cloud, capsules, others]) => {
+    ([starter, c034, capsules, others, as]) => {
       localStorage.clear();
       const s = starter as typeof STARTER_FIELD;
+      const me = { ...s.species.c034, ...(c034 as object) } as { skills: string[] };
+      const id = as || 'c034';
+      const mine = { ...me, skills: me.skills.map((k) => k.replace(/^c034-/, `${id}-`)) };
       const field = {
         ...s,
-        species: { cloud: { ...s.species.cloud, ...(cloud as object) }, ...(others as object) },
+        companion: id,
+        seen: [id],
+        species: { [id]: mine, ...(others as object) },
         position: { map: 'meadow', x: 5, y: 8, facing: 'right' },
         ...(capsules ? { capsules } : {}),
       };
       localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field } }));
     },
-    [STARTER_FIELD, opts.cloud ?? {}, opts.capsules ?? null, opts.others ?? {}] as const,
+    [STARTER_FIELD, opts.c034 ?? {}, opts.capsules ?? null, opts.others ?? {}, opts.as ?? ''] as const,
   );
   await page.reload();
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '5,8');
 }
 
-/** 저장본의 구름몬 기록 */
+/** 저장본의 꽃등짐몬 기록 */
 async function savedCloud(page: Page): Promise<{ hp: number; wounds: { factId: string; type: string }[] }> {
-  return page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.species.cloud);
+  return page.evaluate(() => {
+    const f = JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field;
+    return f.species[f.companion];
+  });
 }
 
 /** 정답이 아닌 기술 버튼 하나 */
@@ -459,9 +475,9 @@ test('오답이면 적이 공격해 내 체력이 줄고, 힌트의 빛나는 �
   await expect(page.locator('.wild__hint')).toHaveCount(0);
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
   await expect(page.locator('.wild-move:enabled')).toHaveCount(3);
-  const cloud = await savedCloud(page);
-  expect(cloud.hp).toBe(shown);
-  expect(cloud.wounds).toHaveLength(1);
+  const c034 = await savedCloud(page);
+  expect(c034.hp).toBe(shown);
+  expect(c034.wounds).toHaveLength(1);
 });
 
 test('속성 효과: 정답(내 공격)과 오답(적 공격)에서 콘솔 오류가 없다', async ({ page }) => {
@@ -499,7 +515,7 @@ test('시간이 다 되면 적이 공격하고, 쓰러지면 태초마을로 돌
     (window as unknown as { __GUGU_E2E_QUESTION__: unknown }).__GUGU_E2E_QUESTION__ = { factId: '7x8', type: 'product' };
   });
   // 단계를 보통(7초)으로 고정한다: 강함·강력(5초)이면 쓰러짐 글이 보이는 때가 달라진다
-  await standBesideGrass(page, { timer: true, cloud: { hp: 10 }, tier: 'normal' });
+  await standBesideGrass(page, { timer: true, c034: { hp: 10 }, tier: 'normal' });
   await stepIntoGrass(page);
   await expect(page.locator('.wild__bubble')).toHaveAttribute('data-fact', '7x8');
   await expect(page.getByRole('timer')).toBeVisible();
@@ -524,23 +540,23 @@ test('시간이 다 되면 적이 공격하고, 쓰러지면 태초마을로 돌
   await expect(page.getByRole('dialog', { name: '구구몬 고르기' })).toHaveCount(0);
   const field = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
   expect(field.position.map).toBe('town');
-  expect(field.companion).toBe('cloud');
-  expect(field.species.cloud.hp).toBe(0);
-  expect(field.species.cloud.wounds[0]).toEqual({ factId: '7x8', type: 'product' });
+  expect(field.companion).toBe('c034');
+  expect(field.species.c034.hp).toBe(0);
+  expect(field.species.c034.wounds[0]).toEqual({ factId: '7x8', type: 'product' });
 });
 
 test('쓰러지면 그 자리에서 고르기 창이 뜨고, 고른 구구몬으로 이어 간다 (새로고침해도 다시 뜸·저장본·도감)', async ({ page }) => {
   await page.addInitScript(() => {
     (window as unknown as { __GUGU_E2E_QUESTION__: unknown }).__GUGU_E2E_QUESTION__ = { factId: '7x8', type: 'product' };
   });
-  // 젤리몬(Lv4, 건강)이 고를 수 있는 구구몬. 뿔뿔몬(Lv9)은 쓰러져 있어 목록에 없다. 단계는 보통(7초)으로 고정
+  // 물거북몬(Lv4, 건강)이 고를 수 있는 구구몬. 블루베리곰몬(Lv9)은 쓰러져 있어 목록에 없다. 단계는 보통(7초)으로 고정
   await standBesideGrass(page, {
     timer: true,
     tier: 'normal',
-    cloud: { hp: 10 },
+    c034: { hp: 10 },
     others: {
-      jelly: { level: 4, exp: 0, stage: 1, caught: 1, firstCaughtAt: 2 },
-      horn: { level: 9, exp: 0, stage: 1, caught: 1, firstCaughtAt: 3, hp: 0 },
+      c036: { level: 4, exp: 0, stage: 1, caught: 1, firstCaughtAt: 2 },
+      c031: { level: 9, exp: 0, stage: 1, caught: 1, firstCaughtAt: 3, hp: 0 },
     },
   });
   await stepIntoGrass(page);
@@ -555,12 +571,12 @@ test('쓰러지면 그 자리에서 고르기 창이 뜨고, 고른 구구몬으
   await expect(canvas).toHaveAttribute('data-pos', '6,8');
   const pick = page.getByRole('dialog', { name: '구구몬 고르기' });
   await expect(pick).toContainText('쓰러졌어… 함께 갈 구구몬을 골라요');
-  await expect(pick.getByRole('button', { name: '젤리몬 고르기' })).toContainText('Lv4');
-  await expect(pick.getByRole('button')).toHaveCount(1); // 쓰러진 뿔뿔몬은 없다
+  await expect(pick.getByRole('button', { name: '물거북몬 고르기' })).toContainText('Lv4');
+  await expect(pick.getByRole('button')).toHaveCount(1); // 쓰러진 블루베리곰몬은 없다
   await expect(page.getByRole('dialog', { name: '쓰러짐 알림' })).toHaveCount(0);
   let field = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
-  expect(field.companion).toBe('cloud');
-  expect(field.species.cloud.hp).toBe(0);
+  expect(field.companion).toBe('c034');
+  expect(field.species.c034.hp).toBe(0);
   expect(field.position).toMatchObject({ map: 'meadow', x: 6, y: 8 });
   // 고르기 전에는 걷지 못한다
   await tap(page, 'ArrowDown', 400);
@@ -570,39 +586,39 @@ test('쓰러지면 그 자리에서 고르기 창이 뜨고, 고른 구구몬으
   await expect(canvas).toHaveAttribute('data-pos', '6,8');
   await expect(pick).toBeVisible();
   await page.screenshot({ path: '.superpowers/sdd/2026-11-12-field-adventure-3/hero-removal-shots/e2e-pick-375.png' });
-  await pick.getByRole('button', { name: '젤리몬 고르기' }).click();
+  await pick.getByRole('button', { name: '물거북몬 고르기' }).click();
   await expect(pick).toHaveCount(0);
-  await expect(canvas).toHaveAttribute('data-player', 'jelly');
+  await expect(canvas).toHaveAttribute('data-player', 'c036');
   field = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
-  expect(field.companion).toBe('jelly');
+  expect(field.companion).toBe('c036');
   expect(field.position).toMatchObject({ map: 'meadow', x: 6, y: 8 });
   // 그 자리에서 이어 걷는다 (풀숲 만남을 피해 왼쪽 길로: 짧게 한 번은 돌기만, 한 번 더 누르면 한 칸)
   await tap(page, 'ArrowLeft');
   await tap(page, 'ArrowLeft');
   await expect(canvas).toHaveAttribute('data-pos', '5,8');
-  // 도감: 젤리몬이 "함께 다니는 중", 쓰러진 구름몬은 함께 다니기 버튼이 꺼져 있다
+  // 도감: 물거북몬이 "함께 다니는 중", 쓰러진 꽃등짐몬은 함께 다니기 버튼이 꺼져 있다
   await page.goto('/#/field/dex');
-  await expect(page.locator('.fdex__cell--caught').filter({ hasText: '함께 다니는 중' })).toContainText('젤리몬');
-  await page.getByRole('button', { name: '새싹몬 잡음' }).click(); // cloud의 이름
+  await expect(page.locator('.fdex__cell--caught').filter({ hasText: '함께 다니는 중' })).toContainText('물거북몬');
+  await page.getByRole('button', { name: '꽃등짐몬 잡음' }).click(); // c034의 이름
   await expect(page.getByRole('button', { name: /함께 다니기/ })).toBeDisabled();
 });
 
 test('마을에서도 쓰러진 동행이면 고르기 창: 고른 구구몬은 배회에서 빠지고 쓰러진 구구몬이 누워 쉰다', async ({ page }) => {
-  await seedTownRoam(page, { x: 10, y: 31 }, 'down', { cloud: { hp: 0 } });
+  await seedTownRoam(page, { x: 10, y: 31 }, 'down', { c034: { hp: 0 } });
   const canvas = page.getByTestId('field-canvas');
   const pick = page.getByRole('dialog', { name: '구구몬 고르기' });
   await expect(pick).toBeVisible();
-  await expect(canvas).toHaveAttribute('data-roamers', /jelly:/);
-  await pick.getByRole('button', { name: '젤리몬 고르기' }).click();
+  await expect(canvas).toHaveAttribute('data-roamers', /c020:/);
+  await pick.getByRole('button', { name: '복숭아곰몬 고르기' }).click();
   await expect(pick).toHaveCount(0);
-  await expect(canvas).toHaveAttribute('data-player', 'jelly');
-  await expect(canvas).not.toHaveAttribute('data-roamers', /jelly:/);
-  await expect(canvas).toHaveAttribute('data-sleeping', /cloud/);
+  await expect(canvas).toHaveAttribute('data-player', 'c020');
+  await expect(canvas).not.toHaveAttribute('data-roamers', /c020:/);
+  await expect(canvas).toHaveAttribute('data-sleeping', /c034/);
   await expect(canvas).toHaveAttribute('data-pos', '10,31');
 });
 
 test('쓰러진 동행이면 풀숲에서 만나지 않고 "구구몬이 쓰러졌어요" 알림이 보인다', async ({ page }) => {
-  await standBesideGrass(page, { cloud: { hp: 0 } });
+  await standBesideGrass(page, { c034: { hp: 0 } });
   await expect(page.getByRole('status').filter({ hasText: '구구몬이 쓰러졌어요' })).toBeVisible();
   await page.keyboard.down('ArrowRight');
   await page.waitForTimeout(120);
@@ -665,7 +681,7 @@ test('도망치기로 끝내고 돌아오면 바로 다음 풀숲 걸음에는 �
   await expect(page).toHaveURL(/#\/field$/);
 });
 
-test('처음 필드는 첫 구구몬 고르기로 가고, 젤리몬을 골라 풀숲에서 잡으면 도감에 색으로 남는다', async ({ page }) => {
+test('처음 필드는 첫 구구몬 고르기로 가고, 물거북몬을 골라 풀숲에서 잡으면 도감에 색으로 남는다', async ({ page }) => {
   await page.addInitScript(() => {
     const w = window as unknown as { __GUGU_E2E_FIELD__: boolean; __GUGU_E2E_NO_TIMER__: boolean };
     w.__GUGU_E2E_FIELD__ = true;
@@ -673,18 +689,18 @@ test('처음 필드는 첫 구구몬 고르기로 가고, 젤리몬을 골라 �
   });
   await page.goto('/#/field');
   await expect(page).toHaveURL(/#\/field\/starter$/);
-  await page.getByRole('button', { name: '젤리몬 고르기' }).click();
+  await page.getByRole('button', { name: '물거북몬 고르기' }).click();
   await expect(page).toHaveURL(/#\/field$/);
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
 
-  // 풀숲 바로 옆으로 자리를 옮긴다
+  // 풀숲 바로 옆으로 자리를 옮긴다 — 물거북몬은 초원 종이라, 같은 종을 만나지 않게 물가 풀숲에서
   await page.evaluate(() => {
     const raw = JSON.parse(localStorage.getItem('gugu-monster:save')!);
-    raw.state.field.position = { map: 'meadow', x: 5, y: 8, facing: 'right' };
+    raw.state.field.position = { map: 'waterside', x: 4, y: 9, facing: 'right' };
     localStorage.setItem('gugu-monster:save', JSON.stringify(raw));
   });
   await page.reload();
-  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '5,8');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '4,9');
   await stepIntoGrass(page);
   // "약한 ○○ Lv3"처럼 단계 말이 앞에 붙는다
   const wildName = ((await page.locator('.wild__name').textContent()) ?? '')
@@ -692,7 +708,7 @@ test('처음 필드는 첫 구구몬 고르기로 가고, 젤리몬을 골라 �
     .replace(/^(약한|강한|강력한)\s+/, '')
     .trim();
 
-  // 젤리몬 주①(물)은 풀 상대로 1칸이라 ("빠르면 +1칸"은 없어짐) 강력(12칸)까지 넉넉히
+  // 물거북몬 주①(물)은 풀 상대로 1칸이라 ("빠르면 +1칸"은 없어짐) 강력(12칸)까지 넉넉히
   for (let i = 0; i < 14; i++) {
     if (await page.getByRole('button', { name: '캡슐 던지기' }).isVisible()) break;
     const answer = await solveWild(page);
@@ -710,9 +726,9 @@ test('처음 필드는 첫 구구몬 고르기로 가고, 젤리몬을 골라 �
   await expect(page.getByLabel(`${wildName} 잡음`)).toBeVisible();
   // 야생 레벨과 상관없이 Lv1로 수록
   await expect(page.getByLabel(`${wildName} 잡음`)).toContainText('Lv1');
-  await expect(page.getByLabel('젤리몬 잡음')).toBeVisible();
+  await expect(page.getByLabel('물거북몬 잡음')).toBeVisible();
   await expect(page.locator('.fdex__cell--caught')).toHaveCount(2);
-  await expect(page.locator('.fdex__cell--unknown')).toHaveCount(9);
+  await expect(page.locator('.fdex__cell--unknown')).toHaveCount(47);
 
   // 잡은 구구몬을 동행으로
   await page.getByLabel(`${wildName} 잡음`).click();
@@ -771,13 +787,13 @@ test('초원 오른쪽 출구로 나가면 사막 (5·7단)', async ({ page }) =
 test('처음 필드는 첫 구구몬 고르기로 가고, 고르면 태초마을 @에서 시작한다', async ({ page }) => {
   await page.goto('/#/field');
   await expect(page).toHaveURL(/#\/field\/starter$/);
-  await page.getByRole('button', { name: '젤리몬 고르기' }).click();
+  await page.getByRole('button', { name: '물거북몬 고르기' }).click();
   await expect(page).toHaveURL(/#\/field$/);
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '10,31');
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
   expect(saved.position).toEqual({ map: 'town', x: 10, y: 31, facing: 'down' });
   // 스타터는 기술 1개(슬롯 1)로 시작한다
-  expect(saved.species.jelly.skills).toEqual(['jelly-1']);
+  expect(saved.species.c036.skills).toEqual(['c036-1']);
 });
 
 // ── 상점 팝업 ──
@@ -943,7 +959,7 @@ test('연습 도중에 나가면 캡슐은 그대로 (그만하기·Escape)', as
 
 test('회복약: 쓰러진 구구몬을 상처 문제 3바퀴로 회복한다', async ({ page }) => {
   await standAtShopDoor(page, {
-    species: { cloud: { ...STARTER_FIELD.species.cloud, hp: 0, wounds: [{ factId: '7x8', type: 'product' }] } },
+    species: { c034: { ...STARTER_FIELD.species.c034, hp: 0, wounds: [{ factId: '7x8', type: 'product' }] } },
   });
   await openShop(page);
   const shop = page.getByRole('dialog', { name: '상점' });
@@ -955,9 +971,9 @@ test('회복약: 쓰러진 구구몬을 상처 문제 3바퀴로 회복한다', 
     await solveShop(page);
   }
   await expect(shop.getByText(/다 나았어요/)).toBeVisible();
-  const cloud = await savedCloud(page);
-  expect(cloud.hp).toBe(100);
-  expect(cloud.wounds).toEqual([]);
+  const c034 = await savedCloud(page);
+  expect(c034.hp).toBe(100);
+  expect(c034.wounds).toEqual([]);
   await shop.getByRole('button', { name: '확인' }).click();
   await expect(shop.getByText('모두 건강해요!')).toBeVisible();
   await shop.getByRole('button', { name: '닫기' }).click();
@@ -966,7 +982,7 @@ test('회복약: 쓰러진 구구몬을 상처 문제 3바퀴로 회복한다', 
 
 test('회복약: 틀리면 힌트를 보고 넘어가고 그 문제를 다시, 틀린 답도 학습 기록에 남는다', async ({ page }) => {
   await standAtShopDoor(page, {
-    species: { cloud: { ...STARTER_FIELD.species.cloud, hp: 40, wounds: [{ factId: '7x8', type: 'product' }] } },
+    species: { c034: { ...STARTER_FIELD.species.c034, hp: 40, wounds: [{ factId: '7x8', type: 'product' }] } },
   });
   await openShop(page);
   const shop = page.getByRole('dialog', { name: '상점' });
@@ -993,15 +1009,15 @@ test('회복약: 쓰러진 마을 구구몬은 회복하고 상점을 닫으면 
     localStorage.clear();
     const field = {
       ...starter,
-      species: { ...starter.species, jelly: { level: 3, exp: 0, stage: 1, caught: 1, firstCaughtAt: 1, hp: 0, wounds: [] } },
-      seen: ['cloud', 'jelly'],
+      species: { ...starter.species, c036: { level: 3, exp: 0, stage: 1, caught: 1, firstCaughtAt: 1, hp: 0, wounds: [] } },
+      seen: ['c034', 'c036'],
       position: { map: 'town', x: 8, y: 25, facing: 'up' },
     };
     localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field } }));
   }, STARTER_FIELD);
   await page.reload();
   const canvas = page.getByTestId('field-canvas');
-  await expect(canvas).toHaveAttribute('data-sleeping', 'jelly');
+  await expect(canvas).toHaveAttribute('data-sleeping', 'c036');
   await openShop(page);
   const shop = page.getByRole('dialog', { name: '상점' });
   await shop.getByRole('tab', { name: '회복약' }).click();
@@ -1035,7 +1051,7 @@ test('초원 위 출구로 나가면 태초마을 아래 출구 위 칸, 마을 
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.position.map)).toBe('meadow');
 });
 
-test('물가 풀숲에서 만난 구구몬은 젤리몬·안테나몬·뿔뿔몬 중 하나', async ({ page }) => {
+test('물가 풀숲에서 만난 구구몬은 물가 13종(020~032) 중 하나', async ({ page }) => {
   await page.addInitScript(() => {
     (window as unknown as { __GUGU_E2E_FIELD__: boolean }).__GUGU_E2E_FIELD__ = true;
   });
@@ -1043,7 +1059,7 @@ test('물가 풀숲에서 만난 구구몬은 젤리몬·안테나몬·뿔뿔몬
   await tap(page, 'ArrowRight');
   await expect(page).toHaveURL(/#\/field\/battle$/);
   const species = await page.locator('.wild__stage').getAttribute('data-species');
-  expect(['jelly', 'antenna', 'horn']).toContain(species);
+  expect(['c020', 'c021', 'c022', 'c023', 'c024', 'c025', 'c026', 'c027', 'c028', 'c029', 'c030', 'c031', 'c032']).toContain(species);
 });
 
 // ── 레전드 전투 ──
@@ -1085,7 +1101,7 @@ test('12·13단이 열렸으면 레전드가 나타나 13단 문제를 낸다', 
   await standBesideGrassWith(page, true);
   await stepIntoGrass(page);
   await expect(page.getByRole('status').filter({ hasText: /^전설의 .*나타났다!$/ })).toBeVisible();
-  await expect(page.locator('.wild__stage')).toHaveAttribute('data-species', /^legend-/);
+  await expect(page.locator('.wild__stage')).toHaveAttribute('data-species', LEGEND_ID);
   await expect(page.locator('.wild__stage')).toHaveClass(/wild__stage--legend/);
   await expect(page.locator('.wild__bubble')).toBeVisible();
   for (let i = 0; i < 3; i++) {
@@ -1102,7 +1118,7 @@ test('황금 캡슐이 0개여도 레전드를 만나고, 어지러워지면 캡
   await standBesideGrassWith(page, true);
   await expect(page.getByRole('group', { name: '필드 정보' }).getByLabel('황금 캡슐 0개')).toBeVisible();
   await stepIntoGrass(page);
-  await expect(page.locator('.wild__stage')).toHaveAttribute('data-species', /^legend-/);
+  await expect(page.locator('.wild__stage')).toHaveAttribute('data-species', LEGEND_ID);
   await answerUntilDizzy(page);
   await expect(page.getByRole('status')).toHaveText('캡슐이 없어서 돌려보냈어! 상점에서 캡슐을 구해 오자');
   await expect(page.getByRole('button', { name: '캡슐 던지기' })).toHaveCount(0);
@@ -1116,7 +1132,7 @@ test('황금 캡슐이 0개여도 레전드를 만나고, 어지러워지면 캡
 test('13단이 잠긴 저장본에서는 레전드 스위치가 있어도 보통 만남', async ({ page }) => {
   await standBesideGrassWith(page, false);
   await stepIntoGrass(page);
-  await expect(page.locator('.wild__stage')).not.toHaveAttribute('data-species', /^legend-/);
+  await expect(page.locator('.wild__stage')).not.toHaveAttribute('data-species', LEGEND_ID);
   await expect(page.getByText(/전설의/)).toHaveCount(0);
 });
 
@@ -1125,7 +1141,7 @@ test('13단이 잠긴 저장본에서는 레전드 스위치가 있어도 보통
 test('주인공 대신 함께 다니는 구구몬이 직접 걷는다: 걸을 때만 걷기, 멈추면 가만히', async ({ page }) => {
   await standAt(page, 'meadow', 5, 8, 'right');
   const canvas = page.getByTestId('field-canvas');
-  await expect(canvas).toHaveAttribute('data-player', 'cloud');
+  await expect(canvas).toHaveAttribute('data-player', 'c034');
   // 시트 그림이 없으면 정지 그림(still), 있으면 가만히(idle)
   await expect(canvas).toHaveAttribute('data-player-anim', /^(idle|still)$/);
   await page.waitForTimeout(800); // 시트 그림을 읽는 동안은 still이라 읽은 뒤에 정한다
@@ -1147,10 +1163,10 @@ test('전투를 마치면 필드에서 "레벨이 올랐어!" 알림이 뜨고, 
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
   await page.evaluate((starter) => {
     localStorage.clear();
-    // 구름몬 Lv5, 다음 레벨까지 5 모자란 상태 (전투 참여 +10이면 Lv6)
+    // 꽃등짐몬 Lv5, 다음 레벨까지 5 모자란 상태 (전투 참여 +10이면 Lv6)
     const field = {
       ...starter,
-      species: { cloud: { level: 5, exp: 65, stage: 1, caught: 1, firstCaughtAt: 1 } },
+      species: { c034: { level: 5, exp: 65, stage: 1, caught: 1, firstCaughtAt: 1 } },
       position: { map: 'meadow', x: 5, y: 8, facing: 'right' },
     };
     localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field } }));
@@ -1169,13 +1185,13 @@ test('전투를 마치면 필드에서 "레벨이 올랐어!" 알림이 뜨고, 
 
   await page.getByRole('button', { name: '메뉴' }).click();
   await page.getByRole('button', { name: '구구몬 도감' }).click();
-  await expect(page.getByLabel('새싹몬 잡음')).toContainText('Lv6');
+  await expect(page.getByLabel('꽃등짐몬 잡음')).toContainText('Lv6');
 });
 
 // ── 기술 배우기·복사 ──
 
 async function savedSkills(page: Page): Promise<string[]> {
-  return page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.species.cloud.skills);
+  return page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.species.c034.skills);
 }
 
 function copyOn(page: Page) {
@@ -1185,8 +1201,8 @@ function copyOn(page: Page) {
 }
 
 test('레벨이 올라 새 기술을 익히면 "새 기술을 배웠어!" 알림이 레벨업 다음에 뜬다 (기술 1개 → 2개)', async ({ page }) => {
-  // 구름몬 Lv5, 기술 1개, 다음 레벨까지 5 모자람 (도망쳐도 참여 +10)
-  await standBesideGrass(page, { cloud: { exp: 65 } });
+  // 꽃등짐몬 Lv5, 기술 1개, 다음 레벨까지 5 모자람 (도망쳐도 참여 +10)
+  await standBesideGrass(page, { c034: { exp: 65 } });
   await stepIntoGrass(page);
   await page.getByRole('button', { name: '도망치기' }).click();
   await page.getByRole('dialog', { name: '도망치기' }).getByRole('button', { name: '도망갈래' }).click();
@@ -1196,17 +1212,17 @@ test('레벨이 올라 새 기술을 익히면 "새 기술을 배웠어!" 알림
   await grow.click();
   const skill = page.getByRole('dialog', { name: '기술 알림' });
   await expect(skill).toContainText('새 기술을 배웠어!');
-  await expect(skill).toContainText('새싹몬이 「새싹 휙」을 배웠어요!');
+  await expect(skill).toContainText('꽃등짐몬이 「덩굴 휘리릭」을 배웠어요!');
   await page.screenshot({ path: '.superpowers/sdd/2026-11-12-field-adventure-3/task-5-shots/learned-375.png' });
   await skill.click();
   await expect(skill).toHaveCount(0);
-  expect(await savedSkills(page)).toEqual(['cloud-1', 'cloud-2']);
+  expect(await savedSkills(page)).toEqual(['c034-1', 'c034-2']);
 });
 
 test('복사 스위치: 잡으면 기술이 5개 미만이라 바로 따라 배우고 알림이 뜬다', async ({ page }) => {
   await copyOn(page);
-  // Lv8(★★, 진화 알림 없음)이라 약한 야생(Lv3~5)의 슬롯 2까지 후보가 된다 — 같은 구름몬이어도 후보가 있다
-  await standBesideGrass(page, { tier: 'weak', cloud: { level: 8, stage: 2, skills: ['cloud-1'] } });
+  // Lv8(★★, 진화 알림 없음)이라 약한 야생(Lv3~5)의 슬롯 2까지 후보가 된다 — 같은 꽃등짐몬이어도 후보가 있다
+  await standBesideGrass(page, { tier: 'weak', c034: { level: 8, stage: 2, skills: ['c034-1'] } });
   await stepIntoGrass(page);
   await answerUntilDizzy(page);
   await page.getByRole('button', { name: '캡슐 던지기' }).click();
@@ -1214,21 +1230,21 @@ test('복사 스위치: 잡으면 기술이 5개 미만이라 바로 따라 배�
   await expect(page).toHaveURL(/#\/field$/, { timeout: 5000 });
   const skill = page.getByRole('dialog', { name: '기술 알림' });
   await expect(skill).toContainText('기술을 따라 배웠어!');
-  await expect(skill).toContainText(/새싹몬이 .+에게서 「.+」[을를] 따라 배웠어요!/);
+  await expect(skill).toContainText(/꽃등짐몬이 .+에게서 「.+」[을를] 따라 배웠어요!/);
   await page.screenshot({ path: '.superpowers/sdd/2026-11-12-field-adventure-3/task-5-shots/copied-375.png' });
   const skills = await savedSkills(page);
   expect(skills).toHaveLength(2);
-  expect(skills[0]).toBe('cloud-1');
+  expect(skills[0]).toBe('c034-1');
   await expect(page.locator('section.fieldmode')).toHaveAttribute('data-skill-offers', '0');
 });
 
 test('복사 스위치: 그 자리(부속성)가 차 있으면 저장은 그대로, 제안이 대기열에 쌓인다 (돌려보내도)', async ({ page }) => {
   await copyOn(page);
-  // 주속성 1·2·3번과 특수를 다 가졌고 부속성 자리는 복사한 jelly-1 → 초원 야생(구름몬·버섯몬·왕관몬) 무엇이 나와도 첫 후보는 부속성 자리
-  const five = ['cloud-1', 'cloud-2', 'cloud-5', 'cloud-3', 'jelly-1'];
+  // 주속성 1·2·3번과 특수를 다 가졌고 부속성 자리는 복사한 c036-1 → 초원 야생(꽃등짐몬·버섯몬·왕관몬) 무엇이 나와도 첫 후보는 부속성 자리
+  const five = ['c034-1', 'c034-2', 'c034-5', 'c034-3', 'c036-1'];
   await standBesideGrass(page, {
     tier: 'weak',
-    cloud: { level: 20, stage: 3, skills: five },
+    c034: { level: 20, stage: 3, skills: five },
     capsules: { meadow: 0, waterside: 3, desert: 3, legend: 0 },
   });
   await stepIntoGrass(page);
@@ -1238,11 +1254,11 @@ test('복사 스위치: 그 자리(부속성)가 차 있으면 저장은 그대�
   await expect(page.locator('section.fieldmode')).toHaveAttribute('data-skill-offers', '1');
   await expect(page.getByRole('dialog', { name: '기술 알림' })).toHaveCount(0);
   expect(await savedSkills(page)).toEqual(five);
-  // 선택창: 잊을 기술은 그 자리(부속성)의 jelly-1 하나뿐, 처음 포커스는 되돌릴 수 있는 "포기"
+  // 선택창: 잊을 기술은 그 자리(부속성)의 c036-1 하나뿐, 처음 포커스는 되돌릴 수 있는 "포기"
   const offer = page.getByRole('dialog', { name: '기술 선택창' });
   await expect(offer).toBeVisible();
   await expect(offer.locator('.skill-offer__forget')).toHaveCount(1);
-  await expect(offer.locator('.skill-offer__forget')).toHaveAttribute('data-skill', 'jelly-1');
+  await expect(offer.locator('.skill-offer__forget')).toHaveAttribute('data-skill', 'c036-1');
   await expect(offer.getByRole('button', { name: '포기' })).toBeFocused();
   // Enter를 눌러도 기술을 잃지 않는다 (포기 = 제안만 사라짐)
   await page.screenshot({ path: `${shot12}/6-offer-dialog-375.png` });
@@ -1250,16 +1266,16 @@ test('복사 스위치: 그 자리(부속성)가 차 있으면 저장은 그대�
   await expect(offer).toHaveCount(0);
   const after = await savedSkills(page);
   expect(after.slice(0, 4)).toEqual(five.slice(0, 4));
-  expect(after[4]).not.toBe('jelly-1');
+  expect(after[4]).not.toBe('c036-1');
   expect(after).toHaveLength(5);
 });
 
 test('복사 선택창: Enter(처음 포커스)는 포기라 기술이 그대로', async ({ page }) => {
   await copyOn(page);
-  const five = ['cloud-1', 'cloud-2', 'cloud-5', 'cloud-3', 'jelly-1'];
+  const five = ['c034-1', 'c034-2', 'c034-5', 'c034-3', 'c036-1'];
   await standBesideGrass(page, {
     tier: 'weak',
-    cloud: { level: 20, stage: 3, skills: five },
+    c034: { level: 20, stage: 3, skills: five },
     capsules: { meadow: 0, waterside: 3, desert: 3, legend: 0 },
   });
   await stepIntoGrass(page);
@@ -1273,13 +1289,13 @@ test('복사 선택창: Enter(처음 포커스)는 포기라 기술이 그대로
 });
 
 test('복사 스위치가 false(E2E 기본)면 잡아도 기술이 그대로', async ({ page }) => {
-  await standBesideGrass(page, { tier: 'weak', cloud: { level: 8, stage: 2, skills: ['cloud-1'] } });
+  await standBesideGrass(page, { tier: 'weak', c034: { level: 8, stage: 2, skills: ['c034-1'] } });
   await stepIntoGrass(page);
   await answerUntilDizzy(page);
   await page.getByRole('button', { name: '캡슐 던지기' }).click();
   await expect(page).toHaveURL(/#\/field$/, { timeout: 8000 });
   await expect(page.getByRole('dialog', { name: '기술 알림' })).toHaveCount(0);
-  expect(await savedSkills(page)).toEqual(['cloud-1']);
+  expect(await savedSkills(page)).toEqual(['c034-1']);
 });
 
 // ── 꾸미기 (375px 화면 배치) ──
@@ -1360,19 +1376,19 @@ test('정답 명중 연출 중에는 도망 버튼과 Esc가 막혀 확인창이
 
 // ── 마을에서 돌아다니는 구구몬 ──
 
-/** 젤리몬을 잡았고 동행은 구름몬인 저장본. Math.random은 pin이 켜져 있는 동안 0을 돌려줘 처음 자리를 정한다 */
-async function seedTownRoam(page: Page, at: { x: number; y: number }, facing: string, extra: { cloud?: Record<string, unknown> } = {}) {
+/** 물거북몬을 잡았고 동행은 꽃등짐몬인 저장본. Math.random은 pin이 켜져 있는 동안 0을 돌려줘 처음 자리를 정한다 */
+async function seedTownRoam(page: Page, at: { x: number; y: number }, facing: string, extra: { c034?: Record<string, unknown> } = {}) {
   await page.addInitScript(
-    ([position, cloud]) => {
+    ([position, c034]) => {
       if (!localStorage.getItem('gugu-monster:save')) {
         const field = {
           starterChosen: true,
-          companion: 'cloud',
+          companion: 'c034',
           species: {
-            cloud: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: 1, ...(cloud as object) },
-            jelly: { level: 4, exp: 0, stage: 1, caught: 1, firstCaughtAt: 2 },
+            c034: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: 1, ...(c034 as object) },
+            c020: { level: 4, exp: 0, stage: 1, caught: 1, firstCaughtAt: 2 },
           },
-          seen: ['cloud', 'jelly'],
+          seen: ['c034', 'c020'],
           position,
         };
         localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field } }));
@@ -1382,7 +1398,7 @@ async function seedTownRoam(page: Page, at: { x: number; y: number }, facing: st
       const real = Math.random;
       Math.random = () => (w.__pin ? 0 : real());
     },
-    [{ map: 'town', ...at, facing }, extra.cloud ?? {}] as const,
+    [{ map: 'town', ...at, facing }, extra.c034 ?? {}] as const,
   );
   await page.goto('/#/field');
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', `${at.x},${at.y}`);
@@ -1391,11 +1407,11 @@ async function seedTownRoam(page: Page, at: { x: number; y: number }, facing: st
 test('마을에서는 잡은 구구몬(동행 빼고)이 자기 서식지에서 돌아다닌다', async ({ page }) => {
   await seedTownRoam(page, { x: 10, y: 31 }, 'down');
   const canvas = page.getByTestId('field-canvas');
-  await expect(canvas).toHaveAttribute('data-roamers', /^jelly:\d+,\d+$/);
+  await expect(canvas).toHaveAttribute('data-roamers', /^c020:\d+,\d+$/);
   await page.evaluate(() => ((window as unknown as { __pin: boolean }).__pin = false));
   const seen = new Set<string>();
   for (let i = 0; i < 12; i++) {
-    const [, x, y] = ((await canvas.getAttribute('data-roamers')) ?? '').match(/^jelly:(\d+),(\d+)$/)!.map(Number);
+    const [, x, y] = ((await canvas.getAttribute('data-roamers')) ?? '').match(/^c020:(\d+),(\d+)$/)!.map(Number);
     seen.add(`${x},${y}`);
     // 물가 서식지: 연못(5~10, 8~9) 둘레 4~11 × 7~10
     expect(x >= 4 && x <= 11 && y >= 7 && y <= 10).toBe(true);
@@ -1407,11 +1423,11 @@ test('마을에서는 잡은 구구몬(동행 빼고)이 자기 서식지에서 
 test('구구몬에게 부딪히면 말풍선이 뜬다 (이름·Lv·체력)', async ({ page }) => {
   await seedTownRoam(page, { x: 4, y: 6 }, 'down');
   const canvas = page.getByTestId('field-canvas');
-  await expect(canvas).toHaveAttribute('data-roamers', 'jelly:4,7'); // pin: 첫 서식지 칸
+  await expect(canvas).toHaveAttribute('data-roamers', 'c020:4,7'); // pin: 첫 서식지 칸
   await page.evaluate(() => ((window as unknown as { __pin: boolean }).__pin = false));
   await page.keyboard.down('ArrowDown'); // 이미 아래를 보고 있어 곧바로 부딪힌다
   const bubble = page.getByRole('dialog', { name: '구구몬 말풍선' });
-  await expect(bubble).toContainText('젤리몬');
+  await expect(bubble).toContainText('복숭아곰몬');
   await expect(bubble).toContainText('Lv4');
   await expect(bubble).toContainText('체력 100');
   await page.keyboard.up('ArrowDown');
@@ -1422,24 +1438,24 @@ test('구구몬에게 부딪히면 말풍선이 뜬다 (이름·Lv·체력)', as
 test('구구몬이 있는 칸을 탭해도 말풍선이 뜬다', async ({ page }) => {
   await seedTownRoam(page, { x: 4, y: 12 }, 'down');
   const canvas = page.getByTestId('field-canvas');
-  await expect(canvas).toHaveAttribute('data-roamers', 'jelly:4,7');
+  await expect(canvas).toHaveAttribute('data-roamers', 'c020:4,7');
   await page.evaluate(() => ((window as unknown as { __pin: boolean }).__pin = false));
   const box = (await canvas.boundingBox())!;
   const [camX, camY, tile] = ((await canvas.getAttribute('data-cam')) ?? '0,0,1').split(',').map(Number);
   const cw = await canvas.evaluate((c) => (c as HTMLCanvasElement).width);
   const css = (tile * box.width) / cw;
   await page.mouse.click(box.x + (4.5 - camX) * css, box.y + (7.5 - camY) * css);
-  await expect(page.getByRole('dialog', { name: '구구몬 말풍선' })).toContainText('젤리몬');
+  await expect(page.getByRole('dialog', { name: '구구몬 말풍선' })).toContainText('복숭아곰몬');
 });
 
 // ── 왼쪽 위 표시·태초마을로·도감 체력 ──
 
-test('HUD에 도감 1/11과 캡슐 3개씩, 동행 체력이 보인다', async ({ page }) => {
+test('HUD에 도감 1/49과 캡슐 3개씩, 동행 체력이 보인다', async ({ page }) => {
   await seedStarter(page);
   await page.goto('/#/field');
   const hud = page.getByRole('group', { name: '필드 정보' });
   await expect(hud).toBeVisible();
-  await expect(hud).toContainText('도감 1/11');
+  await expect(hud).toContainText('도감 1/49');
   await expect(hud.getByLabel('초원 캡슐 3개')).toBeVisible();
   await expect(hud.getByLabel('황금 캡슐 0개')).toBeVisible();
   await expect(hud.getByLabel('동행 체력 100')).toBeVisible();
@@ -1476,13 +1492,13 @@ test('도감에서 쓰러진 종은 쓰러짐 꼬리표와 빨간 막대, 함께
         state: {
           field: {
             starterChosen: true,
-            companion: 'cloud',
+            companion: 'c034',
             species: {
-              cloud: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: 1 },
-              jelly: { level: 3, exp: 0, stage: 1, caught: 1, firstCaughtAt: 2, hp: 0 },
-              horn: { level: 3, exp: 0, stage: 1, caught: 1, firstCaughtAt: 3, hp: 40 },
+              c034: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: 1 },
+              c036: { level: 3, exp: 0, stage: 1, caught: 1, firstCaughtAt: 2, hp: 0 },
+              c031: { level: 3, exp: 0, stage: 1, caught: 1, firstCaughtAt: 3, hp: 40 },
             },
-            seen: ['cloud', 'jelly', 'horn'],
+            seen: ['c034', 'c036', 'c031'],
           },
         },
       }),
@@ -1553,7 +1569,7 @@ test('기술 5개: 고르기 단계에 버튼 3개가 한 줄에 나란히, 초 
   await fixBattle(page, null);
   await standBesideGrass(page, {
     tier: 'normal',
-    cloud: { level: 20, skills: ['cloud-1', 'cloud-2', 'cloud-3', 'cloud-4', 'cloud-5'] },
+    c034: { level: 20, skills: ['c034-1', 'c034-2', 'c034-3', 'c034-4', 'c034-5'] },
   });
   await stepIntoGrass(page);
   await page.getByRole('button', { name: '싸우자!' }).click();
@@ -1568,11 +1584,11 @@ test('기술 5개: 고르기 단계에 버튼 3개가 한 줄에 나란히, 초 
   await expect(buttons.nth(0)).toHaveAttribute('data-button', 'main');
   await expect(buttons.nth(0).locator('.skill-pick__name')).toHaveText('잎사귀 톡');
   await expect(buttons.nth(0).locator('.skill-pick__tag')).toHaveText('풀');
-  await expect(buttons.nth(1)).toHaveAttribute('data-skill', 'cloud-4');
-  await expect(buttons.nth(1).locator('.skill-pick__name')).toHaveText('햇살 반짝');
+  await expect(buttons.nth(1)).toHaveAttribute('data-skill', 'c034-4');
+  await expect(buttons.nth(1).locator('.skill-pick__name')).toHaveText('끈적 독방울');
   await expect(buttons.nth(2).locator('.skill-pick__tag')).toHaveText('특수');
   // 특수 버튼에만 설명 한 줄 (속성 버튼은 이름만)
-  await expect(buttons.nth(2).locator('.skill-pick__brief')).toHaveText('체력 회복');
+  await expect(buttons.nth(2).locator('.skill-pick__brief')).toHaveText('힌트');
   await expect(buttons.nth(0).locator('.skill-pick__brief')).toHaveCount(0);
   await expect(buttons.nth(1).locator('.skill-pick__brief')).toHaveCount(0);
   // 화면에 단계별 시간 조건·위력 별·①②③·작은 막대가 없다 (숨김 글에만 있다)
@@ -1587,9 +1603,9 @@ test('기술 5개: 고르기 단계에 버튼 3개가 한 줄에 나란히, 초 
     expect(visible).not.toMatch(/[①②③]/);
   }
   await expect(picker.locator('.wild__timer')).toHaveCount(0);
-  await expect(buttons.nth(0).locator('.skill-pick__sr')).toContainText('4초 안: 2번 새싹 휙 +기절');
-  await expect(buttons.nth(1).locator('.skill-pick__sr')).toContainText('4초 안: 햇살 반짝(부속성)');
-  await expect(buttons.nth(2).locator('.skill-pick__sr')).toContainText('4초 안: 회복 효과');
+  await expect(buttons.nth(0).locator('.skill-pick__sr')).toContainText('4초 안: 2번 덩굴 휘리릭 +방어');
+  await expect(buttons.nth(1).locator('.skill-pick__sr')).toContainText('4초 안: 끈적 독방울(부속성)');
+  await expect(buttons.nth(2).locator('.skill-pick__sr')).toContainText('4초 안: 힌트 효과');
   // 상성은 글자와 기호로 크게 (특수는 없음)
   for (const i of [0, 1]) {
     const t = await buttons.nth(i).locator('.skill-pick__match').count();
@@ -1617,9 +1633,9 @@ test('기술 5개: 고르기 단계에 버튼 3개가 한 줄에 나란히, 초 
   await expect(picker).toHaveCount(0);
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
   // 준비 글·지금 쓰는 기술 줄은 간결하게 (몇 초 안인지는 숨김 글에만)
-  await expect(page.getByRole('status')).toHaveText('햇살 반짝 준비!');
-  await expect(page.locator('.wild__skill-now')).toContainText('햇살 반짝');
-  await expect(page.locator('.wild__skill-now .wild__sr')).toHaveText('. 햇살 반짝 · 4초 안에 풀어요');
+  await expect(page.getByRole('status')).toHaveText('끈적 독방울 준비!');
+  await expect(page.locator('.wild__skill-now')).toContainText('끈적 독방울');
+  await expect(page.locator('.wild__skill-now .wild__sr')).toHaveText('. 끈적 독방울 · 4초 안에 풀어요');
   expect(await page.locator('.wild__skill-now').evaluate((el) => {
     const c = el.cloneNode(true) as HTMLElement;
     c.querySelectorAll('.wild__sr').forEach((n) => n.remove());
@@ -1628,13 +1644,15 @@ test('기술 5개: 고르기 단계에 버튼 3개가 한 줄에 나란히, 초 
   await expect(page.locator('.wild__timer-tick')).toHaveCount(1);
 });
 
-/** 잎사귀 톡(풀) → 초원 야생 주속성 상성: 새싹몬(풀) 0, 버섯몬(독) −1, 왕관몬(빛) 0 */
-const LEAF_VS: Record<string, number> = { cloud: 0, mushroom: -1, fluff: 0 };
+/** 잎사귀 톡(풀) → 초원 야생 12종 주속성 상성: 물·땅 +1, 불·독 −1, 나머지 0 */
+const LEAF_VS: Record<string, number> = {
+  c033: 0, c034: 0, c035: -1, c036: 1, c037: 1, c038: 1, c039: 0, c040: 0, c041: 0, c042: -1, c043: 1, c044: 0,
+};
 
-test('빠르게 풀면 주속성 2번(새싹 휙)이 나간다, 느리면 1번 (__GUGU_E2E_FAST__)', async ({ page }) => {
+test('빠르게 풀면 주속성 2번(덩굴 휘리릭)이 나간다, 느리면 1번 (__GUGU_E2E_FAST__)', async ({ page }) => {
   await fixBattle(page, false);
   // 주①·주② = 주속성 버튼 하나라 고르기 없음. 보통: 8칸
-  await standBesideGrass(page, { tier: 'normal', cloud: { skills: ['cloud-1', 'cloud-2'] } });
+  await standBesideGrass(page, { tier: 'normal', as: 'c023', c034: { skills: ['c034-1', 'c034-2'] } });
   await stepIntoGrass(page);
   const species = (await page.locator('.wild__stage').getAttribute('data-species'))!;
   const m = LEAF_VS[species];
@@ -1653,7 +1671,7 @@ test('빠르게 풀면 주속성 2번(새싹 휙)이 나간다, 느리면 1번 (
   await setFast(page, true);
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
   await moveButton(page, 56).click();
-  await expect(page.getByRole('status')).toContainText('새싹 휙! ⚡ 빠르다!');
+  await expect(page.getByRole('status')).toContainText('덩굴 휘리릭! ⚡ 빠르다!');
   await expect(page.getByRole('status')).toContainText('적이 기절했어요! 다음 공격을 한 번 못 해요');
   await expect(page.getByRole('status')).not.toContainText('강력');
   const cells2 = cells1 + 2 + m;
@@ -1666,11 +1684,11 @@ test('빠르게 풀면 주속성 2번(새싹 휙)이 나간다, 느리면 1번 (
 
 test('특수 회복: 빠르게 풀면 내 체력이 25 늘고, 늦으면 약한 기술이 대신 나간다', async ({ page }) => {
   await fixBattle(page, true);
-  await standBesideGrass(page, { tier: 'normal', cloud: { level: 8, hp: 50, skills: ['cloud-1', 'cloud-3'] } });
+  await standBesideGrass(page, { tier: 'normal', as: 'c022', c034: { level: 8, hp: 50, skills: ['c034-1', 'c034-3'] } });
   await stepIntoGrass(page);
   await page.getByRole('button', { name: '싸우자!' }).click();
   await expect(page.getByLabel('내 체력 50')).toBeVisible();
-  await skillPicker(page).locator('[data-skill="cloud-3"]').click();
+  await skillPicker(page).locator('[data-skill="c022-3"]').click();
   await expect(page.getByRole('status')).toHaveText('새싹 쑥쑥 준비! 빨리 풀면 회복!');
   await moveButton(page, 56).click();
   await expect(page.getByRole('status')).toContainText('새싹 쑥쑥! 체력을 25 되찾았어요!');
@@ -1679,7 +1697,7 @@ test('특수 회복: 빠르게 풀면 내 체력이 25 늘고, 늦으면 약한 
   await page.screenshot({ path: `${shotDir}/special-heal-375.png` });
 
   await setFast(page, false);
-  await skillPicker(page).locator('[data-skill="cloud-3"]').click();
+  await skillPicker(page).locator('[data-skill="c022-3"]').click();
   await moveButton(page, 56).click();
   await expect(page.getByRole('status')).toContainText('시간이 지나서 약한 기술이 나갔어요. 잎사귀 톡!');
   await expect(page.getByLabel('내 체력 75')).toBeVisible();
@@ -1687,8 +1705,9 @@ test('특수 회복: 빠르게 풀면 내 체력이 25 늘고, 늦으면 약한 
 });
 
 test('틀리면 힌트 뒤 다른 문제로 넘어가고(기록·피해 없음), 틀린 문제는 몇 문제 뒤에 다시 나온다', async ({ page }) => {
-  // 문제를 고정하지 않는다. 기술 1개(주①)·보통이라 한 번에 1~2칸 → 세 번 맞혀도 어지럽지 않다
-  await standBesideGrass(page, { tier: 'normal' });
+  // 문제를 고정하지 않는다. 기술 1개(주①), 초원 야생이 물·땅이면 한 번에 3칸이라
+  // 강력(12칸)으로 둬서 세 번 맞혀도(최대 9칸) 어지럽지 않다
+  await standBesideGrass(page, { tier: 'mighty' });
   await stepIntoGrass(page);
   await page.getByRole('button', { name: '싸우자!' }).click();
   const bubble = page.locator('.wild__bubble');
@@ -1770,13 +1789,13 @@ test('빗나감: 정답이어도 야생이 피하면 칸이 안 깎이고 "빗�
 test('효과 실패: 주② 스턴이 확률에 지면 칸은 깎이고 "효과가 실패했어요…"만, 기절 표시 없음', async ({ page }) => {
   await fixBattle(page, true);
   await forceCombat(page, { crit: false, dodge: false, effect: false });
-  await standBesideGrass(page, { tier: 'normal', cloud: { skills: ['cloud-1', 'cloud-2'] } });
+  await standBesideGrass(page, { tier: 'normal', as: 'c023', c034: { skills: ['c034-1', 'c034-2'] } });
   await stepIntoGrass(page);
   const m = LEAF_VS[(await page.locator('.wild__stage').getAttribute('data-species'))!];
   await page.getByRole('button', { name: '싸우자!' }).click();
   await moveButton(page, 56).click();
   // (상성 줄이 붙는 종도 있다)
-  await expect(page.getByRole('status')).toContainText('새싹 휙! ⚡ 빠르다!');
+  await expect(page.getByRole('status')).toContainText('덩굴 휘리릭! ⚡ 빠르다!');
   await expect(page.getByRole('status')).toContainText('효과가 실패했어요…');
   await expect(page.getByRole('status')).not.toContainText('기절했어요');
   await page.screenshot({ path: `${shot16}/3-effect-failed-375.png` });
@@ -1800,9 +1819,9 @@ test('주기 공격: 정답 2번째 뒤에 적이 한 번 공격해 체력이 �
   await expect(page.locator('.wild-move--glow')).toHaveCount(0);
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
   await expect(page.locator('.wild__hint')).toHaveCount(0);
-  const cloud = await savedCloud(page);
-  expect(cloud.hp).toBe(87);
-  expect(cloud.wounds).toHaveLength(0);
+  const c034 = await savedCloud(page);
+  expect(c034.hp).toBe(87);
+  expect(c034.wounds).toHaveLength(0);
 });
 
 test('캡슐 버튼: 야생 체력 1/4 이하에서만 켜지고, 문제를 푸는 중에도 던져 잡을 수 있다', async ({ page }) => {
@@ -1835,14 +1854,14 @@ test('캡슐 버튼: 야생 체력 1/4 이하에서만 켜지고, 문제를 푸�
 });
 
 test('주② 스턴으로 막은 적 공격은 저장 체력도 그대로, 그다음 공격은 화면과 저장이 같이 준다', async ({ page }) => {
-  await fixBattle(page, true); // 늘 빠르게 → 주속성 버튼에서 새싹 휙(주②, 스턴)
+  await fixBattle(page, true); // 늘 빠르게 → 주속성 버튼에서 덩굴 휘리릭(주②, 스턴)
   // 보통(7초·피해 13)
-  await standBesideGrass(page, { tier: 'normal', cloud: { hp: 100, skills: ['cloud-1', 'cloud-2'] } });
+  await standBesideGrass(page, { tier: 'normal', as: 'c023', c034: { hp: 100, skills: ['c034-1', 'c034-2'] } });
   await stepIntoGrass(page);
   await page.getByRole('button', { name: '싸우자!' }).click();
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
   await moveButton(page, 56).click();
-  await expect(page.getByRole('status')).toContainText('새싹 휙!');
+  await expect(page.getByRole('status')).toContainText('덩굴 휘리릭!');
   // 다음 문제에서 틀린다: 스턴이 막아 피해 0, 적 공격 대신 "기절해서 움직이지 못했어요"
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
   await wrongMoveButton(page, 56).click();
@@ -2044,7 +2063,7 @@ test('화남: 두 번째 흔들림에서 열리고 강력해져 다시 문제', 
 test('윗단계(주②) 발동 때 속성 소리와 fxPower, 주①은 fxPower 없음', async ({ page }) => {
   await spyAudio(page);
   await fixBattle(page, false);
-  await standBesideGrass(page, { tier: 'normal', cloud: { skills: ['cloud-1', 'cloud-2'] } });
+  await standBesideGrass(page, { tier: 'normal', as: 'c023', c034: { skills: ['c034-1', 'c034-2'] } });
   await stepIntoGrass(page);
   await page.getByRole('button', { name: '싸우자!' }).click();
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
@@ -2059,7 +2078,7 @@ test('윗단계(주②) 발동 때 속성 소리와 fxPower, 주①은 fxPower �
   await setFast(page, true);
   await expect(page.locator('.wild__bubble .question')).toBeVisible();
   await moveButton(page, 56).click();
-  await expect(page.getByRole('status')).toContainText('새싹 휙! ⚡ 빠르다!');
+  await expect(page.getByRole('status')).toContainText('덩굴 휘리릭! ⚡ 빠르다!');
   // 스턴 소리는 기술이 맞은 조금 뒤 (SKILL_EFFECT_DELAY_MS)
   const stun = await sfxFirstFreq('skillStun');
   await expect.poll(async () => (await freqsSeen(page)).filter((x) => x === stun).length).toBe(1);
@@ -2071,10 +2090,10 @@ test('윗단계(주②) 발동 때 속성 소리와 fxPower, 주①은 fxPower �
 test('특수 회복 성공 때 skillHeal 소리, 늦어 약한 기술이 나가면 속성 소리만', async ({ page }) => {
   await spyAudio(page);
   await fixBattle(page, true);
-  await standBesideGrass(page, { tier: 'normal', cloud: { level: 8, hp: 50, skills: ['cloud-1', 'cloud-3'] } });
+  await standBesideGrass(page, { tier: 'normal', as: 'c022', c034: { level: 8, hp: 50, skills: ['c034-1', 'c034-3'] } });
   await stepIntoGrass(page);
   await page.getByRole('button', { name: '싸우자!' }).click();
-  await skillPicker(page).locator('[data-skill="cloud-3"]').click();
+  await skillPicker(page).locator('[data-skill="c022-3"]').click();
   await moveButton(page, 56).click();
   await expect(page.getByRole('status')).toContainText('체력을 25 되찾았어요!');
   const heal = await sfxFirstFreq('skillHeal');
@@ -2083,7 +2102,7 @@ test('특수 회복 성공 때 skillHeal 소리, 늦어 약한 기술이 나가�
   expect(freqs.filter((x) => x === heal).length).toBe(1);
   expect(freqs.filter((x) => x === grass).length).toBe(0);
   await setFast(page, false);
-  await skillPicker(page).locator('[data-skill="cloud-3"]').click();
+  await skillPicker(page).locator('[data-skill="c022-3"]').click();
   await moveButton(page, 56).click();
   await expect(page.getByRole('status')).toContainText('약한 기술이 나갔어요');
   // 날아가는 효과라 속성 소리는 맞는 순간(날아간 뒤)에 난다
@@ -2097,7 +2116,7 @@ test('특수 회복 성공 때 skillHeal 소리, 늦어 약한 기술이 나가�
 test('시간 막대: 눈금(굵은 선, 글자 없음)과 지금 나갈 단계 색(data-tier)이 기점을 지나면 바뀐다', async ({ page }) => {
   await fixBattle(page, null);
   // 시계가 실제로 흐르게 (보통 7초: 3번 2초 안, 2번 4초 안)
-  await standBesideGrass(page, { timer: true, tier: 'normal', cloud: { level: 20, skills: ['cloud-1', 'cloud-2', 'cloud-5'] } });
+  await standBesideGrass(page, { timer: true, tier: 'normal', c034: { level: 20, skills: ['c034-1', 'c034-2', 'c034-5'] } });
   await stepIntoGrass(page);
   await page.getByRole('button', { name: '싸우자!' }).click();
   const timer = page.locator('.wild__timer');

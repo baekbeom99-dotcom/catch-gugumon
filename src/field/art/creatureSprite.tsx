@@ -172,5 +172,5 @@ export const SPECIES_COLOR: Record<MonsterKind, string> = {
 };
 
 export function speciesColor(id: SpeciesId): string {
-  return SPECIES_COLOR[speciesDef(id).kind];
+  return SPECIES_COLOR[speciesDef(id).svgKind];
 }
