@@ -15,7 +15,7 @@ export const DEFAULT_LOADERS: FieldLoaders = {
   town: () =>
     Promise.all([import('./maps/town'), import('./maps/townTiles')]).then(([m, t]) => {
       registerTileSet('town', t.TOWN_TILES);
-      return parseMap('town', m.TOWN_ROWS, { exits: m.TOWN_EXITS, signTexts: m.TOWN_SIGNS });
+      return parseMap('town', m.TOWN_ROWS, { exits: m.TOWN_EXITS, signTexts: m.TOWN_SIGNS, doorChars: m.TOWN_DOORS });
     }),
   meadow: () =>
     import('./maps/meadow').then((m) => {

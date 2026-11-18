@@ -1,7 +1,19 @@
-// 태초마을: 위 22줄은 구구몬 서식지(초원 땅 g · 연못 p~ · 모래 a), 아래 18줄은 광장(상점 문 D, 집 둘, 울타리, 꽃밭).
+import type { FieldDoor } from '../../../domain/field/movement';
+
+// 태초마을: 맨 위 9줄은 훈련 거리(건물 두 줄 + 무한의 계단), 그 아래 22줄은 구구몬 서식지(초원 땅 g · 연못 p~ · 모래 a), 아래 18줄은 광장(상점 문 D, 집 둘, 울타리, 꽃밭).
 // 풀숲(,)이 없어서 마을에서는 구구몬이 불쑥 나오지 않는다. 지도 글자·표지판 글·출구 표만 여기에 둔다(타일 그림은 townTiles.ts).
 export const TOWN_ROWS: string[] = [
+  // 훈련 거리: 첫 줄 6채(2~7단) · 둘째 줄 5채(8·9·11·12·13단) · 계단 한 채. 문 앞(아랫줄)은 모두 걷는 길
   '####################',
+  '####################',
+  '##A##B##C##E##F##H##',
+  '#..................#',
+  '################...#',
+  '##I##J##K##L##M#...#',
+  '#........S.........#',
+  '#.......###........#',
+  '#.......#T#........#',
+  '#..................#',
   '#ggggggg.....aaaaaa#',
   '#ggggggg.....aaaaaa#',
   '#ggggggg.....aaaaaa#',
@@ -43,7 +55,24 @@ export const TOWN_ROWS: string[] = [
   '#########v##########',
 ];
 
-/** 읽는 순서(위→아래, 왼→오른): 상점, ← 물가, 사막 →, ↓ 초원 */
-export const TOWN_SIGNS: string[] = ['상점 · 캡슐과 회복약', '← 물가', '사막 →', '↓ 초원'];
+/** 문 글자 → 종류. `D`는 상점, A~M은 훈련 건물(단), T는 무한의 계단 */
+export const TOWN_DOORS: Record<string, Pick<FieldDoor, 'kind' | 'dan'>> = {
+  D: { kind: 'shop' },
+  A: { kind: 'training', dan: 2 },
+  B: { kind: 'training', dan: 3 },
+  C: { kind: 'training', dan: 4 },
+  E: { kind: 'training', dan: 5 },
+  F: { kind: 'training', dan: 6 },
+  H: { kind: 'training', dan: 7 },
+  I: { kind: 'training', dan: 8 },
+  J: { kind: 'training', dan: 9 },
+  K: { kind: 'training', dan: 11 },
+  L: { kind: 'training', dan: 12 },
+  M: { kind: 'training', dan: 13 },
+  T: { kind: 'stairs' },
+};
+
+/** 읽는 순서(위→아래, 왼→오른): 훈련 거리, 상점, ← 물가, 사막 →, ↓ 초원 */
+export const TOWN_SIGNS: string[] = ['훈련 거리 · 구구단 연습', '상점 · 캡슐과 회복약', '← 물가', '사막 →', '↓ 초원'];
 
 export const TOWN_EXITS = { '<': 'waterside', '>': 'desert', v: 'meadow' } as const;

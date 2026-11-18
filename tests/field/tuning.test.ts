@@ -103,7 +103,7 @@ describe('필드 모험 운영 수치', () => {
         13: 'legend',
       },
       STAIRS_OPEN_AFTER_DAN: null,
-      TOWN_ROWS_ADDED: 0,
+      TOWN_ROWS_ADDED: 9,
     });
   });
 });

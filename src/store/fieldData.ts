@@ -7,7 +7,7 @@ import { CAPSULE_TYPES, type Capsules, isCapsuleCount } from '../domain/field/ca
 import { addWound, type Wound } from '../domain/field/wounds';
 import { MAP_IDS, type MapId } from '../domain/field/fields';
 import { type Dir, parseMap } from '../domain/field/movement';
-import { TOWN_EXITS, TOWN_ROWS, TOWN_SIGNS } from '../field/world/maps/town';
+import { TOWN_DOORS, TOWN_EXITS, TOWN_ROWS, TOWN_SIGNS } from '../field/world/maps/town';
 import { LEGEND_SPECIES, SPECIES_IDS as ALL_SPECIES, type SpeciesId } from '../domain/field/speciesIds';
 import { defaultSkills, learnedAt, seatOf, SKILLS, type Seat, type SkillDef, type SkillId } from '../domain/field/skills';
 import { MAX_SKILLS } from '../domain/field/tuning';
@@ -128,7 +128,7 @@ function isWound(v: unknown): v is Wound {
 
 /** 처음 시작 자리: 태초마을의 `@` (마을 지도 글자만 가져온다 — 타일 그림은 불러오기 때) */
 export function townStart(): { x: number; y: number } {
-  const map = parseMap('town', TOWN_ROWS, { exits: TOWN_EXITS, signTexts: TOWN_SIGNS });
+  const map = parseMap('town', TOWN_ROWS, { exits: TOWN_EXITS, signTexts: TOWN_SIGNS, doorChars: TOWN_DOORS });
   return map.entrances.start ?? { x: 1, y: 1 };
 }
 

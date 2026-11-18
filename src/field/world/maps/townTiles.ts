@@ -4,6 +4,7 @@ import { SHARED_ARTS, exitArrow, onBorder, type PixelArt, recolor, type TileSet 
 import { MEADOW_TILES } from './meadowTiles';
 import { WATERSIDE_TILES } from './watersideTiles';
 import { DESERT_TILES } from './desertTiles';
+import { TOWN_DOORS } from './town';
 
 const M = MEADOW_TILES.arts;
 const { sand: bankSand, waterA, waterB, bank } = WATERSIDE_TILES.arts;
@@ -48,7 +49,9 @@ const arts = { shopWall, shopDoor, fence, ...M, bankSand, waterA, waterB, bank, 
 const isHash = (map: FieldMap, x: number, y: number) => map.raw[y]?.[x] === '#' && !onBorder(map, x, y);
 const isWaterRaw = (map: FieldMap, x: number, y: number) => map.raw[y]?.[x] === '~';
 
-const isBld = (map: FieldMap, x: number, y: number) => isHash(map, x, y) || map.raw[y]?.[x] === 'D';
+// 새 훈련 건물 문(TOWN_DOORS의 글자)은 그림이 올 때까지(Task 4) 상점 문 그림을 임시로 쓴다
+const isDoorChar = (ch: string | undefined) => ch !== undefined && ch in TOWN_DOORS;
+const isBld = (map: FieldMap, x: number, y: number) => isHash(map, x, y) || isDoorChar(map.raw[y]?.[x]);
 
 /** 같은 줄에서 이어진 건물(`#`·문) 덩어리의 왼쪽 끝과 너비 */
 function run(map: FieldMap, x: number, y: number): { left: number; width: number } {
@@ -97,8 +100,6 @@ export const TOWN_TILES: TileSet = {
       case '^':
       case 'v':
         return [M.dirt, exitArrow(map, x, y)];
-      case 'D':
-        return [shopDoor];
       case '#': {
         if (onBorder(map, x, y)) return [M.tree];
         if (isBld(map, x, y - 1) || isBld(map, x, y + 1)) return building(map, x, y);
@@ -106,7 +107,7 @@ export const TOWN_TILES: TileSet = {
         return isHash(map, x - 1, y) || isHash(map, x + 1, y) ? [fence] : [M.tree];
       }
       default:
-        return [M.dirt]; // '.' '@'
+        return isDoorChar(ch) ? [shopDoor] : [M.dirt]; // 문 글자 / '.' '@'
     }
   },
 };

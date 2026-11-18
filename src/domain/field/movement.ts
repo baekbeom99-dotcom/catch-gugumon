@@ -1,4 +1,5 @@
 import type { FieldId, MapId } from './fields';
+import type { TrainingDan } from './tuning';
 
 export type Dir = 'up' | 'down' | 'left' | 'right';
 export interface Pos {
@@ -6,6 +7,13 @@ export interface Pos {
   y: number;
 }
 export type Tile = 'path' | 'grass' | 'block' | 'sign' | 'deco' | 'exit' | 'door';
+
+export interface FieldDoor {
+  pos: Pos;
+  kind: 'shop' | 'training' | 'stairs';
+  /** 훈련 건물일 때 그 단 */
+  dan?: TrainingDan;
+}
 
 export interface FieldMap {
   id: MapId;
@@ -17,8 +25,8 @@ export interface FieldMap {
   /** inward: 출구에서 지도 안쪽을 보는 방향 (입구 = 출구 + inward 한 칸) */
   exits: { pos: Pos; to: MapId; inward: Dir }[];
   signs: { pos: Pos; text: string }[];
-  /** 상점 문 칸 (`D`) */
-  doors: Pos[];
+  /** 문 칸: 상점(`D`)·훈련 건물·무한의 계단 (글자 → 종류는 ParseOpts.doorChars) */
+  doors: FieldDoor[];
   /** 마을 서식지 칸: `g` 초원, `p` 물가, `a` 사막 (그 필드 구구몬이 노는 곳) */
   zones: Partial<Record<FieldId, Pos[]>>;
   /** 원래 글자 줄 (그림이 `g`·`a`·`p`·`~`를 구분할 때 쓴다) */
@@ -55,6 +63,19 @@ const CHAR_TILE: Record<string, Tile> = {
   v: 'exit',
   '@': 'path',
   D: 'door',
+  // 마을 훈련 거리 건물 문과 무한의 계단 문 (종류 표는 town.ts의 TOWN_DOORS)
+  A: 'door',
+  B: 'door',
+  C: 'door',
+  E: 'door',
+  F: 'door',
+  H: 'door',
+  I: 'door',
+  J: 'door',
+  K: 'door',
+  L: 'door',
+  M: 'door',
+  T: 'door',
   '~': 'block',
   g: 'path',
   a: 'path',
@@ -71,11 +92,13 @@ const ZONE_CHAR: Record<string, FieldId> = { g: 'meadow', p: 'waterside', a: 'de
 export interface ParseOpts {
   exits: Partial<Record<ExitChar, MapId>>;
   signTexts: string[];
+  /** 문 글자 → 종류(·단). 없으면 `D` = 상점 하나 */
+  doorChars?: Record<string, { kind: FieldDoor['kind']; dan?: TrainingDan }>;
 }
 
 /**
  * 글자 지도를 칸 지도로 바꾼다. `.` 길, `,` 풀숲, `#` 막힘, `*` 꾸밈, `S` 표지판, `<` `>` `^` `v` 출구, `@` 시작,
- * `D` 상점 문, `~` 물(막힘), `g` `p` `a` 서식지(길처럼 걷는다)
+ * `D` 상점 문(문 글자 표를 주면 그 글자들), `~` 물(막힘), `g` `p` `a` 서식지(길처럼 걷는다)
  */
 export function parseMap(id: MapId, rows: string[], opts: ParseOpts): FieldMap {
   const height = rows.length;
@@ -84,7 +107,8 @@ export function parseMap(id: MapId, rows: string[], opts: ParseOpts): FieldMap {
   const entrances: FieldMap['entrances'] = {};
   const exits: FieldMap['exits'] = [];
   const signs: FieldMap['signs'] = [];
-  const doors: Pos[] = [];
+  const doors: FieldDoor[] = [];
+  const doorChars = opts.doorChars ?? { D: { kind: 'shop' } };
   const zones: FieldMap['zones'] = {};
   let signIdx = 0;
 
@@ -93,7 +117,7 @@ export function parseMap(id: MapId, rows: string[], opts: ParseOpts): FieldMap {
     const line: Tile[] = [];
     for (let x = 0; x < width; x++) {
       const ch = row[x];
-      const tile = CHAR_TILE[ch];
+      const tile = CHAR_TILE[ch] ?? (doorChars[ch] ? 'door' : undefined);
       if (!tile) throw new Error(`지도 ${id}: 알 수 없는 글자 '${ch}' (${x},${y})`);
       line.push(tile);
       if (ch === '@') entrances.start = { x, y };
@@ -109,7 +133,10 @@ export function parseMap(id: MapId, rows: string[], opts: ParseOpts): FieldMap {
         // 출구 바로 안쪽 칸이 그 지도에서 돌아올 때의 시작 칸
         const d = DIR_DELTA[inward];
         entrances[to] = { x: x + d.x, y: y + d.y };
-      } else if (ch === 'D') doors.push({ x, y });
+      } else if (doorChars[ch]) {
+        const { kind, dan } = doorChars[ch];
+        doors.push(dan === undefined ? { pos: { x, y }, kind } : { pos: { x, y }, kind, dan });
+      }
       else if (ZONE_CHAR[ch]) (zones[ZONE_CHAR[ch]] ??= []).push({ x, y });
     }
     tiles.push(line);

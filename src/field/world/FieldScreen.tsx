@@ -491,7 +491,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
             if (s.lastBump?.key !== key) {
               s.lastBump = { key, dir: h };
               const sign = map.signs.find((g) => g.pos.x === b.x && g.pos.y === b.y);
-              const isDoor = map.doors.some((d) => d.x === b.x && d.y === b.y);
+              const isDoor = map.doors.some((d) => d.pos.x === b.x && d.pos.y === b.y);
               if (!sign && !isDoor) pokeRef.current(b);
               else if (!sign) {
                 // 상점 문: 팝업이 뜬다 (걷기는 멈춘다)

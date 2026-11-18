@@ -531,7 +531,7 @@ test('시간이 다 되면 적이 공격하고, 쓰러지면 태초마을로 돌
   // 정해진 시간만큼 자지 않고 쓰러짐 글이 뜨기를 기다린다 (7초 + 공격 연출)
   await expect(page.getByRole('status').filter({ hasText: '쓰러졌다' })).toBeVisible({ timeout: 10000 });
   await expect(page).toHaveURL(/#\/field$/, { timeout: 5000 });
-  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '10,31'); // 태초마을 시작 칸
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '10,40'); // 태초마을 시작 칸
   const seen = await page.evaluate(() => (window as unknown as { __loadingSeen: string[] }).__loadingSeen);
   expect(seen.some((t) => t.includes('태초마을'))).toBe(true);
   await expect(page.getByRole('dialog', { name: '쓰러짐 알림' })).toContainText('쓰러졌어…');
@@ -565,7 +565,7 @@ test('쓰러지면 도감의 건강한 다른 구구몬이 대신 함께 다닌�
   await expect(page.getByRole('status').filter({ hasText: '쓰러졌다' })).toBeVisible({ timeout: 10000 });
   await expect(page).toHaveURL(/#\/field$/, { timeout: 5000 });
   const canvas = page.getByTestId('field-canvas');
-  await expect(canvas).toHaveAttribute('data-pos', '10,31');
+  await expect(canvas).toHaveAttribute('data-pos', '10,40');
   const notice = page.getByRole('dialog', { name: '쓰러짐 알림' });
   await expect(notice).toContainText('쓰러졌어…');
   await expect(notice).toContainText('물거북몬이 대신 함께 다녀요');
@@ -583,8 +583,8 @@ test('쓰러지면 도감의 건강한 다른 구구몬이 대신 함께 다닌�
   // 아래를 보고 서 있으므로 짧게 한 번은 오른쪽으로 돌기만 하고, 한 번 더 누르면 한 칸 걷는다
   await tap(page, 'ArrowRight');
   await tap(page, 'ArrowRight');
-  await expect(canvas).toHaveAttribute('data-pos', '11,31');
-  await expect.poll(() => companionPos(page)).toBe('10,31');
+  await expect(canvas).toHaveAttribute('data-pos', '11,40');
+  await expect.poll(() => companionPos(page)).toBe('10,40');
   // 도감: 물거북몬이 "함께 다니는 중", 쓰러진 꽃등짐몬은 함께 다니기 버튼이 꺼져 있다
   await page.goto('/#/field/dex');
   await expect(page.locator('.fdex__cell--caught').filter({ hasText: '함께 다니는 중' })).toContainText('물거북몬');
@@ -764,16 +764,17 @@ test('처음 필드는 첫 구구몬 고르기로 가고, 고르면 태초마을
   await expect(page).toHaveURL(/#\/field\/starter$/);
   await page.getByRole('button', { name: '물거북몬 고르기' }).click();
   await expect(page).toHaveURL(/#\/field$/);
-  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '10,31');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '10,40');
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
-  expect(saved.position).toEqual({ map: 'town', x: 10, y: 31, facing: 'down' });
+  expect(saved.position).toEqual({ map: 'town', x: 10, y: 40, facing: 'down' });
   // 스타터는 기술 1개(슬롯 1)로 시작한다
   expect(saved.species.c036.skills).toEqual(['c036-1']);
 });
 
 // ── 상점 팝업 ──
 
-/** 마을 상점 문(8,24) 바로 아래 (8,25)에서 위를 보고 선 저장본. extra로 필드 저장을 덧붙인다 */
+// 저장본 자리는 옛 마을(상점 문 8,24 · 앞 8,25)로 적고, 훈련 거리 줄(TOWN_ROWS_ADDED=9)만큼 저절로 밀린다
+/** 마을 상점 문(8,33) 바로 아래 (8,34)에서 위를 보고 선 저장본. extra로 필드 저장을 덧붙인다 */
 async function standAtShopDoor(page: Page, extra: { species?: Record<string, unknown>; field?: Record<string, unknown> } = {}) {
   await seedStarter(page);
   await page.goto('/#/field');
@@ -789,11 +790,11 @@ async function standAtShopDoor(page: Page, extra: { species?: Record<string, unk
     [STARTER_FIELD, extra] as const,
   );
   await page.reload();
-  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '8,25');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '8,34');
 }
 
 async function openShop(page: Page) {
-  await page.keyboard.down('ArrowUp'); // 문(8,24)
+  await page.keyboard.down('ArrowUp'); // 문(8,33)
   await expect(page.getByRole('dialog', { name: '상점' })).toBeVisible();
   await page.keyboard.up('ArrowUp');
 }
@@ -851,15 +852,15 @@ test('상점이 열려 있는 동안은 걷지 않고, 닫기·Escape로 닫으�
   await page.keyboard.down('ArrowLeft');
   await page.waitForTimeout(400);
   await page.keyboard.up('ArrowLeft');
-  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '8,25');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '8,34');
   await page.getByRole('dialog', { name: '상점' }).getByRole('button', { name: '닫기' }).click();
   await expect(page.getByRole('dialog', { name: '상점' })).toHaveCount(0);
-  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '8,25');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '8,34');
   // 방향을 떼었다 다시 누르면 다시 열리고, Escape로도 닫힌다
   await openShop(page);
   await page.keyboard.press('Escape');
   await expect(page.getByRole('dialog', { name: '상점' })).toHaveCount(0);
-  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '8,25');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '8,34');
 });
 
 /** 지금 문제의 사실 번호 (예: '4x7') */
@@ -1461,15 +1462,15 @@ test('초원에서 메뉴의 태초마을로를 누르면 마을 @에 서고 저
   await standAt(page, 'meadow', 5, 8, 'right');
   await page.getByRole('button', { name: '메뉴' }).click();
   await page.getByRole('button', { name: '태초마을로' }).click();
-  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '10,31');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '10,40');
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.position);
-  expect(saved).toEqual({ map: 'town', x: 10, y: 31, facing: 'down' });
+  expect(saved).toEqual({ map: 'town', x: 10, y: 40, facing: 'down' });
 });
 
 test('마을에서는 메뉴에 태초마을로가 없다', async ({ page }) => {
   await seedStarter(page);
   await page.goto('/#/field');
-  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '10,31');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '10,40');
   await page.getByRole('button', { name: '메뉴' }).click();
   await expect(page.getByRole('button', { name: '구구몬 도감' })).toBeVisible();
   await expect(page.getByRole('button', { name: '태초마을로' })).toHaveCount(0);

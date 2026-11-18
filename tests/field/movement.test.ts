@@ -88,12 +88,25 @@ describe('마을 글자 (위아래 출구·문·서식지)', () => {
     expect(m.exits.find((e) => e.to === 'desert')?.inward).toBe('left');
   });
   it('문·막힘·서식지·원래 글자', () => {
-    expect(m.doors).toEqual([{ x: 2, y: 2 }]);
+    expect(m.doors).toEqual([{ pos: { x: 2, y: 2 }, kind: 'shop' }]);
     expect(m.tiles[2][2]).toBe('door');
     expect(m.tiles[3][2]).toBe('block');
     expect(m.tiles[2][1]).toBe('path');
     expect(m.zones).toEqual({ meadow: [{ x: 1, y: 2 }], desert: [{ x: 3, y: 2 }], waterside: [{ x: 1, y: 3 }] });
     expect(m.raw).toBe(rows);
+  });
+  it('문 글자 표를 받으면 종류와 단을 채운다', () => {
+    const t = parseMap('town', ['#####', '#A.T#', '#.@.#', '##v##'].map((r, i) => (i === 3 ? '##v##' : r)), {
+      exits: { v: 'meadow' },
+      signTexts: [],
+      doorChars: { A: { kind: 'training', dan: 7 }, T: { kind: 'stairs' } },
+    });
+    expect(t.doors).toEqual([
+      { pos: { x: 1, y: 1 }, kind: 'training', dan: 7 },
+      { pos: { x: 3, y: 1 }, kind: 'stairs' },
+    ]);
+    expect(t.tiles[1][1]).toBe('door');
+    expect(t.tiles[1][3]).toBe('door');
   });
   it('문에 부딪히면 bump = 문 칸', () => {
     expect(tryStep(m, { x: 2, y: 1 }, 'down')).toMatchObject({ moved: false, bump: { x: 2, y: 2 } });

@@ -2,11 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { loadField } from '../../src/field/world/loadField';
 import { DIR_DELTA, type Dir, type FieldMap, type Pos, tryStep } from '../../src/domain/field/movement';
 import { MAP_IDS, type FieldId, type MapId } from '../../src/domain/field/fields';
+import { TOWN_ROWS_ADDED, TRAINING_DANS } from '../../src/domain/field/tuning';
 
 const DIRS = Object.keys(DIR_DELTA) as Dir[];
 const IDS: readonly MapId[] = MAP_IDS;
 const FIELDS: FieldId[] = ['meadow', 'waterside', 'desert'];
-const SIZE: Record<MapId, [number, number]> = { town: [20, 40], meadow: [20, 20], waterside: [20, 20], desert: [20, 20] };
+const SIZE: Record<MapId, [number, number]> = { town: [20, 40 + TOWN_ROWS_ADDED], meadow: [20, 20], waterside: [20, 20], desert: [20, 20] };
 const key = (p: Pos) => `${p.x},${p.y}`;
 // 설계서: 풀숲은 약 두 배 (원래 초원 68, 물가 50, 사막 40의 2.0~2.3배)
 const MIN_GRASS: Record<FieldId, number> = { meadow: 136, waterside: 100, desert: 80 };
@@ -72,32 +73,49 @@ describe('필드의 마을 길(^)', () => {
 });
 
 describe('태초마을', () => {
-  it('만남 칸(풀숲) 없음, 문 1개, 서식지 셋 다 6칸 이상, 표지판 4개', async () => {
+  const Y0 = TOWN_ROWS_ADDED; // 옛 지도 줄이 밀린 만큼
+  it('만남 칸(풀숲) 없음, 문: 상점 1·훈련 11·계단 1, 서식지 셋 다 6칸 이상, 표지판 5개', async () => {
     const t = await loadField('town');
     expect(t.tiles.flat()).not.toContain('grass');
-    expect(t.doors).toHaveLength(1);
+    expect(t.doors).toHaveLength(13);
+    expect(t.doors.filter((d) => d.kind === 'shop')).toHaveLength(1);
+    expect(t.doors.filter((d) => d.kind === 'stairs')).toHaveLength(1);
+    const training = t.doors.filter((d) => d.kind === 'training');
+    expect(training.map((d) => d.dan).sort((a, b) => a! - b!)).toEqual([...TRAINING_DANS]);
     for (const f of FIELDS) expect(t.zones[f]!.length).toBeGreaterThanOrEqual(6);
-    for (const f of FIELDS) expect(t.zones[f]!.every((p) => p.y < 22), `${f} 서식지는 위 22줄`).toBe(true);
-    expect(t.doors[0].y).toBeGreaterThanOrEqual(22);
-    expect(t.signs.map((s) => s.text).sort()).toEqual(['← 물가', '↓ 초원', '사막 →', '상점 · 캡슐과 회복약'].sort());
+    for (const f of FIELDS) expect(t.zones[f]!.every((p) => p.y < 22 + Y0), `${f} 서식지는 위 22줄`).toBe(true);
+    expect(t.doors.find((d) => d.kind === 'shop')!.pos.y).toBeGreaterThanOrEqual(22 + Y0);
+    expect(t.signs.map((s) => s.text).sort()).toEqual(['← 물가', '↓ 초원', '사막 →', '상점 · 캡슐과 회복약', '훈련 거리 · 구구단 연습'].sort());
   });
 
-  it('<·>는 광장(y≥22), v는 맨 아랫줄', async () => {
+  it('훈련 건물은 두 줄: 2~7단 6채, 8·9·11·12·13단 5채, 계단은 따로', async () => {
+    const t = await loadField('town');
+    const training = t.doors.filter((d) => d.kind === 'training');
+    const rowA = training.filter((d) => d.pos.y < t.doors.find((x) => x.kind === 'stairs')!.pos.y && d.dan! <= 7);
+    const rowB = training.filter((d) => d.dan! > 7);
+    expect(rowA.map((d) => d.dan)).toEqual([2, 3, 4, 5, 6, 7]);
+    expect(new Set(rowA.map((d) => d.pos.y)).size).toBe(1);
+    expect(rowB.map((d) => d.dan)).toEqual([8, 9, 11, 12, 13]);
+    expect(new Set(rowB.map((d) => d.pos.y)).size).toBe(1);
+    expect(rowB[0].pos.y).toBeGreaterThan(rowA[0].pos.y);
+  });
+
+  it('<·>는 광장(y≥22+밀린 줄), v는 맨 아랫줄', async () => {
     const t = await loadField('town');
     const at = (to: MapId) => t.exits.find((e) => e.to === to)!.pos;
     expect(at('waterside').x).toBe(0);
     expect(at('desert').x).toBe(19);
-    expect(at('waterside').y).toBeGreaterThanOrEqual(22);
-    expect(at('desert').y).toBeGreaterThanOrEqual(22);
-    expect(at('meadow').y).toBe(39);
+    expect(at('waterside').y).toBeGreaterThanOrEqual(22 + Y0);
+    expect(at('desert').y).toBeGreaterThanOrEqual(22 + Y0);
+    expect(at('meadow').y).toBe(39 + Y0);
   });
 
-  it('시작점에서 문 옆 칸과 세 서식지 칸에 닿는다', async () => {
+  it('시작점에서 모든 문 앞 칸(아래)과 세 서식지 칸에 닿고, 세 출구가 서로 닿는다', async () => {
     const t = await loadField('town');
     const seen = reach(t, t.entrances.start!);
-    const d = t.doors[0];
-    expect(DIRS.some((dir) => seen.has(key({ x: d.x + DIR_DELTA[dir].x, y: d.y + DIR_DELTA[dir].y })))).toBe(true);
+    for (const d of t.doors) expect(seen.has(key({ x: d.pos.x, y: d.pos.y + 1 })), `문 ${d.kind} ${d.dan ?? ''} 앞`).toBe(true);
     for (const f of FIELDS) for (const p of t.zones[f]!) expect(seen.has(key(p)), `${f} ${key(p)}`).toBe(true);
+    for (const e of t.exits) expect(seen.has(key(e.pos)), `출구 ${e.to}`).toBe(true);
   });
 });
 
