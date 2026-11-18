@@ -60,6 +60,7 @@ import {
   TRAINING_FIRST_MASTER_CAPSULES,
   STAR_CATCH,
   STAR_DISCOVER,
+  STAR_LEGEND_REWARD,
   STAR_TRAINING,
   type TrainingDan,
 } from '../domain/field/tuning';
@@ -112,7 +113,7 @@ export interface WildResult extends PetChange {
 }
 
 /** 별점수를 얻는 까닭 */
-export type StarReason = 'discover' | 'catch' | 'training' | 'statue';
+export type StarReason = 'discover' | 'catch' | 'training' | 'statue' | 'stairs';
 
 /** 동상 문제를 다 풀었을 때 */
 export interface StatueInput {
@@ -169,7 +170,7 @@ export interface TrainingOutcome {
   bestMs: number | null;
   /** 12·13단 첫 마스터 때 받은 레전드 */
   legend: { species: SpeciesId; duplicate: boolean } | null;
-  /** 받은 별점수 (별점수는 아직 연결 전이라 늘 0) */
+  /** 받은 별점수 (훈련 + 레전드를 받았으면 STAR_LEGEND_REWARD, 별점수가 꺼져 있으면 0) */
   stars: number;
 }
 
@@ -197,7 +198,7 @@ export interface ArithOutcome {
   bestMs: number | null;
   /** 고수 첫 마스터 때 받은 레전드 */
   legend: { species: SpeciesId; duplicate: boolean } | null;
-  /** 받은 별점수 (아직 연결 전이라 늘 0) */
+  /** 받은 별점수 (합격 + 레전드를 받았으면 STAR_LEGEND_REWARD, 별점수가 꺼져 있으면 0) */
   stars: number;
 }
 
@@ -805,7 +806,8 @@ export const useGameStore = create<GameStore>()(
           }
           const bestMs = training.mastered[dan]?.bestMs ?? null;
           // 별점수: 성공(학습 끝·도전 합격)마다 (꺼져 있으면 0)
-          const stars = starGain(STAR_TRAINING);
+          // 레전드를 받았으면(이미 가진 레전드여도) 별점수 20개를 더한다
+          const stars = starGain(STAR_TRAINING) + (legend ? starGain(STAR_LEGEND_REWARD) : 0);
           result = { ok: true, capsuleType, capsules: gained, mastered, firstMaster, newBest, bestMs, legend, stars };
           const capsules = addCapsules(f.capsules, capsuleType, gained);
           return { field: { ...f, training, species, seen, capsules, starPoints: addStarPointsTo(f.starPoints, stars) } };
@@ -857,7 +859,7 @@ export const useGameStore = create<GameStore>()(
           }
           const bestMs = training.arith[level]?.bestMs ?? null;
           // 별점수: 합격마다 (꺼져 있으면 0)
-          const stars = starGain(STAR_TRAINING);
+          const stars = starGain(STAR_TRAINING) + (legend ? starGain(STAR_LEGEND_REWARD) : 0);
           result = { ok: true, capsuleType, capsules: gained, mastered: true, firstMaster, newBest, bestMs, legend, stars };
           const capsules = addCapsules(f.capsules, capsuleType, gained);
           return { field: { ...f, training, species, seen, capsules, starPoints: addStarPointsTo(f.starPoints, stars) } };

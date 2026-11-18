@@ -246,12 +246,25 @@ export const ARITH_CAPSULE_CHOICES = ['meadow', 'waterside', 'desert'] as const 
 export const TOWN_ROWS_ADDED = 9;
 
 // ── 별점수 (코스튬을 살 화폐 — src/config/featureFlags.ts의 STAR_POINTS_ENABLED가 켜져야 쌓인다) ──
+// ── 무한의 계단 아이템 (계단 위 아이템: 밟으면 바로 얻는다. 규칙은 stairsItems.ts) ──
+/** 아이템과 아이템 사이 계단 수: 4~10칸 중 무작위 (평균 7칸) */
+export const STAIRS_ITEM_GAP_MIN = 4;
+export const STAIRS_ITEM_GAP_MAX = 10;
+/** 캡슐 아이템이 황금일 확률 (아니면 초원·물가·사막 고르게) */
+export const STAIRS_ITEM_LEGEND_CHANCE = 0.1;
+/** 별점수 아이템 하나가 주는 별점수 */
+export const STAIRS_ITEM_STARS = 3;
+/** 별점수가 켜져 있을 때 아이템이 별점수일 확률 (꺼져 있으면 별 아이템은 안 나온다) */
+export const STAIRS_ITEM_STAR_SHARE = 0.5;
+
 /** 새 구구몬을 처음 만났을 때 */
 export const STAR_DISCOVER = 5;
 /** 새 구구몬을 처음 잡았을 때 */
 export const STAR_CATCH = 5;
 /** 트레이닝 성공(학습 끝까지 마침·도전 합격)마다 */
 export const STAR_TRAINING = 3;
+/** 레전드 구구몬을 트레이닝 보상으로 받을 때 (12·13단·셈연습 고수 첫 마스터. 이미 가진 레전드여도 받는다) */
+export const STAR_LEGEND_REWARD = 20;
 /** 체육관 동상 문제 수 */
 export const STATUE_QUESTIONS = 7;
 /** 동상 별점수: 가장 적게·가장 많이 (7문제를 모두 맞혔을 때만) */
@@ -271,8 +284,10 @@ export const LOWGRADE_WRONG_KEEP = 20;
 export const LOWGRADE_SHOP_QUESTIONS = 5;
 /** 저학년 야생 전투가 한 번에 미리 만드는 문제 수 */
 export const LOWGRADE_BATCH = 5;
+/** 저학년 모드 야생 전투의 문제 시간 배수 (단계 시간 × 2 — 속도 기준·기술 조건 시간도 같이 늘어난다) */
+export const LOWGRADE_TIME_FACTOR = 2;
 /**
- * 쓰이지 않음: 전투 시간은 기존 단계 규칙을 따른다. 나중에 속도 기준에 쓸 수 있어 보관.
+ * 쓰이지 않음: 전투 시간은 기존 단계 규칙(TIER_RULES)에 LOWGRADE_TIME_FACTOR(2배)를 곱해 쓴다. 문제 종류별 시간은 나중에 쓸 수 있어 보관.
  * 저학년 문제 하나에 쓰는 시간(초). 셈 연습 마스터 기준과 같은 크기:
  * 초원(한 자리 덧뺄셈)은 기본 단계 문제당 시간, 물가·사막(두 자리 ± 한 자리)은 고수 단계 문제당 시간
  */

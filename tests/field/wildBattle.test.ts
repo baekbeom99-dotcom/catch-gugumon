@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
   answerWild, canThrow, catchActive, chipCells, counterAttack, counterDue, createWild, damageOf, enemyStrike, healAlly, hiddenChoice, MAX_TICK_MS, maxCells,
-  pickSkill, releaseWild, resolveAnswer, resumeWild, throwCapsule, tick, tickWild, wildHpRatio,
+  pickSkill, questionBaseMs, releaseWild, resolveAnswer, resumeWild, throwCapsule, tick, tickWild, wildHpRatio,
   type WildState,
 } from '../../src/domain/field/wildBattle';
 import type { Rng } from '../../src/domain/random';
 import { skillButtons, skillDef, type SkillButton } from '../../src/domain/field/skills';
 import type { SpeciesId } from '../../src/domain/field/creatures';
 import type { Element } from '../../src/domain/field/elements';
-import { CALM_BONUS_MS, CHARGE_BONUS_CELLS, M2_HEAL_SUCCESS, SPECIAL_SUCCESS, TIER_RULES } from '../../src/domain/field/tuning';
+import { LOWGRADE_TIME_FACTOR, CALM_BONUS_MS, CHARGE_BONUS_CELLS, M2_HEAL_SUCCESS, SPECIAL_SUCCESS, TIER_RULES } from '../../src/domain/field/tuning';
 import { throwOdds } from '../../src/domain/field/strength';
 
 const r0 = () => 0;
@@ -45,7 +45,7 @@ describe('wildBattle: 문제 시간·정답', () => {
   it('처음 상태', () => {
     expect(createWild('strong', 8, 60)).toEqual({
       tier: 'strong', level: 8, cells: 0, timeLeftMs: 5000, limitMs: 5000, elapsedMs: 0, allyHp: 60, phase: 'question', correct: 0, timedOut: false,
-      charge: 0, guard: false, stun: false, calmMs: 0, hideChoice: false, attackCount: 0, throwTries: 0, lastStrike: null,
+      charge: 0, guard: false, stun: false, calmMs: 0, hideChoice: false, attackCount: 0, throwTries: 0, lastStrike: null, timeFactor: 1,
     });
   });
   it('시작부터 체력 0이면 쓰러진 채(전투가 열리지 않게)', () => {
@@ -818,4 +818,19 @@ describe('wildBattle: 실패할수록 잘 잡힌다 (throwTries)', () => {
     expect(throwCapsule(d({ throwTries: 20, stun: true }), seq(0.7001), 5)!.outcome).not.toBe('caught');
   });
   it('처음 만난 야생은 실패 수 0', () => expect(createWild('weak', 2, 100).throwTries).toBe(0));
+});
+
+describe('저학년 답변 시간 2배', () => {
+  it('고정값', () => expect(LOWGRADE_TIME_FACTOR).toBe(2));
+  it.each([['weak', 7000], ['normal', 7000], ['strong', 5000], ['legend', 7000]] as const)('%s: 평소 %i, 저학년은 2배', (t, ms) => {
+    expect(questionBaseMs(createWild(t, 1, 100))).toBe(ms);
+    const low = createWild(t, 1, 100, 1, true);
+    expect([low.timeLeftMs, low.limitMs, questionBaseMs(low)]).toEqual([ms * 2, ms * 2, ms * 2]);
+  });
+  it('다음 문제로 넘어가도 2배, 단계가 바뀌면 그 단계의 2배', () => {
+    const s = createWild('normal', 5, 100, 1, true);
+    const hit: WildState = { ...s, phase: 'hit' };
+    expect(resumeWild(hit).limitMs).toBe(14000);
+    expect(questionBaseMs({ ...s, tier: 'strong' })).toBe(10000);
+  });
 });

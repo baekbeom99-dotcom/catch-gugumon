@@ -26,6 +26,7 @@ import {
   M2_HEAL_SUCCESS,
   SPECIAL_SUCCESS,
   TIER_RULES,
+  LOWGRADE_TIME_FACTOR,
 } from './tuning';
 import { applyDamage } from './wounds';
 
@@ -80,6 +81,8 @@ export interface WildState {
   attackCount: number;
   /** 이 야생에게 캡슐이 실패한 횟수 (빠져나옴·화남). 실패할수록 잘 잡힌다 */
   throwTries: number;
+  /** 문제 시간 배수: 평소 1, 저학년 모드 LOWGRADE_TIME_FACTOR (단계 시간에 곱한다) */
+  timeFactor: number;
   /** 마지막 적 공격의 굴림 결과 — 화면이 공격 순간 읽어 피해 저장·글에 쓴다. 아직 맞지 않았으면 null */
   lastStrike: StrikeRoll | null;
 }
@@ -89,9 +92,14 @@ export function maxCells(tier: Tier): number {
   return TIER_RULES[tier].hitsToDizzy * CELLS_PER_HIT;
 }
 
+/** 이 단계 문제 하나의 기본 시간 (여유로 늘어난 시간은 빼고, 저학년이면 2배) — 속도 기준(기술 조건·눈금)도 이 값을 쓴다 */
+export function questionBaseMs(s: Pick<WildState, 'tier' | 'timeFactor'>): number {
+  return TIER_RULES[s.tier].timeMs * s.timeFactor;
+}
+
 /** 새 문제로 넘어간다: 시간을 처음부터, 여유가 있으면 더하고 써 버린다 */
 function newQuestion(s: WildState): WildState {
-  const limitMs = TIER_RULES[s.tier].timeMs + s.calmMs;
+  const limitMs = questionBaseMs(s) + s.calmMs;
   return { ...s, timeLeftMs: limitMs, limitMs, elapsedMs: 0, calmMs: 0 };
 }
 
@@ -100,14 +108,15 @@ function askPhase(heldCount: number): 'pick' | 'question' {
   return heldCount >= 2 ? 'pick' : 'question';
 }
 
-export function createWild(tier: Tier, level: number, allyHp: number, heldCount = 1): WildState {
+export function createWild(tier: Tier, level: number, allyHp: number, heldCount = 1, lowGrade = false): WildState {
   const hp = applyDamage(allyHp, 0);
+  const timeFactor = lowGrade ? LOWGRADE_TIME_FACTOR : 1;
   return {
     tier,
     level,
     cells: 0,
-    timeLeftMs: TIER_RULES[tier].timeMs,
-    limitMs: TIER_RULES[tier].timeMs,
+    timeLeftMs: TIER_RULES[tier].timeMs * timeFactor,
+    limitMs: TIER_RULES[tier].timeMs * timeFactor,
     elapsedMs: 0,
     allyHp: hp,
     // 쓰러진 구구몬으로는 싸우지 않는다 (만남이 막지만 한 번 더 지킨다)
@@ -122,6 +131,7 @@ export function createWild(tier: Tier, level: number, allyHp: number, heldCount 
     attackCount: 0,
     throwTries: 0,
     lastStrike: null,
+    timeFactor,
   };
 }
 

@@ -16,8 +16,7 @@ import {
   type SkillDef,
   type SkillId,
 } from '../../domain/field/skills';
-import { TIER_RULES } from '../../domain/field/tuning';
-import { resolveAnswer, type AnswerResult, type StrikeRoll, type WildPhase, type WildState } from '../../domain/field/wildBattle';
+import { questionBaseMs, resolveAnswer, type AnswerResult, type StrikeRoll, type WildPhase, type WildState } from '../../domain/field/wildBattle';
 import { battleText } from './battleText';
 import type { Rng } from '../../domain/random';
 import { SKILL_SFX, SPECIAL_SFX, type Sfx } from '../../audio/sfx';
@@ -31,7 +30,7 @@ export function heldSkills(species: SpeciesId, entry: { level: number; skills?: 
 }
 
 /**
- * 정답 하나를 기술 버튼으로 판정한다. 단계 기준 시간은 **그 단계 문제 시간(TIER_RULES[tier].timeMs)만** 넘긴다 —
+ * 정답 하나를 기술 버튼으로 판정한다. 단계 기준 시간은 **그 단계 문제 시간(TIER_RULES[tier].timeMs, 저학년은 2배)만** 넘긴다 —
  * 여유(calm)로 늘어난 남은 시간을 넘기면 조건이 느슨해지므로 넣지 않는다.
  * fast(E2E 스위치 __GUGU_E2E_FAST__): true면 늘 가장 빠르게, false면 늘 늦게, null이면 실제로 흐른 시간.
  * rng는 회피·크리티컬·효과 성공 굴림 (화면은 combatRng로 E2E 스위치를 얹어 넘긴다).
@@ -44,7 +43,7 @@ export function answerWithSkill(
   fast: boolean | null,
   rng: Rng,
 ): AnswerResult {
-  const timeMs = TIER_RULES[s.tier].timeMs;
+  const timeMs = questionBaseMs(s);
   if (fast === null) return resolveAnswer(s, button, held, wildMain, timeMs, rng);
   // 판정할 때만 경과 시간을 바꿔 넣고, 돌려줄 상태에는 원래 값을 둔다
   const forced: WildState = { ...s, elapsedMs: fast ? 0 : timeMs + 1 };

@@ -114,6 +114,12 @@ describe('필드 모험 운영 수치', () => {
       STAR_DISCOVER: 5,
       STAR_CATCH: 5,
       STAR_TRAINING: 3,
+      STAR_LEGEND_REWARD: 20,
+      STAIRS_ITEM_GAP_MIN: 4,
+      STAIRS_ITEM_GAP_MAX: 10,
+      STAIRS_ITEM_LEGEND_CHANCE: 0.1,
+      STAIRS_ITEM_STARS: 3,
+      STAIRS_ITEM_STAR_SHARE: 0.5,
       STATUE_QUESTIONS: 7,
       STATUE_STARS_MIN: 5,
       STATUE_STARS_MAX: 15,
@@ -123,6 +129,7 @@ describe('필드 모험 운영 수치', () => {
       LOWGRADE_WRONG_KEEP: 20,
       LOWGRADE_SHOP_QUESTIONS: 5,
       LOWGRADE_BATCH: 5,
+      LOWGRADE_TIME_FACTOR: 2,
       LOWGRADE_ANSWER_SEC: { meadow: 3, waterside: 5, desert: 5 },
     });
   });

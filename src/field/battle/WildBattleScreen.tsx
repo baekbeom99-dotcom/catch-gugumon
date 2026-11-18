@@ -56,6 +56,7 @@ import {
   wildHpRatio,
   type ThrowOutcome,
   type WildState,
+  questionBaseMs,
 } from '../../domain/field/wildBattle';
 import type { Wound } from '../../domain/field/wounds';
 import { M2_EFFECT_OF_SPECIES, skillButtons, type SkillButton, type SkillDef } from '../../domain/field/skills';
@@ -208,6 +209,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       encounter.level,
       useGameStore.getState().field.species[companion]?.hp ?? COMPANION_MAX_HP,
       buttons.length,
+      useGameStore.getState().settings.lowGrade,
     );
   }
   const [wild, setWildState] = useState<WildState>(wildRef.current);
@@ -471,7 +473,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   // 캡슐에서 빠져나오거나 화난 결과를 보여 주는 동안(throwing)은 문제가 떠 있어도 시계가 멈춘다
   const running = clockRuns({ intro, confirmQuit, ending: !!ending, phase: wild.phase, noTimer, throwing });
   // 고른 버튼의 기술이 바뀌는 기점 (그 단계 문제 시간 기준 — 여유로 늘어난 시간은 넣지 않아 판정과 같다)
-  const stops = useMemo(() => gaugeStops(picked, TIER_RULES[wild.tier].timeMs), [picked, wild.tier]);
+  const stops = useMemo(() => gaugeStops(picked, questionBaseMs(wild)), [picked, wild.tier, wild.timeFactor]);
   const stopsRef = useRef(stops);
   stopsRef.current = stops;
 
@@ -494,7 +496,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
       if (t.phase !== 'question') {
         // 시간 초과: 오답처럼 기록하고(R8) 적이 공격한다
         setWildState(t);
-        record(false, TIER_RULES[t.tier].timeMs);
+        record(false, questionBaseMs(t));
         onStruckRef.current(t);
         return;
       }
@@ -808,7 +810,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   };
   const hpRatio = wildHpRatio(wild);
   const picking = !intro && wild.phase === 'pick';
-  const timeMs = TIER_RULES[wild.tier].timeMs;
+  const timeMs = questionBaseMs(wild);
   // 내 구구몬에 남아 있는 특수 효과 (다음 문제·다음 공격에 쓰인다)
   const buffs = [
     wild.guard && battleText.buff.guard,

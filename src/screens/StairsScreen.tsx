@@ -5,6 +5,10 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { isStarPointsEnabled } from '../config/featureFlags';
+import { CapsuleBall } from '../field/art/CapsuleBall';
+import { CAPSULE_NAMES } from '../domain/field/capsules';
+import { nextItemGap, stairsItemSlots, type StairsItem } from '../domain/field/stairsItems';
 import { returnPathAfterStairs } from '../field/training/routes';
 import { hatArtOf } from '../art/HatSprite';
 import { EggSprite, type PetExpression, PetSprite } from '../art/PetSprite';
@@ -67,7 +71,40 @@ interface Result {
   affection: number;
 }
 
+/** 계단 아이템 상태: 놓인 아이템과, 다음 아이템이 놓일 칸·여기까지 놓았다는 칸 (계단이 늘면 이어서 놓는다) */
+interface ItemField {
+  items: Record<number, StairsItem>;
+  nextAt: number;
+  upTo: number;
+}
+const ITEM_CHUNK = 40;
+
+function newItemField(): ItemField {
+  const r = stairsItemSlots(0, ITEM_CHUNK, nextItemGap(rng), rng, isStarPointsEnabled());
+  return { items: r.items, nextAt: r.nextAt, upTo: ITEM_CHUNK };
+}
+
+/** 아이템을 얻었을 때 뜨는 글 */
+function lootText(item: StairsItem): string {
+  return item.kind === 'stars' ? `별점수 +${item.amount}` : `${CAPSULE_NAMES[item.capsule]} +1`;
+}
+
 const SLOT_LABEL: Record<StairsSlot, string | null> = { normal: null, wrong: '자주 틀린 문제', challenge: '황금 계단 12·13단' };
+
+/** 계단 위에 놓인 아이템 그림: 캡슐 공 또는 별점수 별 */
+function StairItem({ item }: { item: StairsItem }) {
+  return (
+    <span className="stair__item" data-item={item.kind === 'stars' ? 'stars' : `capsule-${item.capsule}`}>
+      {item.kind === 'stars' ? (
+        <span className="stair__stars">
+          ⭐<small>×{item.amount}</small>
+        </span>
+      ) : (
+        <CapsuleBall type={item.capsule} size={30} />
+      )}
+    </span>
+  );
+}
 
 export function StairsScreen() {
   const navigate = useNavigate();
@@ -85,6 +122,13 @@ export function StairsScreen() {
   const [goldAt, setGoldAt] = useState(-1);
   const [path, setPath] = useState<number[]>(() => stairsPath(40, rng));
   const [current, setCurrent] = useState<Current | null>(null);
+  /** 계단 위 아이템 (판마다 새로 놓는다) */
+  const [itemField, setItemField] = useState<ItemField>(newItemField);
+  /** 이번 판에 이미 얻은 아이템 칸 */
+  const [taken, setTaken] = useState<number[]>([]);
+  /** 방금 얻은 아이템 글 (잠깐 떠 있다) */
+  const [loot, setLoot] = useState<{ at: number; text: string } | null>(null);
+  const collected = useRef<Set<number>>(new Set());
   const [left, setLeft] = useState(STAIRS_TIME_MS);
   /** 지금 문제에 주어진 시간 (12·13단은 더 길다) */
   const [limit, setLimit] = useState(STAIRS_TIME_MS);
@@ -112,6 +156,10 @@ export function StairsScreen() {
     setChallenges(0);
     setGoldAt(-1);
     setPath(stairsPath(40, rng));
+    setItemField(newItemField());
+    collected.current = new Set();
+    setTaken([]);
+    setLoot(null);
     setResult(null);
     setCurrent(null);
     setCount(3);
@@ -166,6 +214,25 @@ export function StairsScreen() {
     if (current.fact.isChallenge) {
       setChallenges((c) => c + 1);
       setGoldAt(steps + 1);
+    }
+    // 아이템이 놓인 칸에 올라서면 바로 얻는다 (한 칸에 한 번만 — 저장도 이때 한다)
+    const landed = itemField.items[steps + 1];
+    if (landed && !collected.current.has(steps + 1)) {
+      collected.current.add(steps + 1);
+      const store = useGameStore.getState();
+      if (landed.kind === 'capsule') store.grantCapsules(landed.capsule, 1);
+      else store.addStarPoints(landed.amount, 'stairs');
+      setTaken((t) => [...t, steps + 1]);
+      setLoot({ at: steps + 1, text: lootText(landed) });
+      playSfx('coin');
+    }
+    // 아이템도 계단과 함께 이어서 놓는다 (간격이 끊기지 않게)
+    if (steps + ABOVE + 2 >= itemField.upTo) {
+      setItemField((f) => {
+        if (steps + ABOVE + 2 < f.upTo) return f;
+        const more = stairsItemSlots(f.upTo, ITEM_CHUNK, f.nextAt - f.upTo, rng, isStarPointsEnabled());
+        return { items: { ...f.items, ...more.items }, nextAt: more.nextAt, upTo: f.upTo + ITEM_CHUNK };
+      });
     }
     // 계단이 모자라면 더 이어 붙인다
     if (steps + ABOVE + 2 >= path.length) {
@@ -245,10 +312,12 @@ export function StairsScreen() {
             return (
               <div
                 key={i}
+                data-step={i}
                 className={`stair ${i === steps ? 'stair--here' : ''} ${i % 10 === 0 && i > 0 ? 'stair--ten' : ''}`}
                 style={{ left: path[i] * STEP_W, top: -i * STEP_H }}
               >
                 {i % 10 === 0 && i > 0 && <span className="stair__mark">{i}</span>}
+                {itemField.items[i] && !taken.includes(i) && <StairItem item={itemField.items[i]} />}
               </div>
             );
           })}
@@ -274,6 +343,11 @@ export function StairsScreen() {
               ♥ 친밀도 +{STAIRS_AFFECTION_PER_TEN}
             </div>
           )
+        )}
+        {phase === 'play' && loot && loot.at === steps && (
+          <div key={`loot-${loot.at}`} className="stairs__loot">
+            {loot.text}
+          </div>
         )}
         {phase === 'count' && (
           <div key={count} className="stairs__countdown">
