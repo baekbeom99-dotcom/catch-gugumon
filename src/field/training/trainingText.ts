@@ -19,7 +19,6 @@ export const trainingText = {
   challengeHint: '9문제를 모두 맞혀요',
   lockedHint: '학습을 먼저 마쳐요',
   recordsButton: '내 기록 보기',
-  backToTown: '마을로',
   /** 체육관 안 NPC·동상 화면에서 나갈 때 */
   backToGym: '체육관으로',
   again: '다시 하기',

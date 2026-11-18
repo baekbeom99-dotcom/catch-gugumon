@@ -705,6 +705,8 @@ test('처음 필드는 첫 구구몬 고르기로 가고, 물거북몬을 골라
   await expect(page.getByLabel('물거북몬 잡음')).toBeVisible();
   await expect(page.locator('.fdex__cell--caught')).toHaveCount(2);
   await expect(page.locator('.fdex__cell--unknown')).toHaveCount(46);
+  // 별점수는 꺼져 있어 발견·포획으로 쌓이지 않는다
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.starPoints)).toBe(0);
 
   // 잡은 구구몬을 동행으로
   await page.getByLabel(`${wildName} 잡음`).click();
@@ -1443,6 +1445,37 @@ test('구구몬이 있는 칸을 탭해도 말풍선이 뜬다', async ({ page }
 });
 
 // ── 왼쪽 위 표시·태초마을로·도감 체력 ──
+
+test('옛 저장에 013(c013)이 있어도 열리고, 도감은 48종이며 저장에서 c013이 사라진다', async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.addInitScript(() => {
+    if (localStorage.getItem('gugu-monster:save')) return;
+    const f = {
+      starterChosen: true,
+      companion: 'c013',
+      species: { c013: { level: 7, exp: 3, stage: 1, caught: 1, firstCaughtAt: 1, skills: ['c013-1'] } },
+      seen: ['c013'],
+    };
+    localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field: f } }));
+  });
+  await page.goto('/#/field');
+  await expect(page).toHaveURL(/#\/field$/);
+  const hud = page.getByRole('group', { name: '필드 정보' });
+  await expect(hud).toContainText('도감 1/48');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', /\d+,\d+/);
+  // 한 칸 걸어 저장이 다시 쓰이게 한다
+  const before = await pos(page);
+  await page.keyboard.down('ArrowRight');
+  await page.waitForTimeout(500);
+  await page.keyboard.up('ArrowRight');
+  await expect.poll(async () => (await pos(page)).x).not.toBe(before.x);
+  const field = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
+  expect(field.species.c013).toBeUndefined();
+  expect(field.species.c046.level).toBe(7);
+  expect(field.companion).toBe('c046');
+  expect(JSON.stringify(field)).not.toContain('c013');
+  expect(errors).toEqual([]);
+});
 
 test('HUD에 도감 1/48과 캡슐 3개씩, 동행 체력이 보인다', async ({ page }) => {
   await seedStarter(page);

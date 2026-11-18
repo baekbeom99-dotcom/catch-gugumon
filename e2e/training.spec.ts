@@ -26,7 +26,7 @@ function trainingOf(masteredDans: number[], studiedDans: number[] = masteredDans
 }
 
 /** 페이지가 열리기 전에 저장본을 넣는다 (이미 저장이 있으면 그대로 — 새로고침해도 진행이 남는다) */
-async function seed(page: Page, opts: { training?: Training; map?: 'town' | 'gym'; pos?: { x: number; y: number; facing: string }; noTimer?: boolean } = {}) {
+async function seed(page: Page, opts: { training?: Training; map?: 'town' | 'gym'; pos?: { x: number; y: number; facing: string }; noTimer?: boolean; stars?: boolean } = {}) {
   const field = {
     starterChosen: true,
     companion: 'c034',
@@ -36,11 +36,12 @@ async function seed(page: Page, opts: { training?: Training; map?: 'town' | 'gym
     position: { map: opts.map ?? 'town', ...(opts.pos ?? { x: 9, y: 5, facing: 'up' }) },
   };
   await page.addInitScript(
-    ({ f, noTimer }) => {
+    ({ f, noTimer, stars }) => {
+      if (stars) (window as unknown as { __GUGU_E2E_STARS__: boolean }).__GUGU_E2E_STARS__ = true;
       if (noTimer) (window as unknown as { __GUGU_E2E_NO_TIMER__: boolean }).__GUGU_E2E_NO_TIMER__ = true;
       if (!localStorage.getItem('gugu-monster:save')) localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field: f } }));
     },
-    { f: field, noTimer: !!opts.noTimer },
+    { f: field, noTimer: !!opts.noTimer, stars: !!opts.stars },
   );
 }
 
@@ -144,6 +145,7 @@ test('학습 전에는 마스터 도전이 잠겨 있고, 학습을 끝내면 �
   const f = await saved(page);
   expect(f.training.studied[2]).toBe(true);
   expect(count(f, 'meadow')).toBe(before + 5);
+  expect(f.starPoints).toBe(0); // 별점수는 꺼져 있어 쌓이지 않는다
 
   // 마을로 나가고 다시 들어와도 캡슐은 그대로
   await page.getByRole('button', { name: '체육관으로' }).click();
@@ -173,10 +175,20 @@ test('마스터 도전 첫 성공: 마스터 저장·캡슐 20개·다음 3단�
   const f = await saved(page);
   expect(f.training.mastered[2]).toBeTruthy();
   expect(count(f, 'meadow')).toBe(before + 20); // 중복 지급 없음 (5개를 더하지 않는다)
+  expect(f.starPoints).toBe(0); // 별점수 꺼짐: 성공해도 0
   // 3단 건물이 열렸다
   await page.getByRole('button', { name: '체육관으로' }).click();
   await openTraining(page, 3);
   expect(errors).toEqual([]);
+});
+
+test('별점수를 켜면 트레이닝 성공 한 번에 별점수 3이 저장된다', async ({ page }) => {
+  await seed(page, { training: trainingOf([], [2]), noTimer: true, stars: true });
+  await openTraining(page, 2);
+  await page.getByTestId('training-challenge-btn').click();
+  await solveNine(page, 2);
+  await expect(page.getByTestId('training-result')).toHaveAttribute('data-result', 'pass');
+  expect((await saved(page)).starPoints).toBe(3);
 });
 
 test('마지막 답 바로 뒤에 그만하기를 눌러도 결과 화면이 나오고 캡슐은 한 번만 받는다', async ({ page }) => {

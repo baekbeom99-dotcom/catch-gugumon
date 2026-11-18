@@ -46,6 +46,11 @@ describe('실제 마을 지도의 건물 그림자', () => {
       expect(near, kind).toBe(true);
     }
   });
+  it('실제 칸을 고정한다: 체육관 문 앞 (9,5)·오른쪽 길 (15,1)~(15,4), 계단 건물 문 앞 (9,9)·오른쪽 (11,7)·(11,8)', () => {
+    for (const [x, y] of [[9, 5], [15, 1], [15, 2], [15, 3], [15, 4], [9, 9], [11, 7], [11, 8]]) expect(has(x, y), `${x},${y}`).toBe(true);
+    // 건물 왼쪽·위쪽 길과 간판 칸에는 그림자가 없다
+    for (const [x, y] of [[3, 2], [8, 8], [5, 5]]) expect(has(x, y), `${x},${y}`).toBe(false);
+  });
   it('모두 걷는 길 칸이고 문·표지판·출구·둘레 벽이 아니다', () => {
     expect(shadows.length).toBeGreaterThan(10);
     for (const p of shadows) {

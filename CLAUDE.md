@@ -1,7 +1,7 @@
 # 구구단 몬스터 탐험대 — 작업 안내
 
 어린이용 구구단 학습 PWA. 몬스터 탐험(문제 풀이)으로 별을 모아 다마고치 펫을 키운다.
-React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/field`, `#/field/battle`, `#/field/starter`, `#/field/dex`, `#/field/training/:dan` 트레이닝센터, `#/field/records` 학습 기록, `#/stairs` 무한의 계단). 퀴즈 모험(`#/pet` 등 탭 화면)은 `src/config/featureFlags.ts`로 꺼져 있고 `#/field`로 보낸다, GitHub Pages 정적 배포. 서버 없음 — 모든 데이터는 브라우저 localStorage.
+React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/field`, `#/field/battle`, `#/field/starter`, `#/field/dex`, `#/field/training/:dan`·`#/field/training/arith/:level` 체육관 트레이너 화면, `#/field/statue` 동상(별점수 켜야 열림), `#/field/records` 학습 기록, `#/stairs` 무한의 계단). 마을 위쪽 체육관(실내 지도 `gym`)이 훈련 장소다. 퀴즈 모험(`#/pet` 등 탭 화면)은 `src/config/featureFlags.ts`로 꺼져 있고 `#/field`로 보낸다, GitHub Pages 정적 배포. 서버 없음 — 모든 데이터는 브라우저 localStorage.
 
 - 라이브: https://baekbeom99-dotcom.github.io/gugu-monster/
 - 사용자는 한국어로 요청한다. 화면 글자·주석·커밋 메시지도 한국어(어린이가 읽기 쉬운 말).
@@ -15,14 +15,16 @@ React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/fiel
 | `src/store/useGameStore.ts` | 저장되는 게임 상태와 액션(Zustand persist) |
 | `src/store/saveData.ts` | `SaveData` 형식, `createInitialSave`, `mergeSave`(예전 저장 채우기), `SAVE_KEY` |
 | `src/store/useSessionStore.ts` | 저장 안 되는 화면 상태(진화·레벨업 알림 대기 등) |
-| `src/domain/field/training.ts`·`doorEntry.ts` | 트레이닝센터 규칙(단 열림·도전 열림·문제 계획·합격 판정·12·13단 레전드 보상)과 마을 문 처리(상점·입장·잠김 글·문 앞 칸). 수치는 `tuning.ts`의 `TRAINING_*` |
-| `src/config/featureFlags.ts` | `QUIZ_ADVENTURE_ENABLED`(퀴즈 모험 켜기, 지금 false)·`isQuizEnabled()`(E2E `__GUGU_E2E_QUIZ__` 우선)·`isRouteEnabled` |
-| `src/field/training/` | 트레이닝센터 화면: `TrainingScreen`(입구·학습/도전 고르기·결과 이동), `StudyMode`(×1~×9 학습), `ChallengeMode`(섞은 9문제·27초), `TrainingResult`(캡슐·마스터·레전드), `QuizBoard`(문제 화면 틀), `flow`(진행 상태기계), `trainingText`(글), `useTrainingRun`(끝에서 `finishTraining` 한 번)·`useRunClock`·`useTrainingFx`, `FieldRecordsScreen`(`#/field/records`), `routes`(계단 복귀) |
+| `src/domain/field/training.ts`·`doorEntry.ts`·`gymTalk.ts` | 트레이닝 규칙(단 열림·문제 계획·합격 판정·12·13단 레전드 보상), 마을 문 처리(상점·체육관·계단 문 앞 칸), 체육관 NPC 말 걸기·잠김 글. 수치는 `tuning.ts`의 `TRAINING_*` |
+| `src/domain/field/{arithTrainer,starPoints,lowGrade,lowGradeRun}.ts` | 셈연습 트레이너(기본·고수·보수, 보상·레전드), 별점수(`starGain` 한 곳·동상 문제 계획, 수치 `STAR_*`·`STATUE_*`), 저학년 모드(필드별 덧뺄셈·틀린 문제·비밀번호 `checkLowGradePassword`, 수치 `LOWGRADE_*`)와 상점·전투 진행 |
+| `src/config/featureFlags.ts` | `QUIZ_ADVENTURE_ENABLED`(퀴즈 모험 켜기, 지금 false)·`isQuizEnabled()`(E2E `__GUGU_E2E_QUIZ__` 우선)·`STAR_POINTS_ENABLED`(별점수 켜기, 지금 false)·`isStarPointsEnabled()`(E2E `__GUGU_E2E_STARS__` 우선)·`isRouteEnabled` |
+| `src/field/training/` | 트레이닝·셈연습·동상 화면: `TrainingScreen`(구구단 트레이너 입구·학습/도전·결과 이동), `ArithTrainerScreen`(`#/field/training/arith/:level`), `StatueScreen`(`#/field/statue`), `StudyMode`·`ChallengeMode`(제네릭: 문제·진행기·제목을 props로), `TrainingResult`(캡슐·마스터·레전드), `QuizBoard`(문제 화면 틀), `boardQuestion`(`BoardQuestion` — 구구단·덧뺄셈·보수 공통 문제 모양), `flow`(진행 상태기계)·`runner`(`createRunner`), `trainingText`(글), `useTrainingRun`(`useRun` — 끝에서 정산 한 번)·`useRunClock`·`useTrainingFx`, `FieldRecordsScreen`(`#/field/records`), `routes`(계단·체육관 복귀) |
+| `src/field/lowgrade/` | `PasswordDialog`(저학년 모드 켜고 끌 때 비밀번호 창, 관리자 `PinPad` 재사용), `LowGradeHint`(덧뺄셈 힌트) |
 | `src/domain/field/` | 필드 모험 순수 로직: **`tuning`(운영 수치 전부)**, `companion`(쓰러졌을 때 대신 함께 다닐 구구몬 `healthyCompanions`·`pickReplacement`), `skills`(기술 표·슬롯 패턴·특수·복사), `fields`(필드·단 구성), `movement`, `wildBattle`, `encounter`(만남), `creatures`(종·기술 이름), `fieldQuestions`, `growth`(경험치·레벨·진화), `strength`(만남 강함 단계), `capsules`(캡슐 4종·개수), `wounds`(체력·상처), `shopQuiz`(상점 연습), `roam`(마을 구구몬 배회), `answerTimer`(문제 시계), `elements`(속성 7가지·기술 효과 표) |
 | `src/field/shop/` | 마을 상점 팝업: `ShopPopup`, `CapsuleTab`(캡슐 탭), `CapsulePractice`(지역 단 중 하나를 무작위로 골라 ×1~×9 순서대로), `PotionTab`·`HealPractice`(회복 연습: 틀린 문제 중심, 없으면 그 구구몬 필드 문제), `PracticeCard`(연습 문제 카드), `shopText`(글), `shop.css` |
-| `src/field/world/` | 필드 걷기 (주인공을 조작하고 동행 구구몬이 방금 떠난 칸을 따라옴): `FieldScreen`, `fieldRenderer`(캔버스, `drawField`가 주인공·동행을 그림 — 주인공은 치비 017 시트, 없으면 픽셀 `hero.ts`), `roamerLayer`(마을 구구몬·`playerPose` 시트 없는 동행의 통통·반전), `Joystick`, `FieldHud`(왼쪽 위 캡슐·도감·체력), `loadField`, `maps/`(필드마다 지도·타일 그림) |
+| `src/field/world/` | 필드 걷기 (주인공을 조작하고 동행 구구몬이 방금 떠난 칸을 따라옴): `FieldScreen`, `fieldRenderer`(캔버스, `drawField`가 주인공·동행을 그림 — 주인공은 치비 017 시트, 없으면 픽셀 `hero.ts`), `roamerLayer`(마을 구구몬·`playerPose` 시트 없는 동행의 통통·반전), `Joystick`, `FieldHud`(왼쪽 위 캡슐·도감·체력), `loadField`, `maps/`(필드마다 지도·타일 그림; `gym.ts`는 체육관 실내 지도·`GYM_NPCS`·동상) |
 | `src/field/battle/` | 야생 전투 (포켓몬 3세대 배치: 적 정보 상자 왼쪽 위·적 오른쪽 위 앞모습, 내 구구몬 왼쪽 아래 뒷모습·내 정보 상자 오른쪽 아래 — 체력 숫자·EXP 막대, 잔디 타원 받침. 자리·크기는 `battleLayout`(무대 비율)): `WildBattleScreen`, `useQuestionFeed`(문제 받기), `BattleBars`(`HpBar`·`TimerBar` — 눈금·구간 색만, 글자 없음), `battleText`(화면 글), `SkillPicker`(기술 버튼 3개 한 줄·이름만, 특수만 설명 한 줄), `skillUse`(발동·글·`gaugeStops`/`gaugeZones`·`skillLines`/`buttonLines` 버튼 문구 — 선택창·관리 화면 카드도 같은 함수) |
-| `src/field/art/` | 그림: `creatureArt`(구구몬 그림 등록표, `artSheets`·`artBox`), `creatureSprite`(DOM 그림: 시트 행 재생·전투 공격 한 번 재생), `companionImage`(캔버스용 `companionSheet`·`sheetFrame`), `spriteSheet`(치비 시트 순수 함수: **4열 프레임 × 4행 방향 — 행 0 아래(앞)·1 위(뒤)·2 오른쪽·3 왼쪽**, `BATTLE_ROW` 내 구구몬=행1 뒷모습·야생=행0 앞모습, `cellBox` 몸 높이 맞춤 기준 `BODY_H_TARGET`·`BODY_W_MAX`), `localSprites`(이 PC 전용 치비 그림 등록: **종 `cNNN` = 그림 번호 `NNN`**(번호표 없음), **주인공 = `017`**(`HERO_ART`, 종이 아님), 필드 자리 크기 `CHIBI_FIELD_FILL`), `hero`(그림이 없을 때 픽셀 주인공), `PixelSprite`, `SpriteCredit`(그림이 있을 때만 출처 표기), `pixelArt`(픽셀 그림 틀·표지판), `CapsuleBall` |
+| `src/field/art/` | 그림: `creatureArt`(구구몬 그림 등록표, `artSheets`·`artBox`), `creatureSprite`(DOM 그림: 시트 행 재생·전투 공격 한 번 재생), `companionImage`(캔버스용 `companionSheet`·`sheetFrame`), `spriteSheet`(치비 시트 순수 함수: **4열 프레임 × 4행 방향 — 행 0 아래(앞)·1 위(뒤)·2 오른쪽·3 왼쪽**, `BATTLE_ROW` 내 구구몬=행1 뒷모습·야생=행0 앞모습, `cellBox` 몸 높이 맞춤 기준 `BODY_H_TARGET`·`BODY_W_MAX`), `localSprites`(이 PC 전용 치비 그림 등록: **종 `cNNN` = 그림 번호 `NNN`**(번호표 없음), **주인공 = `017`**(`HERO_ART`, 종이 아님), 필드 자리 크기 `CHIBI_FIELD_FILL`), `hero`(그림이 없을 때 픽셀 주인공), `npcTint`·`npcSprite`(체육관 NPC 013 그림의 몸 색·머리색 — 마스터하면 머리 노랑), `shadow`(마을 건물 그림자), `PixelSprite`, `SpriteCredit`(그림이 있을 때만 출처 표기), `pixelArt`(픽셀 그림 틀·표지판), `CapsuleBall` |
 | `src/field/fx/` | 효과: `effects`(효과 목록), `playFx`(틀기) |
 | `src/field/` | 기술 화면: `SkillOfferDialog`(기술 선택창: 새 기술 + 그 자리 기술 하나), `SkillManager`(도감 기술 관리: 주속성 사슬·부속성 자리·특수 자리 세 구역), `SkillCard`, `skillText`(기술 글) |
 | `src/field/` | 그 밖: `StarterScreen`, `FieldDexScreen`, `useFieldSession`(저장 안 되는 만남 상태), `debugFlags`(디버그 스위치), `DevFieldGallery`(#/dev/field) |
@@ -50,7 +52,7 @@ E2E_PORT=5181 npx playwright test   # E2E (다른 앱이 5181 등을 쓰면 5191
 npm run build                # 배포용 빌드 (tsc -b && vite build)
 ```
 
-- E2E 스위치(`window`에 설정): `__GUGU_E2E_CALM__`(똥·병 끔), `__GUGU_E2E_FIELD__`(필드 만남·캡슐 100%), `__GUGU_E2E_PATH__`(길 걸음도 만남 100%), `__GUGU_E2E_NO_WILD__`(강제 안 한 야생 만남 끔, e2e 기본), `__GUGU_E2E_NO_TIMER__`(전투 문제 시간 멈춤), `__GUGU_E2E_TIER__`(야생 강함 단계 고정, `'weak'`·`'normal'`·`'strong'`·`'mighty'`), `__GUGU_E2E_LEGEND__`(만남이 레전드), `__GUGU_E2E_QUESTION__`(전투 문제 고정), `__GUGU_E2E_FAST__`(true면 항상 빠르게=모든 조건 시간 충족, false면 항상 미충족), `__GUGU_E2E_COPY__`(true 복사 100%, false 복사 안 함, 없으면 2%; `e2e/fixtures.ts`가 기본 false), `__GUGU_E2E_THROW__`(`'caught'`·`'healed'`·`'escaped'`·`'angry'`로 던지기 결과 고정), `__GUGU_E2E_COMBAT__`(`{ crit, dodge, effect }`를 true·false로 전투 굴림 고정, `fixtures.ts` 기본은 크리티컬·회피 없음·효과 성공), `__GUGU_E2E_QUIZ__`(true면 퀴즈 모험·타이틀 버튼을 켬. 없으면 꺼짐 — 퀴즈 화면을 보는 스펙은 `helpers.enableQuiz(page)`를 `beforeEach`에서). 트레이닝 도전 시계는 `__GUGU_E2E_NO_TIMER__`로 멈춘다. 필드 스위치는 `src/field/debugFlags.ts` 한 곳에서 읽는다.
+- E2E 스위치(`window`에 설정): `__GUGU_E2E_CALM__`(똥·병 끔), `__GUGU_E2E_FIELD__`(필드 만남·캡슐 100%), `__GUGU_E2E_PATH__`(길 걸음도 만남 100%), `__GUGU_E2E_NO_WILD__`(강제 안 한 야생 만남 끔, e2e 기본), `__GUGU_E2E_NO_TIMER__`(전투 문제 시간 멈춤), `__GUGU_E2E_TIER__`(야생 강함 단계 고정, `'weak'`·`'normal'`·`'strong'`·`'mighty'`), `__GUGU_E2E_LEGEND__`(만남이 레전드), `__GUGU_E2E_QUESTION__`(전투 문제 고정), `__GUGU_E2E_FAST__`(true면 항상 빠르게=모든 조건 시간 충족, false면 항상 미충족), `__GUGU_E2E_COPY__`(true 복사 100%, false 복사 안 함, 없으면 2%; `e2e/fixtures.ts`가 기본 false), `__GUGU_E2E_THROW__`(`'caught'`·`'healed'`·`'escaped'`·`'angry'`로 던지기 결과 고정), `__GUGU_E2E_COMBAT__`(`{ crit, dodge, effect }`를 true·false로 전투 굴림 고정, `fixtures.ts` 기본은 크리티컬·회피 없음·효과 성공), `__GUGU_E2E_STARS__`(true면 별점수를 켬, 없으면 꺼짐), `__GUGU_E2E_QUIZ__`(true면 퀴즈 모험·타이틀 버튼을 켬. 없으면 꺼짐 — 퀴즈 화면을 보는 스펙은 `helpers.enableQuiz(page)`를 `beforeEach`에서). 트레이닝 도전 시계는 `__GUGU_E2E_NO_TIMER__`로 멈춘다. 필드 스위치는 `src/field/debugFlags.ts` 한 곳에서 읽는다.
 - E2E 하나가 가끔 시간 문제로 실패할 수 있다(`dex.spec` 놀이 장면). 따로 다시 돌려 확인. 파이프로 줄일 때는 `set -o pipefail`로 실패를 놓치지 않기.
 - Windows Git Bash에서 `BASE_PATH=/gugu-monster/`처럼 `/`로 시작하는 값은 경로로 바뀐다 → 로컬 빌드 확인 때 `MSYS_NO_PATHCONV=1`.
 
@@ -79,7 +81,12 @@ npm run build                # 배포용 빌드 (tsc -b && vite build)
 | 확률·강함 단계·문제 시간·캡슐·경험치·연출 시간 | `src/domain/field/tuning.ts` 한 곳 | `tests/field/tuning.test.ts` 고정값, `MVP_DESIGN.md` 이력 |
 | 필드별 단·나오는 종 | `src/domain/field/fields.ts` | 설계서 4-6 |
 | 종 이름 | `src/domain/monsterNames.ts` (기술 이름은 아래 `skills.ts` 행) | — |
-| 트레이닝센터 수치(단 목록·마스터 제한 시간·캡슐 개수·캡슐 종류·계단 열림 조건) | `src/domain/field/tuning.ts`의 `TRAINING_DANS`·`TRAINING_MASTER_MS`·`TRAINING_CAPSULES`·`TRAINING_CAPSULE_OF_DAN`·`STAIRS_OPEN_AFTER_DAN` | `tests/field/tuning.test.ts`, `e2e/training.spec.ts`, `MVP_DESIGN.md` 이력 |
+| 체육관 NPC·트레이너 단 목록 | `src/field/world/maps/gym.ts`의 `GYM_NPCS`(자리·단·색)와 `tuning.ts`의 `TRAINING_DANS` | `tests/field/maps.test.ts`, `e2e/gym.spec.ts` |
+| 훈련 보상·마스터 제한 시간·계단 열림 조건 | `tuning.ts`의 `TRAINING_*`(`TRAINING_MASTER_MS`·`TRAINING_FIRST_MASTER_CAPSULES`·`STAIRS_OPEN_AFTER_DAN`…)·`ARITH_TRAINER_*` | `tests/field/tuning.test.ts`, `e2e/training.spec.ts`·`arith.spec.ts`, `MVP_DESIGN.md` 이력 |
+| 별점수(적립량·동상 문제 수)·켜기 | `tuning.ts`의 `STAR_*`·`STATUE_*`, `featureFlags.ts`의 `STAR_POINTS_ENABLED` (꺼진 동안 적립·화면 없음, 동상은 장식) | `tests/field/starPoints.test.ts` |
+| 저학년 모드(문제·시간·비밀번호) | `tuning.ts`의 `LOWGRADE_*`, `src/domain/field/lowGrade.ts` | `tests/field/lowGrade*.test.ts`, `e2e/lowgrade.spec.ts` |
+| 건물 그림자 | `src/field/art/shadow.ts`의 `BUILDING_SHADOW`(밀림·진하기) | `tests/field/townShadow.test.ts` |
+| NPC 색·머리색(013 그림) | `src/field/art/npcTint.ts`·`npcSprite.ts` — **`c013`은 종이 아니라 NPC 그림 전용**(종 48·레전드 11, 옛 저장의 c013은 c046으로 옮김) | `tests/field/npcTint.test.ts` |
 | 상점 글 | `src/field/shop/shopText.ts` | E2E가 글을 찾으면 `e2e/field.spec.ts`도 |
 | 캡슐·단 연습 수치 | `src/domain/field/tuning.ts` | `tests/field/tuning.test.ts` |
 | 기술(슬롯 패턴 위력·조건 시간·배우는 레벨·이름·종별 특수·주② 효과 M2) | `src/domain/field/skills.ts`의 `SLOT_PATTERN`·`SKILL_NAMES`·`SPECIAL_OF_SPECIES`·`M2_EFFECT_OF_SPECIES` | `tests/field/skillsTable.test.ts` 고정표 |
@@ -91,7 +98,7 @@ npm run build                # 배포용 빌드 (tsc -b && vite build)
 | 구구몬 그림 교체 | 파일을 `src/field/art/creatures/`에 넣고 `src/field/art/creatureArt.ts`의 `IMAGE_ART`에 한 줄 | `#/dev/field`에서 앞·뒤·동행 크기 확인 (퀴즈 모험 몬스터 그림은 그대로) |
 | 치비 그림·시트(가만히·걷기·공격) | `python scripts/cut-chibi.py [번호...]`(없으면 001~050, 017 주인공 포함)가 원본(`C:\Antigravity\sprite\sprites\<번호>\idle·walk·attack.png`, 4열×4행, `CHIBI_SRC`로 바꿈)에서 `src/field/art/creatures/chibi/<번호>-front·back·idle·walk·attack.png`+`manifest.json`(`cw·ch`·프레임 ms·`bodyH·bodyW`)을 만든다 (.gitignore — 저장소·배포에 넣지 않음, 없으면 구구몬은 SVG·주인공은 픽셀). 종 `cNNN`은 번호 `NNN`을 저절로 쓴다 | `#/dev/field`에서 주인공 4방향, 종마다 가만히·걷기 4방향·전투 공격(뒤·앞), 크기 비교 확인. 그림 없는 상태는 `tests/field/creatureArt.test.ts`(빈 파일 표)가 고정 |
 | 쓰러짐 뒤 대신 다닐 구구몬 | `src/domain/field/companion.ts`(`healthyCompanions`·`pickReplacement`), 저장은 `useGameStore.damageCompanion`(같은 저장에서 동행 바꿈·마을로), 알림 글은 `battleText.replacedField` | `tests/field/companionPick.test.ts`, `tests/field/fieldStore.test.ts` |
-| 지도·타일 | `src/field/world/maps/<필드>.ts`·`<필드>Tiles.ts` | `tests/field/maps.test.ts` |
+| 지도·타일(체육관 실내 `gym.ts`·`gymTiles.ts`·동상 자리 포함) | `src/field/world/maps/<필드>.ts`·`<필드>Tiles.ts` | `tests/field/maps.test.ts` |
 | 효과 추가 | `src/field/fx/effects.ts`의 `EFFECTS`에 한 줄 → 틀 곳에서 `playFx(canvas, '이름', 자리)` | `#/dev/field`에서 버튼으로 확인, 이름 목록 테스트(`pixelArt.test.ts`) |
 
 - **날아가는 효과:** `FxSpec`의 `motion: 'travel'`(+`travelMs`·`orb` 구슬 색)이면 `playFx(..., { from })`가 쏘는 구구몬에서 맞는 구구몬까지 구슬을 날린 뒤 도착 지점에서 터뜨린다(이동 + 터짐 ≤ 0.6초, 효과음·흔들림은 `moveFxRoute`의 `arriveMs`만큼 늦춤). 바닥에서 솟는 효과·특수 기술은 `burst` 그대로. **줄기 효과:** `motion: 'beam'`(+`beam: { reach, axisY }`)은 물줄기·번개줄기·불 뿜기(`water-jet`·`chain-lightning`·`fire-breath`·`flamethrower`)처럼 입에서 뻗는 효과 — `fx/beam.ts`가 효과를 따로 그린 뒤 쏘는 구구몬 입에서 맞는 구구몬 쪽으로 돌려(적 공격은 가로로 뒤집어) 붙이고 맞는 구구몬 한가운데에서 자른다. `travelMs`는 줄기 끝이 닿는 시간(효과음·피해 글 지연), `until ÷ speed`와 합쳐 ≤ 0.6초. `from`이 없으면 예전처럼 `at`에서 바로 재생.

@@ -1,6 +1,6 @@
 /**
  * 트레이닝센터 화면 (`#/field/training/:dan`) — 입구(간판·모드 고르기) → 학습 | 마스터 도전 → 결과.
- * 열리지 않았거나 모르는 단이면 필드로 돌려보낸다. 마을로 나가는 길은 늘 navigate('/field') (주인공은 문 앞에 저장돼 있다).
+ * 열리지 않았거나 모르는 단이면 필드로 돌려보낸다. 나가는 길은 늘 navigate('/field') — 체육관 안 그 트레이너 앞에 저장돼 있다.
  */
 import { useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
