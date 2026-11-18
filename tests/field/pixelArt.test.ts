@@ -8,9 +8,10 @@ import { WATERSIDE_TILES } from '../../src/field/world/maps/waterside';
 import { DESERT_TILES } from '../../src/field/world/maps/desert';
 import { loadField } from '../../src/field/world/loadField';
 import type { FieldId } from '../../src/domain/field/fields';
+import { TOWN_TILES } from '../../src/field/world/maps/townTiles';
 import { FX_NAMES } from '../../src/field/fx/playFx';
 
-const TILE_SETS = { meadow: MEADOW_TILES, waterside: WATERSIDE_TILES, desert: DESERT_TILES };
+const TILE_SETS = { meadow: MEADOW_TILES, waterside: WATERSIDE_TILES, desert: DESERT_TILES, town: TOWN_TILES };
 
 function tileArts(): [string, PixelArt][] {
   const out: [string, PixelArt][] = Object.entries(SHARED_ARTS).map(([k, a]) => [`공용/${k}`, a]);
@@ -92,6 +93,12 @@ describe('픽셀 그림', () => {
       'flamethrower', 'fire-ring', 'fire-tornado', 'meteor',
       'heal-aoe', 'divine-shield', 'rune-circle', 'time-stop', 'power-star', 'stunned',
     ]);
+  });
+});
+
+describe('마을 건물 타일', () => {
+  it('훈련·계단 건물 그림이 등록표에 있다', () => {
+    for (const k of ['trainWall', 'trainDoor', 'stairsWall', 'stairsDoor']) expect(Object.keys(TOWN_TILES.arts)).toContain(k);
   });
 });
 

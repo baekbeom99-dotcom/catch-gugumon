@@ -126,6 +126,7 @@ function drawRoofNumbers(ctx: CanvasRenderingContext2D, rects: { dan: number; x:
     ctx.lineWidth = Math.max(2, tile * 0.16);
     ctx.strokeStyle = '#6b3b00';
     ctx.strokeText(String(r.dan), px, py);
+    ctx.shadowBlur = 0; // 빛 번짐은 테두리 한 번만
     ctx.fillStyle = '#ffe14d';
     ctx.fillText(String(r.dan), px, py);
   }

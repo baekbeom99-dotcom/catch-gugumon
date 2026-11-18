@@ -83,6 +83,8 @@ const fence = overlay(M.ground, { n: '#c9985a', N: '#8d5a2b' }, (x, y) => {
 
 const arts = { shopWall, shopDoor, trainWall, trainDoor, stairsWall, stairsDoor, fence, ...M, bankSand, waterA, waterB, bank, desertSand };
 
+/** 건물 칸에서 이 건물 문까지 최대 거리(5칸 폭 건물의 가운데 문 + 끝에 남는 칸) */
+const NEAR_DOOR_MAX = 3;
 const DOOR_ART = { shop: shopDoor, training: trainDoor, stairs: stairsDoor };
 const isHash = (map: FieldMap, x: number, y: number) => map.raw[y]?.[x] === '#' && !onBorder(map, x, y);
 const isWaterRaw = (map: FieldMap, x: number, y: number) => map.raw[y]?.[x] === '~';
@@ -106,7 +108,7 @@ function building(map: FieldMap, x: number, y: number): PixelArt[] {
   const doorRow = roofRow ? y + 1 : y;
   // 훈련 건물은 문 글자 하나가 5칸 폭 건물의 가운데: 이 칸에서 가장 가까운 문(3칸 안)이 이 건물 것
   let kind: 'shop' | 'training' | 'stairs' | null = null;
-  let best = 4;
+  let best = NEAR_DOOR_MAX + 1;
   for (let i = left; i < left + width; i++) {
     const door = TOWN_DOORS[map.raw[doorRow][i]];
     if (!door) continue;
