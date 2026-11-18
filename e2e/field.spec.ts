@@ -1016,9 +1016,9 @@ test('초원 위 출구로 나가면 태초마을 아래 출구 위 칸, 마을 
   await standAt(page, 'meadow', 7, 1, 'up');
   await tap(page, 'ArrowUp');
   await expect(page.getByRole('status', { name: '불러오는 중' })).toContainText('태초마을');
-  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '9,38');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', `9,${38 + R}`);
   await page.reload();
-  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '9,38');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', `9,${38 + R}`);
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.position.map)).toBe('town');
 
   await tap(page, 'ArrowDown', 400); // 도착하면 위를 보고 있어서 돌아선 뒤 걷는다
