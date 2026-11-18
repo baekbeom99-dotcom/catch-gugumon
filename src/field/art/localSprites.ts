@@ -82,3 +82,9 @@ export const LOCAL_SPRITES = buildLocalSprites(FILES, MANIFEST);
 
 /** 주인공(017) 치비 그림. 없으면 undefined → 픽셀 주인공(hero.ts) */
 export const HERO_ART: ImageArtEntry | undefined = buildChibiArt(FILES, HERO_NUM, MANIFEST);
+
+/** 체육관 NPC(트레이너) 그림 번호 — 013 치비 한 장에 색만 다르게 입힌다 (종이 아니다) */
+export const NPC_NUM = '013';
+
+/** 체육관 NPC 치비 그림. 없으면 undefined → 픽셀 NPC(npcSprite) */
+export const NPC_ART: ImageArtEntry | undefined = buildChibiArt(FILES, NPC_NUM, MANIFEST);

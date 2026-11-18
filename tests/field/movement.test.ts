@@ -109,7 +109,7 @@ describe('마을 글자 (위아래 출구·문·서식지)', () => {
     expect(t.tiles[1][3]).toBe('door');
     expect(t.entrances.gym).toEqual({ x: 1, y: 2 });
   });
-  it('NPC·동상 자리를 받으면 막힌다 (NPC는 부딪힘, 동상은 막힘)', () => {
+  it('NPC·동상 자리를 받으면 막힌다 (NPC·동상 모두 부딪힘)', () => {
     const m = parseMap('gym', ['#####', '#...#', '#.@.#', '##v##'], {
       exits: { v: 'town' },
       signTexts: [],
@@ -119,7 +119,7 @@ describe('마을 글자 (위아래 출구·문·서식지)', () => {
     expect(npcAt(m, { x: 1, y: 1 })?.id).toBe('n1');
     expect(npcAt(m, { x: 2, y: 1 })).toBeUndefined();
     expect(tryStep(m, { x: 2, y: 1 }, 'left')).toMatchObject({ moved: false, bump: { x: 1, y: 1 } });
-    expect(tryStep(m, { x: 2, y: 1 }, 'right')).toMatchObject({ moved: false, bump: null });
+    expect(tryStep(m, { x: 2, y: 1 }, 'right')).toMatchObject({ moved: false, bump: { x: 3, y: 1 } });
     expect(m.tiles[1][3]).toBe('block');
     expect(() => parseMap('gym', ['###', '#.#', '###'], { exits: {}, signTexts: [], npcs: [{ id: 'x', pos: { x: 0, y: 0 } }] })).toThrow();
   });

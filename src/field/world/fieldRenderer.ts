@@ -6,6 +6,7 @@ import type { SheetFrame } from '../art/companionImage';
 import { HERO_SPRITES, heroFrame } from '../art/hero';
 import { SHADOW_FALLBACK_BODY, drawShadow, liftFraction } from '../art/shadow';
 import { type TileSet, bakeTiles } from '../art/pixelArt';
+import { type NpcSprite, drawNpcs } from '../art/npcSprite';
 import { type RoamerSprite, drawRoamers } from './roamerLayer';
 
 
@@ -107,6 +108,7 @@ export function drawField(
   companion?: Companion,
   anim: Anim = { now: 0, step: null },
   roamers: RoamerSprite[] = [],
+  npcs: NpcSprite[] = [],
 ): { cx: number; cy: number } {
   const { tile, w, h } = view;
   const hx = hero.x;
@@ -136,11 +138,16 @@ export function drawField(
   }
   // 마을에서 돌아다니는 구구몬: 동행·주인공 아래에 그린다
   if (roamers.length > 0) drawRoamers(ctx, roamers, tile, cx, cy, anim.now, companionRect);
+  // 체육관 NPC: 서 있는 트레이너. 주인공보다 위(뒤)에 선 쪽은 먼저, 아래(앞)에 선 쪽은 주인공·동행 다음에 그린다
+  const npcBehind = npcs.filter((n) => n.y <= hero.y);
+  if (npcBehind.length > 0) drawNpcs(ctx, npcBehind, tile, cx, cy, companionRect);
   // 동행: 주인공 뒤 칸. 화면에서 더 아래(앞)에 있는 쪽을 나중에 그려 겹칠 때 자연스럽게
   const companionFront = !!companion && companion.y > hero.y;
   if (companion && !companionFront) drawCompanion(ctx, companion, tile, cx, cy);
   drawHero(ctx, hero, tile, cx, cy, anim.step);
   if (companion && companionFront) drawCompanion(ctx, companion, tile, cx, cy);
+  const npcFront = npcs.filter((n) => n.y > hero.y);
+  if (npcFront.length > 0) drawNpcs(ctx, npcFront, tile, cx, cy, companionRect);
   return { cx, cy };
 }
 

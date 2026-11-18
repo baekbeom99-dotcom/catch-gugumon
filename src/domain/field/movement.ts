@@ -154,7 +154,7 @@ export function npcAt(map: FieldMap, p: Pos): { id: string; pos: Pos } | undefin
   return map.npcs.find((n) => n.pos.x === p.x && n.pos.y === p.y);
 }
 
-/** 한 칸 걷기. 막힘·표지판·문·꾸밈·지도 밖은 못 간다. 표지판·문·NPC와 `occupied`가 true인 칸은 부딪힌 칸(bump)이 된다. */
+/** 한 칸 걷기. 막힘·표지판·문·꾸밈·지도 밖은 못 간다. 표지판·문·NPC·동상과 `occupied`가 true인 칸은 부딪힌 칸(bump)이 된다. */
 export function tryStep(map: FieldMap, pos: Pos, dir: Dir, occupied?: (p: Pos) => boolean): StepResult {
   const d = DIR_DELTA[dir];
   const nx = pos.x + d.x;
@@ -163,7 +163,7 @@ export function tryStep(map: FieldMap, pos: Pos, dir: Dir, occupied?: (p: Pos) =
   if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) return stay;
   const tile = map.tiles[ny][nx];
   const next = { x: nx, y: ny };
-  if (tile === 'sign' || tile === 'door' || npcAt(map, next) || occupied?.(next)) return { ...stay, bump: next };
+  if (tile === 'sign' || tile === 'door' || npcAt(map, next) || map.statues.some((q) => q.x === nx && q.y === ny) || occupied?.(next)) return { ...stay, bump: next };
   if (tile === 'block' || tile === 'deco') return stay;
   if (tile === 'exit') {
     const exit = map.exits.find((e) => e.pos.x === nx && e.pos.y === ny);

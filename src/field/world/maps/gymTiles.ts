@@ -1,8 +1,7 @@
-// 체육관 타일 그림 — 분홍 체크 바닥·꾸민 벽·단상·파란 매트·동상, NPC 자리 표시(Task 7에서 진짜 NPC 그림으로 바뀐다).
+// 체육관 타일 그림 — 분홍 체크 바닥·꾸민 벽·단상·파란 매트·동상.
 // 체육관 지도와 같은 묶음이라 체육관에 들어갈 때만 내려받는다. 16×16, 우리 팔레트로 새로 그렸다.
 import type { FieldMap } from '../../../domain/field/movement';
 import { ART_SIZE, SHARED_ARTS, exitArrow, type PixelArt, type TileSet } from '../../art/pixelArt';
-import { GYM_NPCS, type Tint } from './gym';
 
 type Painter = (x: number, y: number) => string;
 
@@ -97,40 +96,7 @@ const statue: PixelArt = {
   ],
 };
 
-// ── NPC 자리 표시: 트레이너 모습을 색 곱셈(tint)으로 NPC마다 다른 색 옷을 입힌다 ──
-const clamp = (n: number) => Math.max(0, Math.min(255, Math.round(n)));
-function tinted(hex: string, t: Tint): string {
-  const n = parseInt(hex.slice(1), 16);
-  const c = (v: number, k: number) => clamp(v * k).toString(16).padStart(2, '0');
-  return `#${c((n >> 16) & 255, t.r)}${c((n >> 8) & 255, t.g)}${c(n & 255, t.b)}`;
-}
-export function npcMarker(tint: Tint): PixelArt {
-  return {
-    palette: { o: '#2a2030', k: '#f6d0a8', h: tinted('#7a5a3a', tint), c: tinted('#c8c8c8', tint), C: tinted('#969696', tint), L: tinted('#5a5a78', tint) },
-    rows: [
-      center(''),
-      center(''),
-      center('oooooo'),
-      center('ohhhhhho'),
-      center('ohhhhhho'),
-      center('okkkkkko'),
-      center('okokkoko'),
-      center('okkkkkko'),
-      center('oooooo'),
-      center('o' + 'c'.repeat(8) + 'o'),
-      center('o' + 'ccCccCcc' + 'o'),
-      center('o' + 'c'.repeat(8) + 'o'),
-      center('o' + 'c'.repeat(6) + 'o'),
-      center('oLLooLLo'),
-      center('oLLooLLo'),
-      center('oooooooo'),
-    ],
-  };
-}
-
-const npcArts: Record<string, PixelArt> = Object.fromEntries(GYM_NPCS.map((n) => [`npc_${n.id}`, npcMarker(n.tint)]));
-
-const arts = { floorA, floorB, wallTop, wallFace, wallSide, mat, platform, statue, ...npcArts };
+const arts = { floorA, floorB, wallTop, wallFace, wallSide, mat, platform, statue };
 
 const isPlatform = (map: FieldMap, x: number, y: number) => map.raw[y]?.[x] === 'P';
 
@@ -149,10 +115,8 @@ export const GYM_TILES: TileSet = {
       case 'S':
         return [ground, SHARED_ARTS.sign];
       default: {
-        // '.' '@': 바닥, 그 위에 동상·NPC
-        if (map.statues.some((s) => s.x === x && s.y === y)) return [ground, statue];
-        const npc = map.npcs.find((n) => n.pos.x === x && n.pos.y === y);
-        return npc ? [ground, npcArts[`npc_${npc.id}`]] : [ground];
+        // '.' '@': 바닥, 그 위에 동상 (NPC는 칸 그림이 아니라 NPC 레이어가 그린다)
+        return map.statues.some((s) => s.x === x && s.y === y) ? [ground, statue] : [ground];
       }
     }
   },

@@ -112,9 +112,9 @@ describe('마을 건물 타일', () => {
 });
 
 describe('체육관 타일', () => {
-  it('등록표에 바닥·벽·단상·매트·동상·NPC 자리 표시가 있다', () => {
+  it('등록표에 바닥·벽·단상·매트·동상이 있다 (NPC는 칸 그림이 아니다)', () => {
     for (const k of ['floorA', 'floorB', 'wallTop', 'wallFace', 'wallSide', 'platform', 'mat', 'statue']) expect(Object.keys(GYM_TILES.arts)).toContain(k);
-    expect(Object.keys(GYM_TILES.arts).filter((k) => k.startsWith('npc_'))).toHaveLength(13);
+    expect(Object.keys(GYM_TILES.arts).filter((k) => k.startsWith('npc_'))).toHaveLength(0);
   });
 
   it('지도의 모든 칸에 그릴 그림이 있고, NPC·동상 칸은 바닥 위에 얹는다', async () => {
@@ -123,9 +123,12 @@ describe('체육관 타일', () => {
       for (let x = 0; x < map.width; x++) {
         const layers = GYM_TILES.pick(map, x, y, 0);
         expect(layers.length, `${x},${y}`).toBeGreaterThan(0);
-        for (const a of layers) expect(a.rows.length).toBe(16);
+        for (const a of layers) {
+          expect(a.rows.length).toBe(16);
+          expect(a.rows.every((r) => r.length === 16), `${x},${y} 줄 너비`).toBe(true);
+        }
       }
-    for (const n of map.npcs) expect(GYM_TILES.pick(map, n.pos.x, n.pos.y, 0)).toContain(GYM_TILES.arts[`npc_${n.id}`]);
+    for (const n of map.npcs) expect(GYM_TILES.pick(map, n.pos.x, n.pos.y, 0)).toHaveLength(1); // 바닥만
     for (const s of map.statues) expect(GYM_TILES.pick(map, s.x, s.y, 0)).toContain(GYM_TILES.arts.statue);
   });
 });
@@ -139,7 +142,10 @@ describe('필드마다 타일 묶음', () => {
         for (const f of [0, 1] as const) {
           const layers = set.pick(map, x, y, f);
           expect(layers.length, `${x},${y}`).toBeGreaterThan(0);
-          for (const a of layers) expect(a.rows.length).toBe(16);
+          for (const a of layers) {
+          expect(a.rows.length).toBe(16);
+          expect(a.rows.every((r) => r.length === 16), `${x},${y} 줄 너비`).toBe(true);
+        }
         }
   });
 
