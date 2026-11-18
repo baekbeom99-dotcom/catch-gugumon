@@ -4,7 +4,7 @@ import { WATER_FRAME_MS } from '../../domain/field/tuning';
 import { TILE_PX, VIEW_TILES_W } from './padDirection';
 import type { SheetFrame } from '../art/companionImage';
 import { HERO_SPRITES, heroFrame } from '../art/hero';
-import { SHADOW_FALLBACK_BODY, drawShadow, liftFraction } from '../art/shadow';
+import { SHADOW_FALLBACK_BODY, buildingShadowTiles, drawBuildingShadow, drawShadow, isBuildingTile, liftFraction } from '../art/shadow';
 import { type TileSet, bakeTiles } from '../art/pixelArt';
 import { type NpcSprite, drawNpcs } from '../art/npcSprite';
 import { type RoamerSprite, drawRoamers } from './roamerLayer';
@@ -99,6 +99,16 @@ export function companionRect(left: number, top: number, tile: number, c: { scal
   return { x: Math.round(left + tile / 2 - w / 2), y: Math.round(top + tile - h * c.foot), w, h };
 }
 
+const shadowCache = new WeakMap<FieldMap, { x: number; y: number; right: boolean; below: boolean }[]>();
+function buildingShadows(map: FieldMap) {
+  let list = shadowCache.get(map);
+  if (!list) {
+    list = buildingShadowTiles(map).map((p) => ({ ...p, right: isBuildingTile(map, p.x - 1, p.y), below: isBuildingTile(map, p.x, p.y - 1) }));
+    shadowCache.set(map, list);
+  }
+  return list;
+}
+
 /** hx, hy: 주인공의 칸 좌표(소수 가능, 걷는 중 보간) */
 export function drawField(
   ctx: CanvasRenderingContext2D,
@@ -134,6 +144,13 @@ export function drawField(
         ctx.fillStyle = TILE_COLOR[map.tiles[y][x]];
         ctx.fillRect(sx, sy, tile, tile);
       }
+    }
+  }
+  // 마을 건물 그림자: 타일 위·캐릭터 아래 (칸 목록은 지도마다 한 번만 계산해 둔다)
+  if (map.id === 'town') {
+    for (const t of buildingShadows(map)) {
+      if (t.x < x0 || t.x > x1 || t.y < y0 || t.y > y1) continue;
+      drawBuildingShadow(ctx, t.x * tile - cx, t.y * tile - cy, tile, t.right, t.below);
     }
   }
   // 마을에서 돌아다니는 구구몬: 동행·주인공 아래에 그린다
