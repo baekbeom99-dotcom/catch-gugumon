@@ -14,6 +14,12 @@ export const HAIR_HUE_MIN = 8;
 export const HAIR_HUE_MAX = 45;
 export const HAIR_SAT_MIN = 0.5;
 export const HAIR_VAL_MIN = 0.55;
+/** 피부(얼굴·손) 범위: 머리와 같은 주황 계열 색상이지만 채도가 낮다(013 그림에서 약 0.2~0.45). 몸 색 곱셈에서 빼서 얼굴이 회색·노랑으로 안 변한다 */
+export const SKIN_HUE_MIN = 8;
+export const SKIN_HUE_MAX = 45;
+export const SKIN_SAT_MIN = 0.08;
+export const SKIN_SAT_MAX = 0.5;
+export const SKIN_VAL_MIN = 0.6;
 /** 마스터했을 때 머리 색상(노랑) */
 export const MASTER_HAIR_HUE = 55;
 
@@ -62,7 +68,13 @@ export function isHair(r: number, g: number, b: number): boolean {
   return h >= HAIR_HUE_MIN && h <= HAIR_HUE_MAX && s >= HAIR_SAT_MIN && v >= HAIR_VAL_MIN;
 }
 
-/** 화소 하나: 투명이면 그대로, 머리면 (마스터일 때만 노랑), 나머지는 색 곱셈 */
+/** 이 색이 피부인가 (어두운 윤곽선은 밝기가 낮아 아니다) */
+export function isSkin(r: number, g: number, b: number): boolean {
+  const [h, s, v] = rgbToHsv(r, g, b);
+  return h >= SKIN_HUE_MIN && h <= SKIN_HUE_MAX && s >= SKIN_SAT_MIN && s < SKIN_SAT_MAX && v >= SKIN_VAL_MIN;
+}
+
+/** 화소 하나: 투명이면 그대로, 머리면 (마스터일 때만 노랑), 피부는 그대로, 나머지(옷·바지·윤곽)는 색 곱셈 */
 export function tintPixel(rgba: Rgba, tint: Tint, mastered: boolean): Rgba {
   const [r, g, b, a] = rgba;
   if (a === 0) return [r, g, b, a];
@@ -72,6 +84,7 @@ export function tintPixel(rgba: Rgba, tint: Tint, mastered: boolean): Rgba {
     const [nr, ng, nb] = hsvToRgb(MASTER_HAIR_HUE, s, v);
     return [nr, ng, nb, a];
   }
+  if (isSkin(r, g, b)) return [r, g, b, a];
   return [clamp255(r * tint.r), clamp255(g * tint.g), clamp255(b * tint.b), a];
 }
 

@@ -1,4 +1,4 @@
-/** 훈련 결과 — 캡슐·마스터·새 기록·레전드 구구몬. 버튼은 다시 하기 / 마을로 */
+/** 훈련 결과 — 캡슐·마스터·새 기록·레전드 구구몬. 버튼은 다시 하기 / 체육관으로 */
 import { speciesDef } from '../../domain/field/creatures';
 import { CAPSULE_NAMES } from '../../domain/field/capsules';
 import type { ArithOutcome, TrainingOutcome } from '../../store/useGameStore';
@@ -15,7 +15,7 @@ interface Props {
   outcome: TrainingOutcome | ArithOutcome;
   /** 넘기면 이 글을 쓴다 (셈연습 결과) */
   text?: ResultText;
-  /** 나가는 버튼 글 (기본 "마을로") */
+  /** 나가는 버튼 글 (기본 "체육관으로") */
   backLabel?: string;
   timeMs: number;
   /** 학습을 마쳤으니 바로 마스터 도전으로 갈 수 있다 */
@@ -24,7 +24,7 @@ interface Props {
   onTown: () => void;
 }
 
-export function TrainingResult({ dan = 0, mode, result, outcome, text: given, backLabel = trainingText.backToTown, timeMs, onChallenge, onAgain, onTown }: Props) {
+export function TrainingResult({ dan = 0, mode, result, outcome, text: given, backLabel = trainingText.backToGym, timeMs, onChallenge, onAgain, onTown }: Props) {
   const text = given ?? trainingText.result(dan, mode, result, outcome as TrainingOutcome, timeMs);
   const pass = result === 'pass';
   const legend = outcome.legend;

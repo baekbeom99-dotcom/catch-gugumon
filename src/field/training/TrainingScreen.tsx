@@ -120,7 +120,7 @@ function TrainingCenter({ dan }: { dan: TrainingDan }) {
           {trainingText.recordsButton}
         </button>
         <button type="button" className="btn btn--ghost training__btn" data-testid="training-town-btn" onClick={toTown}>
-          {trainingText.backToTown}
+          {trainingText.backToGym}
         </button>
       </div>
     </div>

@@ -146,7 +146,7 @@ test('학습 전에는 마스터 도전이 잠겨 있고, 학습을 끝내면 �
   expect(count(f, 'meadow')).toBe(before + 5);
 
   // 마을로 나가고 다시 들어와도 캡슐은 그대로
-  await page.getByRole('button', { name: '마을로' }).click();
+  await page.getByRole('button', { name: '체육관으로' }).click();
   await expect(page).toHaveURL(/#\/field$/);
   expect(count(await saved(page), 'meadow')).toBe(before + 5);
   await openTraining(page, 2);
@@ -174,7 +174,7 @@ test('마스터 도전 첫 성공: 마스터 저장·캡슐 20개·다음 3단�
   expect(f.training.mastered[2]).toBeTruthy();
   expect(count(f, 'meadow')).toBe(before + 20); // 중복 지급 없음 (5개를 더하지 않는다)
   // 3단 건물이 열렸다
-  await page.getByRole('button', { name: '마을로' }).click();
+  await page.getByRole('button', { name: '체육관으로' }).click();
   await openTraining(page, 3);
   expect(errors).toEqual([]);
 });

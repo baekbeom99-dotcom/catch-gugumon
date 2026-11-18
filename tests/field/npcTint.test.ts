@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hsvToRgb, isHair, rgbToHsv, tintImageData, tintPixel, type Rgba } from '../../src/field/art/npcTint';
+import { hsvToRgb, isHair, isSkin, rgbToHsv, tintImageData, tintPixel, type Rgba } from '../../src/field/art/npcTint';
 
 const ONE = { r: 1, g: 1, b: 1 };
 const ORANGE: Rgba = [245, 150, 50, 255]; // 013 머리카락 (색상 약 30°)
@@ -56,6 +56,18 @@ describe('NPC 색 입히기', () => {
   it('색상 변환은 되돌릴 수 있다', () => {
     const [h, s, v] = rgbToHsv(245, 150, 50);
     expect(hsvToRgb(h, s, v)).toEqual([245, 150, 50]);
+  });
+
+  it('피부는 센 색 곱셈에도 그대로, 옷은 곱해진다 (얼굴이 회색·노랑이 되지 않는다)', () => {
+    const t = { r: 0.6, g: 0.7, b: 0.8 };
+    for (const mastered of [false, true]) {
+      expect(tintPixel(SKIN, t, mastered)).toEqual(SKIN);
+      expect(tintPixel([240, 190, 150, 255], t, mastered)).toEqual([240, 190, 150, 255]); // 볼 쪽 진한 피부
+      expect(tintPixel(BLUE, t, mastered)).toEqual([24, 70, 160, 255]);
+      expect(tintPixel(OUTLINE, t, mastered)).toEqual([38, 22, 13, 255]); // 윤곽선은 몸 규칙(곱셈)
+    }
+    expect(isSkin(255, 224, 196)).toBe(true);
+    expect(isSkin(120, 170, 90)).toBe(false);
   });
 
   it('tintImageData는 화소 배열 전체를 제자리에서 바꾼다', () => {
