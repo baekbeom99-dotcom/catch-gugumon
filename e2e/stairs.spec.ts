@@ -56,7 +56,7 @@ test('무한의 계단: 세 칸 오르고 틀리면 끝, 별 6개(계단 × 2)�
   expect(saved2.stairs.includeChallenge).toBe(false);
 
   await page.getByRole('button', { name: '탐험으로' }).click();
-  // 끝내면 퀴즈 탐험 탭이 아니라 필드(마을)로 돌아온다
-  await expect(page).toHaveURL(/#\/field$/);
+  // 끝내면 퀴즈 탐험 탭이 아니라 필드로 돌아온다 (이 저장본은 구구몬을 안 골라서 시작 고르기까지 간다)
+  await expect(page).toHaveURL(/#\/field(\/starter)?$/);
   expect(errors).toEqual([]);
 });
