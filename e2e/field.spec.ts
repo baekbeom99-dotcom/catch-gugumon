@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { collectErrors } from './helpers';
+import { TOWN_ROWS_ADDED as R } from '../src/domain/field/tuning';
 
 test.use({ viewport: { width: 375, height: 812 } });
 
@@ -1394,7 +1395,7 @@ async function seedTownRoam(page: Page, at: { x: number; y: number }, facing: st
     [{ map: 'town', ...at, facing }, extra.c034 ?? {}] as const,
   );
   await page.goto('/#/field');
-  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', `${at.x},${at.y}`);
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', `${at.x},${at.y + R}`); // 옛 저장 자리는 훈련 거리 줄(R)만큼 밀려 읽힌다
 }
 
 test('마을에서는 잡은 구구몬(동행 빼고)이 자기 서식지에서 돌아다닌다', async ({ page }) => {
@@ -1406,9 +1407,9 @@ test('마을에서는 잡은 구구몬(동행 빼고)이 자기 서식지에서 
   for (let i = 0; i < 12; i++) {
     const [, x, y] = ((await canvas.getAttribute('data-roamers')) ?? '').match(/^c020:(\d+),(\d+)$/)!.map(Number);
     seen.add(`${x},${y}`);
-    // 물가 서식지: 연못(5~10, 8~9) 둘레 4~11 × 7~10
-    expect(x >= 4 && x <= 11 && y >= 7 && y <= 10).toBe(true);
-    expect(x >= 5 && x <= 10 && y >= 8 && y <= 9).toBe(false);
+    // 물가 서식지(옛 지도 기준 + R): 연못(5~10, 8~9) 둘레 4~11 × 7~10
+    expect(x >= 4 && x <= 11 && y >= 7 + R && y <= 10 + R).toBe(true);
+    expect(x >= 5 && x <= 10 && y >= 8 + R && y <= 9 + R).toBe(false);
     await page.waitForTimeout(500);
   }
 });
@@ -1416,7 +1417,7 @@ test('마을에서는 잡은 구구몬(동행 빼고)이 자기 서식지에서 
 test('구구몬에게 부딪히면 말풍선이 뜬다 (이름·Lv·체력)', async ({ page }) => {
   await seedTownRoam(page, { x: 4, y: 6 }, 'down');
   const canvas = page.getByTestId('field-canvas');
-  await expect(canvas).toHaveAttribute('data-roamers', 'c020:4,7'); // pin: 첫 서식지 칸
+  await expect(canvas).toHaveAttribute('data-roamers', `c020:4,${7 + R}`); // pin: 첫 서식지 칸
   await page.evaluate(() => ((window as unknown as { __pin: boolean }).__pin = false));
   await page.keyboard.down('ArrowDown'); // 이미 아래를 보고 있어 곧바로 부딪힌다
   const bubble = page.getByRole('dialog', { name: '구구몬 말풍선' });
@@ -1424,20 +1425,20 @@ test('구구몬에게 부딪히면 말풍선이 뜬다 (이름·Lv·체력)', as
   await expect(bubble).toContainText('Lv4');
   await expect(bubble).toContainText('체력 100');
   await page.keyboard.up('ArrowDown');
-  expect(await pos(page)).toEqual({ x: 4, y: 6 }); // 못 지나간다
+  expect(await pos(page)).toEqual({ x: 4, y: 6 + R }); // 못 지나간다
   await expect(bubble).toHaveCount(0, { timeout: 4000 }); // 잠시 뒤 사라진다
 });
 
 test('구구몬이 있는 칸을 탭해도 말풍선이 뜬다', async ({ page }) => {
   await seedTownRoam(page, { x: 4, y: 12 }, 'down');
   const canvas = page.getByTestId('field-canvas');
-  await expect(canvas).toHaveAttribute('data-roamers', 'c020:4,7');
+  await expect(canvas).toHaveAttribute('data-roamers', `c020:4,${7 + R}`);
   await page.evaluate(() => ((window as unknown as { __pin: boolean }).__pin = false));
   const box = (await canvas.boundingBox())!;
   const [camX, camY, tile] = ((await canvas.getAttribute('data-cam')) ?? '0,0,1').split(',').map(Number);
   const cw = await canvas.evaluate((c) => (c as HTMLCanvasElement).width);
   const css = (tile * box.width) / cw;
-  await page.mouse.click(box.x + (4.5 - camX) * css, box.y + (7.5 - camY) * css);
+  await page.mouse.click(box.x + (4.5 - camX) * css, box.y + (7.5 + R - camY) * css);
   await expect(page.getByRole('dialog', { name: '구구몬 말풍선' })).toContainText('복숭아곰몬');
 });
 

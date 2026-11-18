@@ -136,8 +136,7 @@ export function parseMap(id: MapId, rows: string[], opts: ParseOpts): FieldMap {
       } else if (doorChars[ch]) {
         const { kind, dan } = doorChars[ch];
         doors.push(dan === undefined ? { pos: { x, y }, kind } : { pos: { x, y }, kind, dan });
-      }
-      else if (ZONE_CHAR[ch]) (zones[ZONE_CHAR[ch]] ??= []).push({ x, y });
+      } else if (ZONE_CHAR[ch]) (zones[ZONE_CHAR[ch]] ??= []).push({ x, y });
     }
     tiles.push(line);
   });

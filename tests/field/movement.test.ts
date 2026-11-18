@@ -96,7 +96,7 @@ describe('마을 글자 (위아래 출구·문·서식지)', () => {
     expect(m.raw).toBe(rows);
   });
   it('문 글자 표를 받으면 종류와 단을 채운다', () => {
-    const t = parseMap('town', ['#####', '#A.T#', '#.@.#', '##v##'].map((r, i) => (i === 3 ? '##v##' : r)), {
+    const t = parseMap('town', ['#####', '#A.T#', '#.@.#', '##v##'], {
       exits: { v: 'meadow' },
       signTexts: [],
       doorChars: { A: { kind: 'training', dan: 7 }, T: { kind: 'stairs' } },
