@@ -544,7 +544,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
         ...(compSheet ? { lift: 0 } : {}),
       };
       const sprites = s.roamers.length > 0 ? buildSprites(s.roamers, (r) => useGameStore.getState().field.species[r.species]?.stage ?? 1, now) : undefined;
-      const cam = drawField(ctx, map, view, hero, comp, { now, step: stepT }, sprites);
+      const cam = drawField(ctx, map, view, hero, comp, { now, step: stepT }, sprites, useGameStore.getState().field.training.mastered);
       s.camX = cam.cx;
       s.camY = cam.cy;
       s.tile = view.tile;
