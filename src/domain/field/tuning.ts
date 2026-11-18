@@ -217,3 +217,8 @@ export const TRAINING_CAPSULE_OF_DAN: Record<TrainingDan, CapsuleType> = {
 };
 /** 무한의 계단이 열리는 조건: 이 단을 마스터한 뒤 (null이면 항상 열림) */
 export const STAIRS_OPEN_AFTER_DAN: Dan | null = null;
+/**
+ * 마을 지도 맨 위에 새로 넣은 줄 수 (트레이닝센터 거리). 예전 저장의 마을 자리를 이만큼 아래로 옮긴다.
+ * 지도를 고칠 때(Task 3) 진짜 값으로 정한다
+ */
+export const TOWN_ROWS_ADDED = 0;

@@ -85,11 +85,12 @@ describe('저장 데이터 field', () => {
       position: { map: 'meadow', x: 5, y: 8, facing: 'right' },
       stats: { battles: 9, catches: 3, fled: 2 },
     };
-    // 버려지거나 초기화되는 칸 없이, 종 기록에 체력 100·상처 []·예전 기술(Lv7 → 슬롯 1·2), 캡슐 3·3·3·0만 채워진다
+    // 버려지거나 초기화되는 칸 없이, 종 기록에 체력 100·상처 []·예전 기술(Lv7 → 슬롯 1·2), 캡슐 3·3·3·0, 빈 훈련 기록만 채워진다
     expect(mergeSave(createInitialSave(NOW), { ...oldSave(), field: v135 }).field).toEqual({
       ...v135,
       species: { c031: { ...entry, stage: 1, hp: 100, wounds: [], skills: ['c031-1', 'c031-2'] } },
       capsules: { meadow: 3, waterside: 3, desert: 3, legend: 0 },
+      training: { studied: {}, mastered: {}, legendGranted: {} },
     });
   });
 
@@ -203,6 +204,7 @@ describe('저장 데이터 field', () => {
       ...field,
       species: { c031: { ...entry, stage: 1, hp: 100, wounds: [], skills: ['c031-1', 'c031-2'] } },
       capsules: { meadow: 3, waterside: 3, desert: 3, legend: 0 },
+      training: { studied: {}, mastered: {}, legendGranted: {} },
     });
   });
 
@@ -258,6 +260,7 @@ describe('저장 데이터 field', () => {
       ...field,
       species: { c031: { ...entry, stage: 1, skills: ['c031-1', 'c031-2'] } },
       capsules: { meadow: 3, waterside: 3, desert: 3, legend: 0 },
+      training: { studied: {}, mastered: {}, legendGranted: {} },
     });
     expect(useGameStore.getState().economy.stars).toBe(777);
   });

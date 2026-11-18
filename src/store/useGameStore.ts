@@ -3,7 +3,9 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import { defaultCatalog } from '../data/defaultCatalog';
 import type { ArithKind } from '../domain/arith';
 import { finishPractice, type PracticeRecord, recordPracticeAnswer } from '../domain/arithPractice';
-import type { Dan } from '../domain/facts';
+import { ALL_DANS, type Dan, factId, MULTIPLIERS, type Multiplier, getFact } from '../domain/facts';
+import { applyAnswer, FIELD_MAX_BOX } from '../domain/mastery';
+import { localDateString } from '../domain/dates';
 import type { AdminData } from '../domain/admin';
 import { addMissingDefaults, deleteItem, moveItem, restoreDefaults, setOnSale, upsertItem } from '../domain/catalogRules';
 import { canGraduate, type DexEntry, lifeSnapshot, sendToDex, type SwapResult, swapWithDex } from '../domain/dex';
@@ -46,7 +48,16 @@ import {
 import { applyItem, buy, type CatalogData, canWearHat, findItem, grantMasterHats, type ItemCategory, type ItemDef, type ItemId } from '../domain/shop';
 import { addExp, CORRECT_EXP, DUPLICATE_EXP, PARTICIPATION_EXP } from '../domain/field/growth';
 import { type Tier, tierExp } from '../domain/field/strength';
-import { COMPANION_MAX_HP, MAX_SKILLS } from '../domain/field/tuning';
+import {
+  COMPANION_MAX_HP,
+  LEGEND_LEVEL,
+  MAX_SKILLS,
+  TRAINING_CAPSULE_OF_DAN,
+  TRAINING_CAPSULES,
+  TRAINING_DANS,
+  type TrainingDan,
+} from '../domain/field/tuning';
+import { isChallengeOpen, isTrainingOpen, judgeChallenge, pickLegendReward } from '../domain/field/training';
 import { addCapsules, type CapsuleType, takeCapsule } from '../domain/field/capsules';
 import { addWound, applyDamage, isFainted, type Wound } from '../domain/field/wounds';
 import { pickReplacement } from '../domain/field/companion';
@@ -103,6 +114,36 @@ export interface WildBattleEnd {
   now: number;
   /** 기술 복사(2%) 난수. 없으면 Math.random (E2E __GUGU_E2E_COPY__는 화면이 () => 0을 넘긴다) */
   rng?: Rng;
+}
+
+/** 훈련 한 번을 마친 결과 */
+export interface TrainingInput {
+  dan: TrainingDan;
+  mode: 'study' | 'challenge';
+  mistakes: number;
+  timeMs: number;
+  now: number;
+  /** 레전드 고르기 난수. 없으면 Math.random */
+  rng?: Rng;
+}
+
+/**
+ * 훈련을 마친 뒤 생긴 일. ok가 false면 규칙에 맞지 않아 거부한 것 (열리지 않은 단·학습 전 도전):
+ * 저장은 그대로이고 capsules 0, mastered·newBest false, legend null, bestMs는 지금 기록
+ */
+export interface TrainingOutcome {
+  ok: boolean;
+  capsuleType: CapsuleType;
+  /** 받은 캡슐 수 (마치면 TRAINING_CAPSULES, 거부하면 0) */
+  capsules: number;
+  /** 이번 도전으로 합격했는가 */
+  mastered: boolean;
+  /** 최고 기록을 새로 세웠는가 */
+  newBest: boolean;
+  /** 이 단의 최고 기록 (아직 마스터 못 했으면 null) */
+  bestMs: number | null;
+  /** 12·13단 첫 마스터 때 받은 레전드 */
+  legend: { species: SpeciesId; duplicate: boolean } | null;
 }
 
 /** 저장된 종 기록 (모르는 종 id면 없음 — `constructor` 같은 이름이 끼어들지 않게) */
@@ -240,6 +281,13 @@ interface GameActions {
   grantCapsules: (t: CapsuleType, n: number) => void;
   /** 필드 모험: 캡슐 1개 쓰기 — 던지는 순간 바로 저장. 없으면 false, 아무것도 안 바꾼다 */
   spendCapsule: (t: CapsuleType) => boolean;
+  /**
+   * 트레이닝센터: 학습·도전을 끝까지 마쳤을 때. 캡슐 5개(성공·실패 모두), 학습 표시, 합격이면 마스터·최고 기록,
+   * 12·13단 첫 마스터면 레전드. 열리지 않은 단이거나 학습 전 도전이면 아무것도 바꾸지 않고 ok:false
+   */
+  finishTraining: (input: TrainingInput) => TrainingOutcome;
+  /** 트레이닝센터 답 하나: 그 곱셈 문제 기록(learning.facts)만 바꾼다. 별·펫은 그대로, 11단은 기록이 없어 아무것도 안 한다 */
+  recordTrainingAnswer: (dan: number, multiplier: number, correct: boolean, speedMs: number, now: number) => void;
   /** 필드 모험: 야생 전투 끝 — 잡기·기록·펫 친밀도 */
   finishWildBattle: (r: WildBattleEnd) => WildResult;
   /** 필드 모험: 기술 제안을 받는다 — removeId를 잊고 그 자리에 새 기술 (replaceSkill과 같은 검사, 한 번의 set). 안 되면 false */
@@ -566,6 +614,89 @@ export const useGameStore = create<GameStore>()(
           return { field: { ...s.field, species, stats, seen }, pet: settled.pet, lastSeenAt: r.now };
         });
         return result;
+      },
+      finishTraining: (input) => {
+        const { dan, mode, now } = input;
+        const capsuleType = (TRAINING_DANS as readonly number[]).includes(dan) ? TRAINING_CAPSULE_OF_DAN[dan] : 'legend';
+        const t0 = get().field.training;
+        const rejected: TrainingOutcome = {
+          ok: false,
+          capsuleType,
+          capsules: 0,
+          mastered: false,
+          newBest: false,
+          bestMs: t0.mastered[dan]?.bestMs ?? null,
+          legend: null,
+        };
+        // 규칙 검사: 열린 단만, 도전은 학습을 마친 뒤에만 (거부하면 set을 부르지 않는다)
+        if (!isTrainingOpen(t0, dan) || (mode === 'challenge' && !isChallengeOpen(t0, dan))) return rejected;
+        let result!: TrainingOutcome;
+        set((s) => {
+          const f = s.field;
+          let training = f.training;
+          let species = f.species;
+          let seen = f.seen;
+          let mastered = false;
+          let newBest = false;
+          let legend: TrainingOutcome['legend'] = null;
+          if (mode === 'study') {
+            if (!training.studied[dan]) training = { ...training, studied: { ...training.studied, [dan]: true } };
+          } else {
+            const mistakes = Number.isFinite(input.mistakes) ? input.mistakes : 1;
+            const timeMs = Number.isFinite(input.timeMs) && input.timeMs >= 0 ? input.timeMs : Infinity;
+            mastered = judgeChallenge({ mistakes, timeMs }) === 'pass';
+            if (mastered) {
+              const prev = training.mastered[dan];
+              newBest = !prev || timeMs < prev.bestMs;
+              if (newBest) training = { ...training, mastered: { ...training.mastered, [dan]: { bestMs: timeMs, at: now } } };
+              if (dan === 12 || dan === 13) {
+                const owned = SPECIES_IDS.filter((id) => species[id]);
+                legend = pickLegendReward(input.rng ?? Math.random, owned, dan, training.legendGranted);
+                if (legend) {
+                  training = { ...training, legendGranted: { ...training.legendGranted, [dan]: legend.species } };
+                  const id = legend.species;
+                  const known = speciesEntry(f, id);
+                  if (!known) {
+                    // 새 종: 야생 레전드와 같은 레벨로 도감에
+                    species = { ...species, [id]: newSpeciesEntry(id, LEGEND_LEVEL, now) };
+                  } else {
+                    // 이미 있는 종: 또 잡았을 때처럼 잡은 수 +1, 중복 경험치 (레벨이 오르면 기술도 배운다)
+                    const grown = addExp({ ...known, caught: known.caught + 1 }, DUPLICATE_EXP);
+                    let entry = grown.entry;
+                    if (grown.levelsGained > 0) entry = { ...entry, skills: learnOnLevelUp(id, entry, known.level).skills };
+                    species = { ...species, [id]: entry };
+                  }
+                  if (!seen.includes(id)) seen = [...seen, id];
+                }
+              }
+            }
+          }
+          const bestMs = training.mastered[dan]?.bestMs ?? null;
+          result = { ok: true, capsuleType, capsules: TRAINING_CAPSULES, mastered, newBest, bestMs, legend };
+          const capsules = addCapsules(f.capsules, capsuleType, TRAINING_CAPSULES);
+          return { field: { ...f, training, species, seen, capsules } };
+        });
+        return result;
+      },
+      recordTrainingAnswer: (dan, multiplier, correct, speedMs, now) => {
+        // 퀴즈 모험 기록이 있는 단(2~9·12·13)과 ×0~×10만. 11단은 기록 칸이 없어 아무것도 안 한다
+        if (!(ALL_DANS as readonly number[]).includes(dan) || !(MULTIPLIERS as readonly number[]).includes(multiplier)) return;
+        // 걸린 시간이 이상하면 평균 시간이 망가지지 않게 기록하지 않는다
+        if (!Number.isFinite(speedMs) || speedMs < 0) return;
+        set((s) => {
+          const fact = getFact(factId(dan as Dan, multiplier as Multiplier));
+          const stat = applyAnswer(s.learning.facts[fact.id], fact, {
+            correct,
+            ms: speedMs,
+            inputMode: 'choice',
+            isRetry: false,
+            now,
+            today: localDateString(now),
+            // 보기 3개 연습이라 필드 모험처럼 상자 3까지만 (마스터 상자는 퀴즈 도전으로)
+            maxBox: FIELD_MAX_BOX,
+          });
+          return { learning: { ...s.learning, facts: { ...s.learning.facts, [fact.id]: stat } } };
+        });
       },
       // 기술 액션: 먼저 읽어서 검사하고, 통과할 때만 set 한 번 (거부하면 set을 부르지 않아 상태 객체가 그대로)
       replaceSkill: (species, removeId, addId) => {

@@ -1,7 +1,8 @@
 /** 필드 모험 저장 데이터 — 구구몬 도감·동료·마지막 자리 */
 import { FACTS } from '../domain/facts';
 import { FIELD_TYPES } from '../domain/field/fieldQuestions';
-import { CAPSULE_MAX, CAPSULE_START, COMPANION_MAX_HP } from '../domain/field/tuning';
+import { CAPSULE_MAX, CAPSULE_START, COMPANION_MAX_HP, TOWN_ROWS_ADDED, TRAINING_DANS, type TrainingDan } from '../domain/field/tuning';
+import { emptyTraining, type TrainingData } from '../domain/field/training';
 import { CAPSULE_TYPES, type Capsules, isCapsuleCount } from '../domain/field/capsules';
 import { addWound, type Wound } from '../domain/field/wounds';
 import { MAP_IDS, type MapId } from '../domain/field/fields';
@@ -77,6 +78,8 @@ export interface FieldData {
   stats: { battles: number; catches: number; fled: number };
   /** 남은 캡슐 (종류마다 0 이상 정수). 던지는 순간 바로 줄어 저장된다 */
   capsules: Capsules;
+  /** 트레이닝센터 기록 (학습한 단·마스터한 단과 최고 기록·받은 레전드) */
+  training: TrainingData;
 }
 
 /** 저장 안 되는 알림: 레벨이 올랐을 때 등 화면에 띄운다 (필드 구구몬은 진화하지 않는다) */
@@ -139,6 +142,7 @@ export function initialField(): FieldData {
     position: { map: 'town', x, y, facing: 'down' },
     stats: { battles: 0, catches: 0, fled: 0 },
     capsules: { ...CAPSULE_START },
+    training: emptyTraining(),
   };
 }
 
@@ -242,9 +246,34 @@ export function newSpeciesEntry(species: SpeciesId, level: number, now: number):
   return { level, exp: 0, stage: 1, caught: 1, firstCaughtAt: now, hp: COMPANION_MAX_HP, wounds: [], skills: defaultSkills(species, level) };
 }
 
+const asObj = (v: unknown): Record<string, unknown> =>
+  v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
+const has = (o: Record<string, unknown>, k: string | number) => Object.prototype.hasOwnProperty.call(o, String(k));
+
+/** 훈련 기록 읽기: 아는 단(TRAINING_DANS)의 맞는 값만 남기고, 나머지는 버린다 */
+export function mergeTraining(raw: unknown): TrainingData {
+  const t = emptyTraining();
+  const r = asObj(raw);
+  const studied = asObj(r.studied);
+  const mastered = asObj(r.mastered);
+  const legend = asObj(r.legendGranted);
+  for (const d of TRAINING_DANS as readonly TrainingDan[]) {
+    if (has(studied, d) && studied[d] === true) t.studied[d] = true;
+    const m = has(mastered, d) ? asObj(mastered[d]) : {};
+    if (isCount(m.bestMs) && isNum(m.at)) t.mastered[d] = { bestMs: m.bestMs, at: m.at };
+  }
+  for (const d of [12, 13] as const) {
+    const sp = has(legend, d) ? legend[d] : undefined;
+    if (isSpecies(sp)) t.legendGranted[d] = sp;
+  }
+  return t;
+}
+
 /** 저장본의 필드 칸을 기본값 위에 얹는다. 모르는 종·잘못된 지도 이름·깨진 값은 버리고 기본값.
- * 옛 저장(초원·물가·사막 자리)은 그대로 둔다. 벽 같은 칸은 그리는 쪽의 `safeStartPosition`이 한 번 더 지킨다 */
-export function mergeField(initial: FieldData, persisted: unknown): FieldData {
+ * 옛 저장(초원·물가·사막 자리)은 그대로 둔다. 벽 같은 칸은 그리는 쪽의 `safeStartPosition`이 한 번 더 지킨다.
+ * 트레이닝센터 전 저장(`training` 칸 없음)의 마을 자리는 마을 위에 새로 생긴 줄만큼(townRowsAdded) 아래로 옮긴다 —
+ * 옮긴 뒤 저장에는 `training`이 생기므로 다시 읽어도 두 번 옮기지 않는다 */
+export function mergeField(initial: FieldData, persisted: unknown, townRowsAdded: number = TOWN_ROWS_ADDED): FieldData {
   if (!persisted || typeof persisted !== 'object') return initial;
   const p = persisted as Record<string, unknown>;
 
@@ -281,6 +310,7 @@ export function mergeField(initial: FieldData, persisted: unknown): FieldData {
     DIRS.includes(pos.facing as Dir)
   ) {
     position = { map: pos.map, x: pos.x, y: pos.y, facing: pos.facing as Dir };
+    if (pos.map === 'town' && !has(p, 'training')) position = { ...position, y: position.y + townRowsAdded };
   }
 
   const st = p.stats && typeof p.stats === 'object' ? (p.stats as Record<string, unknown>) : {};
@@ -306,5 +336,6 @@ export function mergeField(initial: FieldData, persisted: unknown): FieldData {
     position,
     stats,
     capsules,
+    training: mergeTraining(p.training),
   };
 }
