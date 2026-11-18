@@ -48,7 +48,7 @@ describe('트레이닝 저장 데이터', () => {
       training: {
         studied: { 2: true, 3: 'yes', 10: true, x: true },
         mastered: { 2: { bestMs: 20000, at: NOW }, 3: { bestMs: 'fast', at: NOW }, 10: { bestMs: 1, at: 1 } },
-        legendGranted: { 12: LEGEND_SPECIES[0], 13: 'nope', 9: LEGEND_SPECIES[1] },
+        legendGranted: { 12: LEGEND_SPECIES[0], 13: 'nope', 9: LEGEND_SPECIES[1], 11: 'c001' },
       },
     };
     expect(mergeField(initialField(), f).training).toEqual({

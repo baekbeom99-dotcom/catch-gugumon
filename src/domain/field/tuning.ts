@@ -269,7 +269,10 @@ export const LOWGRADE_PASSWORD = '1234';
 export const LOWGRADE_WRONG_KEEP = 20;
 /** 상점 캡슐 연습 문제 수 (저학년 모드) */
 export const LOWGRADE_SHOP_QUESTIONS = 5;
+/** 저학년 야생 전투가 한 번에 미리 만드는 문제 수 */
+export const LOWGRADE_BATCH = 5;
 /**
+ * 쓰이지 않음: 전투 시간은 기존 단계 규칙을 따른다. 나중에 속도 기준에 쓸 수 있어 보관.
  * 저학년 문제 하나에 쓰는 시간(초). 셈 연습 마스터 기준과 같은 크기:
  * 초원(한 자리 덧뺄셈)은 기본 단계 문제당 시간, 물가·사막(두 자리 ± 한 자리)은 고수 단계 문제당 시간
  */

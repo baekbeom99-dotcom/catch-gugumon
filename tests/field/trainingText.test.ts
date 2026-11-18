@@ -40,7 +40,7 @@ describe('trainingText', () => {
     const r = trainingText.result(3, 'challenge', 'pass', { ...base, mastered: true, newBest: true, bestMs: 20400 }, 20400);
     expect(r.title).toContain('마스터');
     const all = r.lines.join(' ');
-    expect(all).toContain('지붕에 숫자가 켜졌어요');
+    expect(all).toContain('트레이너 머리가 노랗게 바뀌었어요');
     expect(all).toContain('20.4초');
     expect(all).toContain('새 기록');
     expect(r.lines[r.newBestIndex!]).toBe('새 기록!');

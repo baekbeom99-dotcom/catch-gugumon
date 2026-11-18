@@ -90,6 +90,16 @@ test('마스터한 트레이너는 data-npcs가 1이다 (단 둘, 셈연습 기�
   await expect(canvas(page)).toHaveAttribute('data-npcs', /^dan2:1,dan3:1,dan4:0,.*,arithBasic:1,arithHard:0,arithComp:0$/);
 });
 
+test('체육관 출구(7,19)로 나가면 마을 체육관 문 앞(9,5)에 선다', async ({ page }) => {
+  await seed(page, { pos: { x: 7, y: 18, facing: 'down' } });
+  await page.goto('/#/field');
+  await expect(canvas(page)).toHaveAttribute('data-map', 'gym');
+  await page.keyboard.down('ArrowDown');
+  await expect(canvas(page)).toHaveAttribute('data-map', 'town');
+  await page.keyboard.up('ArrowDown');
+  await expect(canvas(page)).toHaveAttribute('data-pos', '9,5');
+});
+
 test('잠긴 3단 트레이너에게 말을 걸면 "2단 트레이너를 먼저 이겨요"가 뜨고 들어가지 않는다', async ({ page }) => {
   await seed(page, { pos: { x: 3, y: 15, facing: 'up' } });
   await page.goto('/#/field');

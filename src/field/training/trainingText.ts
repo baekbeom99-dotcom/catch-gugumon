@@ -86,7 +86,7 @@ export const trainingText = {
       lines.push('끝까지 해냈어요!', '이제 마스터 도전을 할 수 있어요');
     } else if (result === 'pass') {
       title = `${dan}단 마스터!`;
-      lines.push('지붕에 숫자가 켜졌어요');
+      lines.push('트레이너 머리가 노랗게 바뀌었어요');
       if (timeMs !== undefined) lines.push(trainingText.elapsed(timeMs));
       if (outcome.newBest) {
         newBestIndex = lines.length;

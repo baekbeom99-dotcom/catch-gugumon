@@ -9,7 +9,7 @@ export function FieldRecordsScreen() {
     <div className="field-records">
       <div className="field-records__bar">
         <button type="button" className="btn btn--ghost" onClick={() => navigate('/field')}>
-          ← 마을로
+          ← 돌아가기
         </button>
       </div>
       <div className="field-records__body">

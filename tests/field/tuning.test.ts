@@ -122,6 +122,7 @@ describe('필드 모험 운영 수치', () => {
       LOWGRADE_PASSWORD: '1234',
       LOWGRADE_WRONG_KEEP: 20,
       LOWGRADE_SHOP_QUESTIONS: 5,
+      LOWGRADE_BATCH: 5,
       LOWGRADE_ANSWER_SEC: { meadow: 3, waterside: 5, desert: 5 },
     });
   });

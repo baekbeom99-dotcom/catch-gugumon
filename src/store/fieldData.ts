@@ -282,7 +282,7 @@ export function mergeTraining(raw: unknown): TrainingData {
   }
   for (const d of [12, 13] as const) {
     const sp = has(legend, d) ? migrateSpeciesId(legend[d]) : undefined;
-    if (isSpecies(sp)) t.legendGranted[d] = sp;
+    if (isSpecies(sp) && (LEGEND_SPECIES as readonly SpeciesId[]).includes(sp)) t.legendGranted[d] = sp;
   }
   // 셈연습 고수 레전드: 아는 레전드 종만
   const arithLegend = has(legend, 'arithHard') ? migrateSpeciesId(legend.arithHard) : undefined;

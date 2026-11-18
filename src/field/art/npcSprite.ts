@@ -117,8 +117,11 @@ export function npcPicture(id: string, tint: Tint, mastered: boolean, now: numbe
     let sheet = baked.get(key);
     if (sheet === undefined) {
       const img = sheetImg(sheets.idle.url);
-      if (!(img.complete && img.naturalWidth > 0)) return null;
-      sheet = bakeSheet(img, tint, mastered);
+      if (!(img.complete && img.naturalWidth > 0)) {
+        // 불러오기가 끝났는데 실패했으면 픽셀 폴백을 쓴다 (아직이면 기다린다)
+        if (img.complete) sheet = null;
+        else return null;
+      } else sheet = bakeSheet(img, tint, mastered);
       baked.set(key, sheet);
     }
     if (sheet) {

@@ -13,6 +13,7 @@ import type { Rng } from '../../domain/random';
 import { insertRetry, type LearnerSnapshot, type PlannedItem } from '../../domain/scheduler';
 import { useGameStore } from '../../store/useGameStore';
 import { debugFlags } from '../debugFlags';
+import { LOWGRADE_BATCH } from '../../domain/field/tuning';
 
 function snapshot(): LearnerSnapshot {
   const { learning } = useGameStore.getState();
@@ -33,8 +34,6 @@ function planFor(encounter: Encounter, rng: Rng): PlannedItem[] {
   return planFieldQuestions(learner, encounter.field, Date.now(), rng);
 }
 
-/** 저학년 모드 전투가 한 번에 받는 문제 수 */
-const LOW_BATCH = 5;
 /** 저학년 문제일 때 구구단 자리(item·fact)를 채우는 자리표시 (쓰지 않는다 — arith가 있으면 화면이 건너뛴다) */
 const PLACEHOLDER: PlannedItem = { factId: '2x2', type: 'product', isRetry: false, isConfidence: false };
 
@@ -57,7 +56,7 @@ const lowGradeOn = () => useGameStore.getState().settings.lowGrade;
 export function useQuestionFeed(encounter: Encounter, rng: Rng) {
   const [low] = useState(lowGradeOn);
   const [feed, setFeed] = useState<Feed>(() =>
-    low ? { plan: [], low: planLowGradeField(rng, encounter.field, LOW_BATCH), index: 0 } : { plan: planFor(encounter, rng), low: [], index: 0 },
+    low ? { plan: [], low: planLowGradeField(rng, encounter.field, LOWGRADE_BATCH), index: 0 } : { plan: planFor(encounter, rng), low: [], index: 0 },
   );
   const arith = low ? (feed.low[feed.index] ?? null) : null;
   const item = arith ? PLACEHOLDER : feed.plan[feed.index];
@@ -78,7 +77,7 @@ export function useQuestionFeed(encounter: Encounter, rng: Rng) {
           let list = f.low;
           if (retryWrong) list = insertLowGradeRetry(list, f.index, rng);
           const index = f.index + 1;
-          if (index >= list.length) list = [...list, ...planLowGradeField(rng, encounter.field, LOW_BATCH)];
+          if (index >= list.length) list = [...list, ...planLowGradeField(rng, encounter.field, LOWGRADE_BATCH)];
           return { plan: [], low: list, index };
         }
         let plan = f.plan;
