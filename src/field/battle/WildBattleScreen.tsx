@@ -64,7 +64,8 @@ import { forcedThrowRng } from '../../domain/field/strength';
 import type { Rng } from '../../domain/random';
 import { useGameStore, type WildEnd } from '../../store/useGameStore';
 import { useSessionStore } from '../../store/useSessionStore';
-import { creatureSprite } from '../art/creatureSprite';
+import { SHADOW_ALPHA, SHADOW_ASPECT, SHADOW_RISE, shadowSize } from '../art/shadow';
+import { battleBodyPx, creatureSprite } from '../art/creatureSprite';
 import { CapsuleBall } from '../art/CapsuleBall';
 import { pickCompanion } from '../companion';
 import { debugFlags } from '../debugFlags';
@@ -863,6 +864,11 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
             '--ally-size': `${lay.ally}px`,
             '--ally-cx': `${lay.allyCx}px`,
             '--ally-feet': `${lay.allyFeet}px`,
+            '--shadow-alpha': SHADOW_ALPHA,
+            '--shadow-aspect': SHADOW_ASPECT,
+            '--shadow-rise': SHADOW_RISE,
+            '--foe-shadow-w': `${shadowSize(battleBodyPx(encounter.species, lay.foe)).w}px`,
+            '--ally-shadow-w': `${shadowSize(battleBodyPx(companion, lay.ally, companionStage)).w}px`,
           } as CSSProperties
         }
         data-species={encounter.species} data-capsule-stage={stage ?? undefined} className={`wild__stage ${wildDef.legend ? 'wild__stage--legend' : ''} ${intro ? 'wild__stage--intro' : ''} ${intro && wildDef.legend ? 'wild__stage--sparkle' : ''} ${inHint ? 'wild__stage--hint' : ''}`}>
@@ -882,6 +888,8 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
           <>
             <span className="wild__base wild__base--foe" aria-hidden />
             <span className="wild__base wild__base--ally" aria-hidden />
+            <span className="wild__shadow wild__shadow--foe" aria-hidden />
+            <span className="wild__shadow wild__shadow--ally" aria-hidden />
             <div
               key={`w${hitCount}`}
               className={`wild__foe ${foeHit ? 'wild__foe--hit' : ''} ${foeDodged ? 'wild__foe--dodge' : ''} ${struck ? 'wild__foe--attack' : ''} ${gone ? 'wild__foe--gone' : ''} ${stage === 'absorb' ? 'wild__foe--absorb' : ''} ${foeHidden ? 'wild__foe--capsule' : ''} ${popped ? 'wild__foe--pop' : ''}`}

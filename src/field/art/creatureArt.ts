@@ -11,6 +11,7 @@
  * 이 PC에 치비 그림(src/field/art/creatures/chibi/, scripts/cut-chibi.py)이 있으면 종 cNNN은 번호 NNN 그림을 저절로 쓴다 (localSprites.ts).
  * 진화 단계 크기(STAGE_SCALE)와 뒷모습 크기(BACK_VIEW_SCALE)는 creatureSprite.tsx에 있다.
  */
+import { SHADOW_FALLBACK_BODY, bodyRatio } from './shadow';
 import type { MonsterKind } from '../../domain/battle';
 import { speciesDef, type SpeciesId } from '../../domain/field/creatures';
 import { LOCAL_SPRITES } from './localSprites';
@@ -87,6 +88,11 @@ export function artSheets(art: CreatureArt): StageSheets | undefined {
 /** 정사각형 자리(한 변 1) 안에 그림을 놓을 크기 — 치비 그림은 몸 높이로 맞추고, 다른 그림은 1×1 */
 export function artBox(art: CreatureArt): { w: number; h: number } {
   return art.type === 'image' ? cellBox(art.cell) : { w: 1, h: 1 };
+}
+
+/** 칸(그림) 너비 대비 몸 너비 — 발밑 그림자 크기 기준 (SVG 폴백은 0.6) */
+export function artBodyRatio(art: CreatureArt): number {
+  return art.type === 'image' ? bodyRatio(art.cell) : SHADOW_FALLBACK_BODY;
 }
 
 /** 이미지 그림에서 보는 쪽에 맞는 파일과 뒤집기 여부 */

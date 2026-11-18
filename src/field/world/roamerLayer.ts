@@ -5,6 +5,7 @@ import type { Roamer } from '../../domain/field/roam';
 import { type SheetFrame, companionImage, companionSheet } from '../art/companionImage';
 import { artBox, creatureArt } from '../art/creatureArt';
 import { STAGE_SCALE } from '../art/creatureSprite';
+import { SHADOW_FALLBACK_BODY, drawShadow, liftFraction } from '../art/shadow';
 import { type SheetDir, dirFromDelta } from '../art/spriteSheet';
 
 export interface RoamerSprite {
@@ -96,6 +97,7 @@ export function drawRoamers(ctx: CanvasRenderingContext2D, sprites: RoamerSprite
     const top = Math.round((pose.y - pose.lift) * tile) - cy;
     const sh = sp.sheet;
     const r = rectOf(left, top, tile, { scale: sp.scale, fill: sp.fill, foot: sp.foot, box: sh ? { w: sh.w, h: sh.h } : sp.box });
+    drawShadow(ctx, left + tile / 2, Math.round(pose.y * tile) - cy + tile, r.w * (sh?.body ?? SHADOW_FALLBACK_BODY), liftFraction(pose.lift));
     const h = Math.round(r.h * (sh ? 1 : pose.breathe)); // 시트는 그림이 움직이니 숨쉬기 늘림 없음
     const y = r.y + r.h - h; // 발끝은 그대로, 위로만 늘고 줄어든다
     const img = sp.img;

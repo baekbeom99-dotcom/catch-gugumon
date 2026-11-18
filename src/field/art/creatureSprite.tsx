@@ -4,7 +4,7 @@ import { DAN_COLORS } from '../../art/colors';
 import { MonsterSprite, type MonsterMood } from '../../art/MonsterSprite';
 import type { MonsterKind } from '../../domain/battle';
 import { speciesDef, type SpeciesId } from '../../domain/field/creatures';
-import { artBox, artSheets, creatureArt, imageView, type SheetAnim, type StageSheets } from './creatureArt';
+import { artBodyRatio, artBox, artSheets, creatureArt, imageView, type SheetAnim, type StageSheets } from './creatureArt';
 import { BATTLE_ROW, DIR_ROW, SHEET_COLS, SHEET_ROWS, cellBox, onceFrameAt, totalMs, type BattleSide } from './spriteSheet';
 
 /** 내 구구몬(뒷모습)은 조금 작게 */
@@ -143,6 +143,12 @@ export function creatureSprite(id: SpeciesId, { view: viewIn, attackAt, stage = 
   }
   const sprite = <MonsterSprite kind={art.kind} color={color} golden={art.golden} mood={battle === 'ally' ? 'idle' : mood} size={px} />;
   return view === 'back' ? flipped(sprite) : sprite;
+}
+
+/** 전투 그림의 몸 너비(CSS px) — 발밑 그림자 크기 기준. size는 creatureSprite에 넘기는 자리 크기 */
+export function battleBodyPx(id: SpeciesId, size: number, stage: 1 | 2 | 3 = 1): number {
+  const art = creatureArt(id);
+  return Math.round(size * STAGE_SCALE[stage]) * artBox(art).w * artBodyRatio(art);
 }
 
 /** 도감·동료 그림에 쓰는 종별 색 */

@@ -170,6 +170,29 @@
   height: calc(var(--ally-size, 144px) * 0.27);
 }
 
+/* 발밑 그림자: 받침 위·그림 아래, 발 위치(--*-feet)에 고정 (공격·맞음 움직임은 그림 칸만 움직인다). 크기·진하기는 art/shadow.ts */
+.wild__shadow {
+  position: absolute;
+  z-index: 0;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, var(--shadow-alpha)) 0 70%, rgba(0, 0, 0, 0) 100%);
+  pointer-events: none;
+}
+
+.wild__shadow--foe {
+  width: var(--foe-shadow-w, 0px);
+  height: calc(var(--foe-shadow-w, 0px) * var(--shadow-aspect));
+  left: calc(var(--foe-cx, 235px) - var(--foe-shadow-w, 0px) / 2);
+  top: calc(var(--foe-feet, 226px) - var(--foe-shadow-w, 0px) * var(--shadow-aspect) * (0.5 + var(--shadow-rise)));
+}
+
+.wild__shadow--ally {
+  width: var(--ally-shadow-w, 0px);
+  height: calc(var(--ally-shadow-w, 0px) * var(--shadow-aspect));
+  left: calc(var(--ally-cx, 105px) - var(--ally-shadow-w, 0px) / 2);
+  top: calc(var(--ally-feet, 400px) - var(--ally-shadow-w, 0px) * var(--shadow-aspect) * (0.5 + var(--shadow-rise)));
+}
+
 /* 힌트 칸은 내 정보 상자 위에서 끝난다 */
 .wild__stage--hint .wild__hint {
   bottom: 104px;

@@ -7,6 +7,7 @@ import type { FieldNotice } from '../../store/fieldData';
 import { skillDef } from '../../domain/field/skills';
 import { companionImage, companionSheet, sheetFrame } from '../art/companionImage';
 import { artBox, creatureArt } from '../art/creatureArt';
+import { bodyRatio } from '../art/shadow';
 import { HERO_ART } from '../art/localSprites';
 import { type SheetDir, cellBox, dirFromDelta } from '../art/spriteSheet';
 import { STAGE_SCALE } from '../art/creatureSprite';
@@ -513,7 +514,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
       }
       const stepT = s.move ? Math.min(1, (now - s.move.start) / STEP_MS) : null;
       // 주인공: 치비 시트(017)가 있으면 걸을 때 걷기·서면 가만히(바라보는 방향 행), 없으면 픽셀 주인공
-      const heroSheet = HERO_ART?.sheets ? sheetFrame(HERO_ART.sheets, cellBox(HERO_ART.cell), s.move ? 'walk' : 'idle', s.facing, now) : undefined;
+      const heroSheet = HERO_ART?.sheets ? sheetFrame(HERO_ART.sheets, cellBox(HERO_ART.cell), s.move ? 'walk' : 'idle', s.facing, now, bodyRatio(HERO_ART.cell)) : undefined;
       const hero: Hero = { x: hx, y: hy, facing: s.facing, sheet: heroSheet, fill: HERO_ART?.fill };
       // 동행: 주인공이 방금 떠난 칸을 따라온다. 걸을 때 걷기·멈추면 가만히 시트(가는 방향), 시트가 없으면 정지 그림
       const game = useGameStore.getState();

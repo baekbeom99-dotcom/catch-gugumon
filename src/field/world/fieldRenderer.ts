@@ -4,6 +4,7 @@ import { WATER_FRAME_MS } from '../../domain/field/tuning';
 import { TILE_PX, VIEW_TILES_W } from './padDirection';
 import type { SheetFrame } from '../art/companionImage';
 import { HERO_SPRITES, heroFrame } from '../art/hero';
+import { SHADOW_FALLBACK_BODY, drawShadow, liftFraction } from '../art/shadow';
 import { type TileSet, bakeTiles } from '../art/pixelArt';
 import { type RoamerSprite, drawRoamers } from './roamerLayer';
 
@@ -157,9 +158,11 @@ function drawHero(ctx: CanvasRenderingContext2D, hero: Hero, tile: number, cx: n
   const sh = hero.sheet;
   if (sh) {
     const r = companionRect(px, py, tile, { scale: 1, fill: hero.fill ?? 1, foot: 1, box: { w: sh.w, h: sh.h } });
+    drawShadow(ctx, px + tile / 2, py + tile, r.w * (sh.body ?? SHADOW_FALLBACK_BODY));
     drawSheetFrame(ctx, sh, r.x, r.y, r.w, r.h);
     return;
   }
+  drawShadow(ctx, px + tile / 2, py + tile, tile * SHADOW_FALLBACK_BODY);
   ctx.drawImage(bakeTiles(HERO_SPRITES[hero.facing][heroFrame(step)]), px, py, tile, tile);
 }
 
@@ -169,11 +172,16 @@ function drawCompanion(ctx: CanvasRenderingContext2D, p: Companion, tile: number
   const top = Math.round((p.y - (p.lift ?? 0)) * tile) - cy;
   const sh = p.sheet;
   const img = p.img;
+  // 그림자는 땅(뜨기 전 자리)에 둔다. 뜰수록 조금 작고 연하게
+  const groundY = Math.round(p.y * tile) - cy + tile;
+  const lift01 = liftFraction(p.lift ?? 0);
   if (sh) {
     const r = companionRect(left, top, tile, { scale: p.scale, fill: p.fill, foot: p.foot, box: { w: sh.w, h: sh.h } });
+    drawShadow(ctx, left + tile / 2, groundY, r.w * (sh.body ?? SHADOW_FALLBACK_BODY), lift01);
     drawSheetFrame(ctx, sh, r.x, r.y, r.w, r.h);
   } else if (img && img.complete && img.naturalWidth > 0) {
     const r = companionRect(left, top, tile, p);
+    drawShadow(ctx, left + tile / 2, groundY, r.w * SHADOW_FALLBACK_BODY, lift01);
     const hgt = Math.round(r.h * (p.breathe ?? 1));
     const y = r.y + r.h - hgt; // 발끝은 그대로, 위로만 늘고 줄어든다
     ctx.imageSmoothingEnabled = true;
@@ -186,6 +194,7 @@ function drawCompanion(ctx: CanvasRenderingContext2D, p: Companion, tile: number
     } else ctx.drawImage(img, r.x, y, r.w, hgt);
     ctx.imageSmoothingEnabled = false;
   } else {
+    drawShadow(ctx, left + tile / 2, groundY, tile * p.fill * p.scale * SHADOW_FALLBACK_BODY, lift01);
     ctx.fillStyle = '#42a5f5';
     ctx.beginPath();
     ctx.arc(left + tile / 2, top + tile / 2, tile * 0.38, 0, Math.PI * 2);

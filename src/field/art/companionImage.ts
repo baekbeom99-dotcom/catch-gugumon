@@ -4,7 +4,7 @@ import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { MonsterSprite } from '../../art/MonsterSprite';
 import type { SpeciesId } from '../../domain/field/creatures';
-import { artBox, artSheets, creatureArt, imageView, type StageSheets } from './creatureArt';
+import { artBodyRatio, artBox, artSheets, creatureArt, imageView, type StageSheets } from './creatureArt';
 import { DIR_ROW, frameAt, type SheetDir } from './spriteSheet';
 import { speciesColor } from './creatureSprite';
 
@@ -54,6 +54,8 @@ export interface SheetFrame {
   /** 정사각형 자리(한 변 1) 대비 칸을 그릴 가로·세로 (몸 높이 맞춤, spriteSheet.cellBox) */
   w: number;
   h: number;
+  /** 칸 너비 대비 몸 너비 (발밑 그림자용) */
+  body?: number;
 }
 
 const sheetCache = new Map<string, HTMLImageElement>();
@@ -69,11 +71,11 @@ function sheetImg(url: string): HTMLImageElement {
 }
 
 /** 시트 묶음에서 지금 장면. 아직 못 읽은 이미지면 undefined */
-export function sheetFrame(sheets: StageSheets, box: { w: number; h: number }, anim: 'idle' | 'walk', dir: SheetDir, elapsedMs: number): SheetFrame | undefined {
+export function sheetFrame(sheets: StageSheets, box: { w: number; h: number }, anim: 'idle' | 'walk', dir: SheetDir, elapsedMs: number, body?: number): SheetFrame | undefined {
   const a = sheets[anim];
   const img = sheetImg(a.url);
   if (!(img.complete && img.naturalWidth > 0)) return undefined;
-  return { img, col: frameAt(a.ms, elapsedMs), row: DIR_ROW[dir], cw: sheets.cw, ch: sheets.ch, w: box.w, h: box.h };
+  return { img, col: frameAt(a.ms, elapsedMs), row: DIR_ROW[dir], cw: sheets.cw, ch: sheets.ch, w: box.w, h: box.h, body };
 }
 
 /**
@@ -84,5 +86,6 @@ export function companionSheet(id: SpeciesId, anim: 'idle' | 'walk' | 'sleep', d
   const art = creatureArt(id);
   const sheets = artSheets(art);
   if (!sheets) return undefined;
-  return anim === 'sleep' ? sheetFrame(sheets, artBox(art), 'idle', 'down', 0) : sheetFrame(sheets, artBox(art), anim, dir, elapsedMs);
+  const body = artBodyRatio(art);
+  return anim === 'sleep' ? sheetFrame(sheets, artBox(art), 'idle', 'down', 0, body) : sheetFrame(sheets, artBox(art), anim, dir, elapsedMs, body);
 }
