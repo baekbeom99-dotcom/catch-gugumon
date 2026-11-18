@@ -91,6 +91,8 @@ export interface FieldData {
   capsules: Capsules;
   /** 트레이닝센터 기록 (학습한 단·마스터한 단과 최고 기록·받은 레전드) */
   training: TrainingData;
+  /** 별점수 (0 이상 정수). 별점수가 꺼져 있으면(featureFlags) 늘 0 그대로 */
+  starPoints: number;
 }
 
 /** 저장 안 되는 알림: 레벨이 올랐을 때 등 화면에 띄운다 (필드 구구몬은 진화하지 않는다) */
@@ -154,6 +156,7 @@ export function initialField(): FieldData {
     stats: { battles: 0, catches: 0, fled: 0 },
     capsules: { ...CAPSULE_START },
     training: emptyTraining(),
+    starPoints: 0,
   };
 }
 
@@ -360,5 +363,7 @@ export function mergeField(initial: FieldData, persisted: unknown, townRowsAdded
     stats,
     capsules,
     training: mergeTraining(p.training),
+    // 별점수: 0 이상 정수만 (옛 저장·글자·음수·소수·NaN은 0)
+    starPoints: isCount(p.starPoints) && Number.isInteger(p.starPoints) ? p.starPoints : 0,
   };
 }

@@ -91,6 +91,8 @@ describe('저장 데이터 field', () => {
       species: { c031: { ...entry, stage: 1, hp: 100, wounds: [], skills: ['c031-1', 'c031-2'] } },
       capsules: { meadow: 3, waterside: 3, desert: 3, legend: 0 },
       training: { studied: {}, mastered: {}, legendGranted: {}, arith: {} },
+      // 별점수가 생기기 전 저장은 0
+      starPoints: 0,
     });
   });
 
@@ -205,6 +207,8 @@ describe('저장 데이터 field', () => {
       species: { c031: { ...entry, stage: 1, hp: 100, wounds: [], skills: ['c031-1', 'c031-2'] } },
       capsules: { meadow: 3, waterside: 3, desert: 3, legend: 0 },
       training: { studied: {}, mastered: {}, legendGranted: {}, arith: {} },
+      // 별점수가 생기기 전 저장은 0
+      starPoints: 0,
     });
   });
 
@@ -261,6 +265,8 @@ describe('저장 데이터 field', () => {
       species: { c031: { ...entry, stage: 1, skills: ['c031-1', 'c031-2'] } },
       capsules: { meadow: 3, waterside: 3, desert: 3, legend: 0 },
       training: { studied: {}, mastered: {}, legendGranted: {}, arith: {} },
+      // 별점수가 생기기 전 저장은 0
+      starPoints: 0,
     });
     expect(useGameStore.getState().economy.stars).toBe(777);
   });

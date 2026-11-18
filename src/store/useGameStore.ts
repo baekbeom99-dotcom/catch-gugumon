@@ -58,8 +58,13 @@ import {
   TRAINING_CAPSULES,
   TRAINING_DANS,
   TRAINING_FIRST_MASTER_CAPSULES,
+  STAR_CATCH,
+  STAR_DISCOVER,
+  STAR_TRAINING,
   type TrainingDan,
 } from '../domain/field/tuning';
+import { isStarPointsEnabled } from '../config/featureFlags';
+import { addStarPoints as addStarPointsTo, statueStars } from '../domain/field/starPoints';
 import { isChallengeOpen, isFirstMaster, isTrainingOpen, judgeChallenge, pickLegendReward } from '../domain/field/training';
 import { judgeArithTrainer } from '../domain/field/arithTrainer';
 import { addCapsules, type CapsuleType, takeCapsule } from '../domain/field/capsules';
@@ -101,6 +106,19 @@ export interface WildResult extends PetChange {
   notices: FieldNotice[];
   /** 가진 기술이 가득 차서 바로 못 가진 새 기술 (화면이 useSessionStore.skillOffers에 넘긴다) */
   offers: SkillOffer[];
+  /** 받은 별점수 (새 종을 처음 잡으면 STAR_CATCH, 별점수가 꺼져 있으면 0) */
+  stars: number;
+}
+
+/** 별점수를 얻는 까닭 */
+export type StarReason = 'discover' | 'catch' | 'training' | 'statue';
+
+/** 동상 문제를 다 풀었을 때 */
+export interface StatueInput {
+  timeMs: number;
+  /** 7문제를 모두 맞혔나 (하나라도 틀리면 별점수 없음) */
+  allCorrect: boolean;
+  now: number;
 }
 
 /** 전투가 끝난 모양: 잡음 · 도망감 · 돌려보냄 · 우리 구구몬이 쓰러짐 · 그만하기 */
@@ -319,8 +337,15 @@ interface GameActions {
   replaceSave: (save: unknown) => void;
   /** 필드 모험: 마지막 자리 저장 */
   setFieldPosition: (pos: FieldData['position']) => void;
-  /** 필드 모험: 처음 만난 구구몬 기록 (이미 있으면 그대로) */
+  /** 필드 모험: 처음 만난 구구몬 기록 (이미 있으면 그대로). 처음 보는 종이면 별점수 +STAR_DISCOVER (켜져 있을 때만) */
   markSeen: (id: SpeciesId) => void;
+  /** 별점수 n개 더하기 (0보다 큰 정수만). 별점수가 꺼져 있으면 아무것도 안 바꾼다 (set도 부르지 않는다) */
+  addStarPoints: (n: number, reason: StarReason) => void;
+  /**
+   * 체육관 동상 문제를 마쳤을 때: 모두 맞혔으면 걸린 시간에 맞는 별점수(statueStars).
+   * 꺼져 있으면 {ok:false, stars:0}이고 아무것도 안 바꾼다. 틀린 문제가 있으면 {ok:true, stars:0}, 저장 그대로
+   */
+  finishStatue: (input: StatueInput) => { ok: boolean; stars: number };
   /** 필드 모험: 첫 구구몬 고르기 */
   chooseStarter: (id: SpeciesId, now: number) => void;
   /** 필드 모험: 함께 다닐 구구몬 (잡은 종, 쓰러지지 않은 종만) */
@@ -407,6 +432,11 @@ const safeStorage = {
 
 /** 똥·병·식중독 주사위. E2E 테스트는 window.__GUGU_E2E_CALM__ = true 로 꺼서 결과가 흔들리지 않게 한다. */
 const troubleRng = () => ((globalThis as { __GUGU_E2E_CALM__?: boolean }).__GUGU_E2E_CALM__ ? 1 : Math.random());
+
+/** 별점수가 켜져 있으면 n(0보다 큰 정수만), 꺼져 있으면 0 — 모든 별점수 적립이 이 한 곳을 거친다 */
+function starGain(n: number): number {
+  return isStarPointsEnabled() && Number.isInteger(n) && n > 0 ? n : 0;
+}
 
 /** 펫 변화 후 진화·친밀도 레벨업을 판정한다 (알은 부화로만 깨어난다). */
 function settlePet(before: PetData, after: PetData, now: number): { pet: PetData } & PetChange {
@@ -506,7 +536,25 @@ export const useGameStore = create<GameStore>()(
       },
       setFieldPosition: (pos) => set((s) => ({ field: { ...s.field, position: pos } })),
       markSeen: (id) =>
-        set((s) => (s.field.seen.includes(id) ? {} : { field: { ...s.field, seen: [...s.field.seen, id] } })),
+        set((s) =>
+          s.field.seen.includes(id)
+            ? {}
+            : { field: { ...s.field, seen: [...s.field.seen, id], starPoints: addStarPointsTo(s.field.starPoints, starGain(STAR_DISCOVER)) } },
+        ),
+      addStarPoints: (n) => {
+        // 꺼져 있거나 더할 것이 없으면 set을 부르지 않는다 (상태 객체 그대로)
+        const gain = starGain(n);
+        if (gain === 0) return;
+        set((s) => ({ field: { ...s.field, starPoints: addStarPointsTo(s.field.starPoints, gain) } }));
+      },
+      finishStatue: (input) => {
+        if (!isStarPointsEnabled()) return { ok: false, stars: 0 };
+        if (input.allCorrect !== true) return { ok: true, stars: 0 };
+        const stars = starGain(statueStars(Number.isFinite(input.timeMs) ? input.timeMs : NaN));
+        if (stars === 0) return { ok: true, stars: 0 };
+        set((s) => ({ field: { ...s.field, starPoints: addStarPointsTo(s.field.starPoints, stars) }, lastSeenAt: input.now }));
+        return { ok: true, stars };
+      },
       chooseStarter: (id, now) =>
         set((s) => {
           // 이미 골랐으면 아무것도 바꾸지 않는다 (잡은 기록을 덮어쓰지 않게)
@@ -675,8 +723,11 @@ export const useGameStore = create<GameStore>()(
           // 펫 친밀도: 맞힌 문제마다 (알이면 없음)
           const affection = s.pet.stage !== 'egg' && s.pet.species ? correct * ANSWER_AFFECTION : 0;
           const settled = settlePet(s.pet, affection > 0 ? addAffection(s.pet, affection) : s.pet, r.now);
-          result = { newSpecies, affection, notices, offers, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp };
-          return { field: { ...s.field, species, stats, seen }, pet: settled.pet, lastSeenAt: r.now };
+          // 별점수: 새 종을 처음 잡았을 때만 (꺼져 있으면 0)
+          const stars = newSpecies ? starGain(STAR_CATCH) : 0;
+          const starPoints = addStarPointsTo(s.field.starPoints, stars);
+          result = { newSpecies, affection, notices, offers, stars, evolvedTo: settled.evolvedTo, levelUp: settled.levelUp };
+          return { field: { ...s.field, species, stats, seen, starPoints }, pet: settled.pet, lastSeenAt: r.now };
         });
         return result;
       },
@@ -735,9 +786,11 @@ export const useGameStore = create<GameStore>()(
             }
           }
           const bestMs = training.mastered[dan]?.bestMs ?? null;
-          result = { ok: true, capsuleType, capsules: gained, mastered, firstMaster, newBest, bestMs, legend, stars: 0 };
+          // 별점수: 성공(학습 끝·도전 합격)마다 (꺼져 있으면 0)
+          const stars = starGain(STAR_TRAINING);
+          result = { ok: true, capsuleType, capsules: gained, mastered, firstMaster, newBest, bestMs, legend, stars };
           const capsules = addCapsules(f.capsules, capsuleType, gained);
-          return { field: { ...f, training, species, seen, capsules } };
+          return { field: { ...f, training, species, seen, capsules, starPoints: addStarPointsTo(f.starPoints, stars) } };
         });
         return result;
       },
@@ -785,9 +838,11 @@ export const useGameStore = create<GameStore>()(
             }
           }
           const bestMs = training.arith[level]?.bestMs ?? null;
-          result = { ok: true, capsuleType, capsules: gained, mastered: true, firstMaster, newBest, bestMs, legend, stars: 0 };
+          // 별점수: 합격마다 (꺼져 있으면 0)
+          const stars = starGain(STAR_TRAINING);
+          result = { ok: true, capsuleType, capsules: gained, mastered: true, firstMaster, newBest, bestMs, legend, stars };
           const capsules = addCapsules(f.capsules, capsuleType, gained);
-          return { field: { ...f, training, species, seen, capsules } };
+          return { field: { ...f, training, species, seen, capsules, starPoints: addStarPointsTo(f.starPoints, stars) } };
         });
         return result;
       },

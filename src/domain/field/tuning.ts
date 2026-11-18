@@ -243,3 +243,20 @@ export const ARITH_CAPSULE_CHOICES = ['meadow', 'waterside', 'desert'] as const 
  * 마을 지도 맨 위에 새로 넣은 줄 수 (트레이닝센터 거리: 새 줄 10 − 옛 맨 윗벽 1). 예전 저장의 마을 자리를 이만큼 아래로 옮긴다.
  */
 export const TOWN_ROWS_ADDED = 9;
+
+// ── 별점수 (코스튬을 살 화폐 — src/config/featureFlags.ts의 STAR_POINTS_ENABLED가 켜져야 쌓인다) ──
+/** 새 구구몬을 처음 만났을 때 */
+export const STAR_DISCOVER = 5;
+/** 새 구구몬을 처음 잡았을 때 */
+export const STAR_CATCH = 5;
+/** 트레이닝 성공(학습 끝까지 마침·도전 합격)마다 */
+export const STAR_TRAINING = 3;
+/** 체육관 동상 문제 수 */
+export const STATUE_QUESTIONS = 7;
+/** 동상 별점수: 가장 적게·가장 많이 (7문제를 모두 맞혔을 때만) */
+export const STATUE_STARS_MIN = 5;
+export const STATUE_STARS_MAX = 15;
+/** 동상: 이 시간(밀리초) 안에 다 풀면 가장 많이 */
+export const STATUE_FAST_MS = 20_000;
+/** 동상: 이 시간(밀리초)보다 오래 걸리면 가장 적게 (사이는 시간에 반비례) */
+export const STATUE_SLOW_MS = 70_000;

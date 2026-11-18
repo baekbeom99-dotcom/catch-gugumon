@@ -111,6 +111,14 @@ describe('필드 모험 운영 수치', () => {
       ARITH_CAPSULE_CHOICES: ['meadow', 'waterside', 'desert'],
       STAIRS_OPEN_AFTER_DAN: null,
       TOWN_ROWS_ADDED: 9,
+      STAR_DISCOVER: 5,
+      STAR_CATCH: 5,
+      STAR_TRAINING: 3,
+      STATUE_QUESTIONS: 7,
+      STATUE_STARS_MIN: 5,
+      STATUE_STARS_MAX: 15,
+      STATUE_FAST_MS: 20_000,
+      STATUE_SLOW_MS: 70_000,
     });
   });
 });

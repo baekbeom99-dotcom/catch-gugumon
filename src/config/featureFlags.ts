@@ -13,6 +13,18 @@ export function isQuizEnabled(): boolean {
   return typeof v === 'boolean' ? v : QUIZ_ADVENTURE_ENABLED;
 }
 
+/**
+ * 별점수(코스튬을 살 화폐) 켜기. 코스튬이 나오기 전까지 꺼 둔다 — 꺼져 있으면 별점수가 쌓이지 않고 화면에도 없다.
+ * 저장 칸(field.starPoints)은 늘 있다 (켠 뒤 저장 형식을 바꾸지 않게).
+ */
+export const STAR_POINTS_ENABLED = false;
+
+/** 별점수가 켜져 있는가. E2E에서는 window.__GUGU_E2E_STARS__ (true·false)가 있으면 그것을 따른다. 부를 때마다 읽는다 */
+export function isStarPointsEnabled(): boolean {
+  const v = (globalThis as { __GUGU_E2E_STARS__?: unknown }).__GUGU_E2E_STARS__;
+  return typeof v === 'boolean' ? v : STAR_POINTS_ENABLED;
+}
+
 /** 이 경로를 열어도 되는가 (퀴즈 모험이 꺼져 있으면 퀴즈 경로와 그 하위 경로만 막는다) */
 export function isRouteEnabled(path: string, quizEnabled: boolean = isQuizEnabled()): boolean {
   if (quizEnabled) return true;
