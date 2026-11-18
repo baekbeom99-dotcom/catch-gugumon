@@ -12,5 +12,3 @@ playwright-report
 # 로컬 테스트용 스프라이트 이미지 (CC BY-NC, 저장소·배포에 넣지 않는다)
 src/field/art/creatures/pmd/
 
-# 치비 그림 이미지 (이 PC 전용, 저장소·배포에 넣지 않는다)
-src/field/art/creatures/chibi/

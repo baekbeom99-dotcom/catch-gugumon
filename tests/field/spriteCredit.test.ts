@@ -8,6 +8,6 @@ describe('그림 출처 표기', () => {
     expect(hasSpriteCredit({}, { front: '017' })).toBe(true);
   });
   it('이 PC 테스트용 그림이고 원작 권리는 각 권리자에게 있다고 적는다', () => {
-    for (const w of ['이 PC 테스트용', '각 권리자']) expect(SPRITE_CREDIT_TEXT).toContain(w);
+    for (const w of ['비영리', '각 권리자']) expect(SPRITE_CREDIT_TEXT).toContain(w);
   });
 });
