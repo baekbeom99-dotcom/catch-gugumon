@@ -6,6 +6,7 @@
 import type { SpecialKind } from './skills';
 import type { CapsuleType } from './capsules';
 import type { ArithLevel } from '../arith';
+import type { FieldId } from './fields';
 import { PRACTICE_MASTER_SEC_PER_Q } from '../arithPractice';
 
 // ── 만남 ──
@@ -260,3 +261,20 @@ export const STATUE_STARS_MAX = 15;
 export const STATUE_FAST_MS = 20_000;
 /** 동상: 이 시간(밀리초)보다 오래 걸리면 가장 적게 (사이는 시간에 반비례) */
 export const STATUE_SLOW_MS = 70_000;
+
+// ── 저학년 모드 (구구단 대신 덧셈·뺄셈 — 규칙은 lowGrade.ts) ──
+/** 저학년 모드를 켜고 끌 때 넣는 비밀번호 */
+export const LOWGRADE_PASSWORD = '1234';
+/** 저학년 틀린 문제를 이만큼까지 기억한다 (최근 것부터) */
+export const LOWGRADE_WRONG_KEEP = 20;
+/** 상점 캡슐 연습 문제 수 (저학년 모드) */
+export const LOWGRADE_SHOP_QUESTIONS = 5;
+/**
+ * 저학년 문제 하나에 쓰는 시간(초). 셈 연습 마스터 기준과 같은 크기:
+ * 초원(한 자리 덧뺄셈)은 기본 단계 문제당 시간, 물가·사막(두 자리 ± 한 자리)은 고수 단계 문제당 시간
+ */
+export const LOWGRADE_ANSWER_SEC: Record<FieldId, number> = {
+  meadow: PRACTICE_MASTER_SEC_PER_Q.basic,
+  waterside: PRACTICE_MASTER_SEC_PER_Q.hard,
+  desert: PRACTICE_MASTER_SEC_PER_Q.hard,
+};

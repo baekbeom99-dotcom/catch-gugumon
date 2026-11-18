@@ -65,6 +65,7 @@ import {
 } from '../domain/field/tuning';
 import { isStarPointsEnabled } from '../config/featureFlags';
 import { addStarPoints as addStarPointsTo, statueStars } from '../domain/field/starPoints';
+import { isLowGradeProblem, type LowGradeProblem, pushLowGradeWrong, removeLowGradeWrong } from '../domain/field/lowGrade';
 import { isChallengeOpen, isFirstMaster, isTrainingOpen, judgeChallenge, pickLegendReward } from '../domain/field/training';
 import { judgeArithTrainer } from '../domain/field/arithTrainer';
 import { addCapsules, type CapsuleType, takeCapsule } from '../domain/field/capsules';
@@ -346,6 +347,10 @@ interface GameActions {
    * 꺼져 있으면 {ok:false, stars:0}이고 아무것도 안 바꾼다. 틀린 문제가 있으면 {ok:true, stars:0}, 저장 그대로
    */
   finishStatue: (input: StatueInput) => { ok: boolean; stars: number };
+  /** 저학년 모드 켜고 끄기 (비밀번호 검사는 화면 몫). 같은 값이나 불리언이 아니면 아무것도 안 바꾼다 */
+  setLowGrade: (on: boolean) => void;
+  /** 저학년 문제 답 기록: 틀리면 틀린 문제 목록 맨 앞에(같은 문제는 앞으로), 맞히면 목록에서 뺀다. 깨진 문제는 무시 */
+  recordLowGradeAnswer: (p: LowGradeProblem, correct: boolean) => void;
   /** 필드 모험: 첫 구구몬 고르기 */
   chooseStarter: (id: SpeciesId, now: number) => void;
   /** 필드 모험: 함께 다닐 구구몬 (잡은 종, 쓰러지지 않은 종만) */
@@ -554,6 +559,17 @@ export const useGameStore = create<GameStore>()(
         if (stars === 0) return { ok: true, stars: 0 };
         set((s) => ({ field: { ...s.field, starPoints: addStarPointsTo(s.field.starPoints, stars) }, lastSeenAt: input.now }));
         return { ok: true, stars };
+      },
+      setLowGrade: (on) => {
+        if (typeof on !== 'boolean' || get().settings.lowGrade === on) return;
+        set((s) => ({ settings: { ...s.settings, lowGrade: on } }));
+      },
+      recordLowGradeAnswer: (p, correct) => {
+        if (!isLowGradeProblem(p)) return;
+        const list = get().field.lowGrade.recentWrong;
+        const next = correct ? removeLowGradeWrong(list, p) : pushLowGradeWrong(list, p);
+        if (next === list) return; // 목록에 없는 문제를 맞힘: 상태 그대로
+        set((s) => ({ field: { ...s.field, lowGrade: { ...s.field.lowGrade, recentWrong: [...next] } } }));
       },
       chooseStarter: (id, now) =>
         set((s) => {

@@ -26,6 +26,8 @@ export interface Settings {
   inputMode: 'auto' | 'choice';
   /** 필드 모험: 구구몬이 도망가는 빠르기 (0.8 빠름 · 1 보통 · 1.5 느림) */
   fieldFleeScale: 0.8 | 1 | 1.5;
+  /** 저학년 모드: 구구몬 잡는 문제가 덧셈·뺄셈이 된다 — 기본 끔 (켜고 끌 때 비밀번호) */
+  lowGrade: boolean;
 }
 
 export const FIELD_FLEE_SCALES: readonly Settings['fieldFleeScale'][] = [0.8, 1, 1.5];
@@ -58,7 +60,7 @@ export function createInitialSave(now: number): SaveData {
     schemaVersion: SCHEMA_VERSION,
     createdAt: now,
     lastSeenAt: now,
-    settings: { sound: true, volume: 0.7, inputMode: 'auto', fieldFleeScale: 1 },
+    settings: { sound: true, volume: 0.7, inputMode: 'auto', fieldFleeScale: 1, lowGrade: false },
     learning: initialLearning(),
     economy: initialEconomy(),
     pet: initialPet(now),
@@ -89,6 +91,8 @@ export function mergeSave(initial: SaveData, persisted: unknown): SaveData {
       fieldFleeScale: FIELD_FLEE_SCALES.includes(p.settings?.fieldFleeScale as Settings['fieldFleeScale'])
         ? (p.settings?.fieldFleeScale as Settings['fieldFleeScale'])
         : initial.settings.fieldFleeScale,
+      // 저학년 모드: 옛 저장(칸 없음)이나 불리언이 아닌 값은 끔
+      lowGrade: typeof p.settings?.lowGrade === 'boolean' ? p.settings.lowGrade : false,
     },
     // 조건을 채웠는데 닫혀 있던 12·13단 도전 모드는 불러올 때 연다
     learning: repairChallengeUnlock({

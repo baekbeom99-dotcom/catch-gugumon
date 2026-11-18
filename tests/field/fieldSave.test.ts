@@ -93,6 +93,8 @@ describe('저장 데이터 field', () => {
       training: { studied: {}, mastered: {}, legendGranted: {}, arith: {} },
       // 별점수가 생기기 전 저장은 0
       starPoints: 0,
+      // 저학년 모드가 생기기 전 저장은 빈 목록
+      lowGrade: { recentWrong: [] },
     });
   });
 
@@ -209,6 +211,8 @@ describe('저장 데이터 field', () => {
       training: { studied: {}, mastered: {}, legendGranted: {}, arith: {} },
       // 별점수가 생기기 전 저장은 0
       starPoints: 0,
+      // 저학년 모드가 생기기 전 저장은 빈 목록
+      lowGrade: { recentWrong: [] },
     });
   });
 
@@ -267,6 +271,8 @@ describe('저장 데이터 field', () => {
       training: { studied: {}, mastered: {}, legendGranted: {}, arith: {} },
       // 별점수가 생기기 전 저장은 0
       starPoints: 0,
+      // 저학년 모드가 생기기 전 저장은 빈 목록
+      lowGrade: { recentWrong: [] },
     });
     expect(useGameStore.getState().economy.stars).toBe(777);
   });
