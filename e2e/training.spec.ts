@@ -1,0 +1,247 @@
+/** 트레이닝센터: 마을 훈련 거리 → 건물 문 → 학습 → 마스터 도전 → 결과·보상·저장, 12·13단 레전드, 계단 건물, 퀴즈 모험 끄기 */
+import type { Page } from '@playwright/test';
+import { expect, test } from './fixtures';
+import { collectErrors } from './helpers';
+
+test.use({ viewport: { width: 375, height: 812 } });
+
+/** 레전드 12종의 종 id (013~016·018·019·045~050) */
+const LEGEND_ID = /^c0(13|14|15|16|18|19|45|46|47|48|49|50)$/;
+
+type Training = {
+  studied: Record<number, true>;
+  mastered: Record<number, { bestMs: number; at: number }>;
+  legendGranted: Record<number, string>;
+};
+
+const DANS = [2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13];
+
+/** 마스터한 단과 학습을 마친 단을 정해 저장 모양으로 만든다 */
+function trainingOf(masteredDans: number[], studiedDans: number[] = masteredDans): Training {
+  const studied: Record<number, true> = {};
+  const mastered: Record<number, { bestMs: number; at: number }> = {};
+  for (const d of studiedDans) studied[d] = true;
+  for (const d of masteredDans) mastered[d] = { bestMs: 20000, at: 1 };
+  return { studied, mastered, legendGranted: {} };
+}
+
+/** 페이지가 열리기 전에 저장본을 넣는다 (이미 저장이 있으면 그대로 — 새로고침해도 진행이 남는다) */
+async function seed(page: Page, opts: { training?: Training; pos?: { x: number; y: number; facing: string }; noTimer?: boolean } = {}) {
+  const field = {
+    starterChosen: true,
+    companion: 'c034',
+    species: { c034: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: 1, skills: ['c034-1'] } },
+    seen: ['c034'],
+    training: opts.training ?? { studied: {}, mastered: {}, legendGranted: {} },
+    position: { map: 'town', ...(opts.pos ?? { x: 2, y: 3, facing: 'up' }) },
+  };
+  await page.addInitScript(
+    ({ f, noTimer }) => {
+      if (noTimer) (window as unknown as { __GUGU_E2E_NO_TIMER__: boolean }).__GUGU_E2E_NO_TIMER__ = true;
+      if (!localStorage.getItem('gugu-monster:save')) localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field: f } }));
+    },
+    { f: field, noTimer: !!opts.noTimer },
+  );
+}
+
+async function saved(page: Page) {
+  return page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
+}
+
+/** 문제 9개를 푼다 (화면의 곱하기 숫자를 읽어 정답 보기를 누른다). wrongAt이 있으면 그 번째(0부터)에서 틀린 보기를 누르고 멈춘다 */
+async function solveNine(page: Page, dan: number, wrongAt = -1, tapMany = false) {
+  const question = page.locator('.training__question');
+  for (let i = 0; i < 9; i++) {
+    const m = Number(await question.getAttribute('data-multiplier'));
+    if (i === wrongAt) {
+      await page.locator('[data-testid=training-choice]:not([data-answer])').first().click();
+      return;
+    }
+    const choice = page.getByRole('button', { name: `답 ${dan * m}`, exact: true });
+    if (tapMany && i === 8) {
+      // 마지막 답을 한꺼번에 여러 번 눌러도 결과는 한 번만
+      await choice.evaluate((el) => {
+        for (let k = 0; k < 5; k++) (el as HTMLButtonElement).click();
+      });
+    } else {
+      await choice.click();
+    }
+    if (i < 8) await expect(question).not.toHaveAttribute('data-multiplier', String(m));
+  }
+}
+
+const count = (f: { capsules: Record<string, number> }, type: string) => f.capsules[type] ?? 0;
+
+async function openTraining(page: Page, dan: number) {
+  await page.goto(`/#/field/training/${dan}`);
+  await expect(page.getByTestId('training-entry')).toBeVisible();
+}
+
+test('마을에 훈련 거리가 있고 2단 건물 문에 부딪히면 2단 트레이닝센터로 들어간다', async ({ page }) => {
+  const errors = collectErrors(page);
+  await seed(page);
+  await page.goto('/#/field');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '2,3'); // 훈련 거리(맨 위쪽)의 2단 문 앞
+  await page.keyboard.down('ArrowUp');
+  await expect(page).toHaveURL(/#\/field\/training\/2$/);
+  await page.keyboard.up('ArrowUp');
+  await expect(page.getByTestId('training-entry')).toBeVisible();
+  await expect(page.getByRole('heading', { name: '2단 트레이닝센터' })).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('잠긴 3단 문에 부딪히면 "2단을 먼저 마스터해요"가 뜨고 들어가지 않는다', async ({ page }) => {
+  await seed(page, { pos: { x: 5, y: 3, facing: 'up' } });
+  await page.goto('/#/field');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '5,3');
+  await page.keyboard.down('ArrowUp');
+  await expect(page.getByRole('dialog', { name: '표지판' })).toContainText('2단을 먼저 마스터해요');
+  await page.keyboard.up('ArrowUp');
+  await expect(page).toHaveURL(/#\/field$/);
+  // 주소로 직접 가도 닫힌 단은 마을로 돌려보낸다
+  await page.goto('/#/field/training/3');
+  await expect(page).toHaveURL(/#\/field$/);
+});
+
+test('학습 전에는 마스터 도전이 잠겨 있고, 학습을 끝내면 캡슐 5개를 한 번만 받고 도전이 열린다', async ({ page }) => {
+  const errors = collectErrors(page);
+  await seed(page);
+  await openTraining(page, 2);
+  const challenge = page.getByTestId('training-challenge-btn');
+  await expect(challenge).toHaveAttribute('aria-disabled', 'true');
+  await expect(challenge).toContainText('학습을 먼저 마쳐요');
+  await challenge.click({ force: true }); // 눌러도 도전은 시작하지 않는다
+  await expect(page.getByTestId('training-entry')).toBeVisible();
+  await expect(page.getByTestId('training-challenge')).toHaveCount(0);
+
+  const before = count(await saved(page), 'meadow');
+  await page.getByTestId('training-study-btn').click();
+  await expect(page.getByTestId('training-study')).toBeVisible();
+  await solveNine(page, 2);
+  const result = page.getByTestId('training-result');
+  await expect(result).toBeVisible();
+  await expect(result).toContainText('2단 학습 끝!');
+  await expect(page.getByTestId('training-capsules')).toHaveAttribute('data-capsules', '5');
+
+  const f = await saved(page);
+  expect(f.training.studied[2]).toBe(true);
+  expect(count(f, 'meadow')).toBe(before + 5);
+
+  // 마을로 나가고 다시 들어와도 캡슐은 그대로
+  await page.getByRole('button', { name: '마을로' }).click();
+  await expect(page).toHaveURL(/#\/field$/);
+  expect(count(await saved(page), 'meadow')).toBe(before + 5);
+  await openTraining(page, 2);
+  await expect(page.getByTestId('training-challenge-btn')).toHaveAttribute('aria-disabled', 'false');
+  expect(errors).toEqual([]);
+});
+
+test('마스터 도전 성공: 마스터 저장·캡슐 5개·다음 3단이 열린다', async ({ page }) => {
+  const errors = collectErrors(page);
+  await seed(page, { training: trainingOf([], [2]), noTimer: true });
+  await openTraining(page, 2);
+  const before = count(await saved(page), 'meadow');
+  await page.getByTestId('training-challenge-btn').click();
+  await expect(page.getByTestId('training-challenge')).toBeVisible();
+  await expect(page.getByTestId('training-clock')).toBeVisible();
+  await solveNine(page, 2, -1, true); // 마지막 답을 여러 번 눌러도 한 번만 정산
+  const result = page.getByTestId('training-result');
+  await expect(result).toBeVisible();
+  await expect(result).toHaveAttribute('data-result', 'pass');
+  await expect(result).toContainText('2단 마스터!');
+  await expect(page.getByTestId('training-capsules')).toHaveAttribute('data-capsules', '5');
+
+  const f = await saved(page);
+  expect(f.training.mastered[2]).toBeTruthy();
+  expect(count(f, 'meadow')).toBe(before + 5); // 중복 지급 없음
+  // 3단 건물이 열렸다
+  await page.getByRole('button', { name: '마을로' }).click();
+  await openTraining(page, 3);
+  expect(errors).toEqual([]);
+});
+
+test('마스터 도전 실패(틀림): 마스터는 안 되지만 캡슐 5개는 받는다', async ({ page }) => {
+  await seed(page, { training: trainingOf([], [2]), noTimer: true });
+  await openTraining(page, 2);
+  const before = count(await saved(page), 'meadow');
+  await page.getByTestId('training-challenge-btn').click();
+  await solveNine(page, 2, 0); // 첫 문제에서 틀림 → 바로 끝
+  const result = page.getByTestId('training-result');
+  await expect(result).toBeVisible();
+  await expect(result).toHaveAttribute('data-result', 'wrong');
+  await expect(page.getByTestId('training-capsules')).toHaveAttribute('data-capsules', '5');
+  const f = await saved(page);
+  expect(f.training.mastered[2]).toBeUndefined();
+  expect(count(f, 'meadow')).toBe(before + 5);
+});
+
+test('11단 마스터: 레전드 캡슐 5개를 받지만 레전드 구구몬은 오지 않는다', async ({ page }) => {
+  await seed(page, { training: trainingOf([2, 3, 4, 5, 6, 7, 8, 9], [2, 3, 4, 5, 6, 7, 8, 9, 11]), noTimer: true });
+  await openTraining(page, 11);
+  const before = await saved(page);
+  await page.getByTestId('training-challenge-btn').click();
+  await solveNine(page, 11);
+  await expect(page.getByTestId('training-result')).toHaveAttribute('data-result', 'pass');
+  await expect(page.getByTestId('training-legend')).toHaveCount(0);
+  const f = await saved(page);
+  expect(count(f, 'legend')).toBe(count(before, 'legend') + 5);
+  expect(Object.keys(f.species).length).toBe(Object.keys(before.species).length);
+  expect(f.training.mastered[11]).toBeTruthy();
+});
+
+test('12단 첫 마스터는 레전드 구구몬 한 마리, 두 번째 마스터에는 또 주지 않는다', async ({ page }) => {
+  const errors = collectErrors(page);
+  await seed(page, { training: trainingOf([2, 3, 4, 5, 6, 7, 8, 9, 11], DANS.filter((d) => d !== 13)), noTimer: true });
+  await openTraining(page, 12);
+  const before = await saved(page);
+  await page.getByTestId('training-challenge-btn').click();
+  await solveNine(page, 12);
+  await expect(page.getByTestId('training-result')).toHaveAttribute('data-result', 'pass');
+  const legend = page.getByTestId('training-legend');
+  await expect(legend).toBeVisible();
+  const id = await legend.getAttribute('data-species');
+  expect(id).toMatch(LEGEND_ID);
+
+  const first = await saved(page);
+  expect(Object.keys(first.species).length).toBe(Object.keys(before.species).length + 1);
+  expect(first.species[id!]).toBeTruthy();
+  expect(first.training.legendGranted[12]).toBe(id);
+  expect(count(first, 'legend')).toBe(count(before, 'legend') + 5);
+
+  // 같은 단을 다시 마스터: 캡슐은 받지만 레전드는 더 오지 않는다
+  await page.getByRole('button', { name: '다시 하기' }).click();
+  await expect(page.getByTestId('training-challenge')).toBeVisible();
+  await solveNine(page, 12);
+  await expect(page.getByTestId('training-result')).toHaveAttribute('data-result', 'pass');
+  await expect(page.getByTestId('training-legend')).toHaveCount(0);
+  const second = await saved(page);
+  expect(Object.keys(second.species).length).toBe(Object.keys(first.species).length);
+  expect(second.species[id!].caught).toBe(first.species[id!].caught);
+  expect(count(second, 'legend')).toBe(count(first, 'legend') + 5);
+  expect(errors).toEqual([]);
+});
+
+test('무한의 계단 건물에 부딪히면 계단으로 들어가고, 나오면 마을 문 앞으로 돌아온다', async ({ page }) => {
+  const errors = collectErrors(page);
+  await seed(page, { pos: { x: 9, y: 9, facing: 'up' } });
+  await page.goto('/#/field');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '9,9');
+  await page.keyboard.down('ArrowUp');
+  await expect(page).toHaveURL(/#\/stairs$/);
+  await page.keyboard.up('ArrowUp');
+  await page.getByRole('button', { name: '무한의 계단 그만하기' }).click();
+  await expect(page).toHaveURL(/#\/field$/);
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '9,9');
+  expect(errors).toEqual([]);
+});
+
+test('퀴즈 모험이 꺼져 있으면 #/pet은 필드로 가고 타이틀에는 퀴즈 모험 버튼이 없다', async ({ page }) => {
+  await seed(page);
+  await page.goto('/#/');
+  await expect(page.getByRole('button', { name: '필드 모험' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '퀴즈 모험' })).toHaveCount(0);
+  await page.goto('/#/pet');
+  await expect(page).toHaveURL(/#\/field$/);
+  await page.goto('/#/explore');
+  await expect(page).toHaveURL(/#\/field$/);
+});

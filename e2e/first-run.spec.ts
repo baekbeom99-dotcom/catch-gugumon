@@ -1,6 +1,11 @@
 /** 설계서 12-3: 첫 실행 → 알 선택 → 진단 탐험 → 부화 → 이름 → 돌봄 → 상점 구매·주기, 새로고침 후 유지 */
 import { expect, test } from './fixtures';
-import { collectErrors, playExploration, openQuiz } from './helpers';
+import { collectErrors, playExploration, openQuiz, enableQuiz } from './helpers';
+
+// 퀴즈 모험은 배포에서 꺼져 있으므로 이 파일은 스위치로 켜고 본다
+test.beforeEach(async ({ page }) => {
+  await enableQuiz(page);
+});
 
 test('처음 시작한 학생이 펫을 부화시키고 돌보고 상점에서 산다', async ({ page }) => {
   const errors = collectErrors(page);

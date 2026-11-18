@@ -111,3 +111,10 @@ export function collectErrors(page: Page): string[] {
   });
   return errors;
 }
+
+/** 퀴즈 모험을 켠다 (배포 설정은 꺼짐 — 퀴즈 화면을 보는 테스트가 beforeEach에서 부른다) */
+export async function enableQuiz(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    (window as unknown as { __GUGU_E2E_QUIZ__: boolean }).__GUGU_E2E_QUIZ__ = true;
+  });
+}

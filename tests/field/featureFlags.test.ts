@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { QUIZ_ADVENTURE_ENABLED, isRouteEnabled } from '../../src/config/featureFlags';
+import { afterEach, describe, expect, it } from 'vitest';
+import { QUIZ_ADVENTURE_ENABLED, isQuizEnabled, isRouteEnabled } from '../../src/config/featureFlags';
 
 const QUIZ = ['/pet', '/explore', '/shop', '/records', '/dex', '/battle', '/practice', '/hatch', '/welcome'];
 const ALWAYS = ['/', '/field', '/field/records', '/field/battle', '/field/training/3', '/field/dex', '/stairs', '/admin', '/dev/field', '/dev/gallery'];
@@ -21,5 +21,25 @@ describe('퀴즈 모험 끄기', () => {
   });
   it('기본값은 플래그를 따른다', () => {
     expect(isRouteEnabled('/pet')).toBe(QUIZ_ADVENTURE_ENABLED);
+  });
+  describe('E2E 스위치 __GUGU_E2E_QUIZ__', () => {
+    const g = globalThis as { __GUGU_E2E_QUIZ__?: unknown };
+    afterEach(() => {
+      delete g.__GUGU_E2E_QUIZ__;
+    });
+    it('없으면 배포 설정을 따른다', () => {
+      expect(isQuizEnabled()).toBe(QUIZ_ADVENTURE_ENABLED);
+    });
+    it('true·false면 그대로 따른다', () => {
+      g.__GUGU_E2E_QUIZ__ = true;
+      expect(isQuizEnabled()).toBe(true);
+      expect(isRouteEnabled('/pet')).toBe(true);
+      g.__GUGU_E2E_QUIZ__ = false;
+      expect(isQuizEnabled()).toBe(false);
+    });
+    it('불리언이 아니면 무시한다', () => {
+      g.__GUGU_E2E_QUIZ__ = 'yes';
+      expect(isQuizEnabled()).toBe(QUIZ_ADVENTURE_ENABLED);
+    });
   });
 });

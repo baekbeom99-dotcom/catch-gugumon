@@ -1,6 +1,11 @@
 /** 설계서 6-6: 똥을 싸면 화난 표정·청소, 아프면 아픈 표정·주사. 치울 때까지 표정이 계속된다. */
-import { collectErrors, openQuiz } from './helpers';
+import { collectErrors, openQuiz, enableQuiz } from './helpers';
 import { expect, test } from './fixtures';
+
+// 퀴즈 모험은 배포에서 꺼져 있으므로 이 파일은 스위치로 켜고 본다
+test.beforeEach(async ({ page }) => {
+  await enableQuiz(page);
+});
 
 test('똥은 치우고, 아프면 주사를 맞힌다', async ({ page }) => {
   const errors = collectErrors(page);

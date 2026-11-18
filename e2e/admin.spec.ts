@@ -1,6 +1,11 @@
 /** 설계서 12-3: 관리자 PIN → 사과 가격 6★→5★ → 상점 반영 → 설정 코드 내보내기 → 초기화한 기기에서 불러오기 */
 import { expect, test } from './fixtures';
-import { collectErrors, enterPin, seedHatchedPet } from './helpers';
+import { collectErrors, enterPin, seedHatchedPet, enableQuiz } from './helpers';
+
+// 퀴즈 모험은 배포에서 꺼져 있으므로 이 파일은 스위치로 켜고 본다
+test.beforeEach(async ({ page }) => {
+  await enableQuiz(page);
+});
 
 test('관리자가 바꾼 상점 설정을 코드로 다른 기기에 옮긴다', async ({ page }) => {
   const errors = collectErrors(page);

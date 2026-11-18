@@ -1,7 +1,7 @@
 # 구구단 몬스터 탐험대 — 작업 안내
 
 어린이용 구구단 학습 PWA. 몬스터 탐험(문제 풀이)으로 별을 모아 다마고치 펫을 키운다.
-React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/field`, `#/field/battle`, `#/field/starter`, `#/field/dex`), GitHub Pages 정적 배포. 서버 없음 — 모든 데이터는 브라우저 localStorage.
+React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/field`, `#/field/battle`, `#/field/starter`, `#/field/dex`, `#/field/training/:dan` 트레이닝센터, `#/field/records` 학습 기록, `#/stairs` 무한의 계단). 퀴즈 모험(`#/pet` 등 탭 화면)은 `src/config/featureFlags.ts`로 꺼져 있고 `#/field`로 보낸다, GitHub Pages 정적 배포. 서버 없음 — 모든 데이터는 브라우저 localStorage.
 
 - 라이브: https://baekbeom99-dotcom.github.io/gugu-monster/
 - 사용자는 한국어로 요청한다. 화면 글자·주석·커밋 메시지도 한국어(어린이가 읽기 쉬운 말).
@@ -15,6 +15,9 @@ React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/fiel
 | `src/store/useGameStore.ts` | 저장되는 게임 상태와 액션(Zustand persist) |
 | `src/store/saveData.ts` | `SaveData` 형식, `createInitialSave`, `mergeSave`(예전 저장 채우기), `SAVE_KEY` |
 | `src/store/useSessionStore.ts` | 저장 안 되는 화면 상태(진화·레벨업 알림 대기 등) |
+| `src/domain/field/training.ts`·`doorEntry.ts` | 트레이닝센터 규칙(단 열림·도전 열림·문제 계획·합격 판정·12·13단 레전드 보상)과 마을 문 처리(상점·입장·잠김 글·문 앞 칸). 수치는 `tuning.ts`의 `TRAINING_*` |
+| `src/config/featureFlags.ts` | `QUIZ_ADVENTURE_ENABLED`(퀴즈 모험 켜기, 지금 false)·`isQuizEnabled()`(E2E `__GUGU_E2E_QUIZ__` 우선)·`isRouteEnabled` |
+| `src/field/training/` | 트레이닝센터 화면: `TrainingScreen`(입구·학습/도전 고르기·결과 이동), `StudyMode`(×1~×9 학습), `ChallengeMode`(섞은 9문제·27초), `TrainingResult`(캡슐·마스터·레전드), `QuizBoard`(문제 화면 틀), `flow`(진행 상태기계), `trainingText`(글), `useTrainingRun`(끝에서 `finishTraining` 한 번)·`useRunClock`·`useTrainingFx`, `FieldRecordsScreen`(`#/field/records`), `routes`(계단 복귀) |
 | `src/domain/field/` | 필드 모험 순수 로직: **`tuning`(운영 수치 전부)**, `companion`(쓰러졌을 때 대신 함께 다닐 구구몬 `healthyCompanions`·`pickReplacement`), `skills`(기술 표·슬롯 패턴·특수·복사), `fields`(필드·단 구성), `movement`, `wildBattle`, `encounter`(만남), `creatures`(종·기술 이름), `fieldQuestions`, `growth`(경험치·레벨·진화), `strength`(만남 강함 단계), `capsules`(캡슐 4종·개수), `wounds`(체력·상처), `shopQuiz`(상점 연습), `roam`(마을 구구몬 배회), `answerTimer`(문제 시계), `elements`(속성 7가지·기술 효과 표) |
 | `src/field/shop/` | 마을 상점 팝업: `ShopPopup`, `CapsuleTab`(캡슐 탭), `CapsulePractice`(지역 단 중 하나를 무작위로 골라 ×1~×9 순서대로), `PotionTab`·`HealPractice`(회복 연습: 틀린 문제 중심, 없으면 그 구구몬 필드 문제), `PracticeCard`(연습 문제 카드), `shopText`(글), `shop.css` |
 | `src/field/world/` | 필드 걷기 (주인공을 조작하고 동행 구구몬이 방금 떠난 칸을 따라옴): `FieldScreen`, `fieldRenderer`(캔버스, `drawField`가 주인공·동행을 그림 — 주인공은 치비 017 시트, 없으면 픽셀 `hero.ts`), `roamerLayer`(마을 구구몬·`playerPose` 시트 없는 동행의 통통·반전), `Joystick`, `FieldHud`(왼쪽 위 캡슐·도감·체력), `loadField`, `maps/`(필드마다 지도·타일 그림) |
@@ -47,7 +50,7 @@ E2E_PORT=5181 npx playwright test   # E2E (다른 앱이 5181 등을 쓰면 5191
 npm run build                # 배포용 빌드 (tsc -b && vite build)
 ```
 
-- E2E 스위치(`window`에 설정): `__GUGU_E2E_CALM__`(똥·병 끔), `__GUGU_E2E_FIELD__`(필드 만남·캡슐 100%), `__GUGU_E2E_PATH__`(길 걸음도 만남 100%), `__GUGU_E2E_NO_WILD__`(강제 안 한 야생 만남 끔, e2e 기본), `__GUGU_E2E_NO_TIMER__`(전투 문제 시간 멈춤), `__GUGU_E2E_TIER__`(야생 강함 단계 고정, `'weak'`·`'normal'`·`'strong'`·`'mighty'`), `__GUGU_E2E_LEGEND__`(만남이 레전드), `__GUGU_E2E_QUESTION__`(전투 문제 고정), `__GUGU_E2E_FAST__`(true면 항상 빠르게=모든 조건 시간 충족, false면 항상 미충족), `__GUGU_E2E_COPY__`(true 복사 100%, false 복사 안 함, 없으면 2%; `e2e/fixtures.ts`가 기본 false), `__GUGU_E2E_THROW__`(`'caught'`·`'healed'`·`'escaped'`·`'angry'`로 던지기 결과 고정), `__GUGU_E2E_COMBAT__`(`{ crit, dodge, effect }`를 true·false로 전투 굴림 고정, `fixtures.ts` 기본은 크리티컬·회피 없음·효과 성공). 필드 스위치는 `src/field/debugFlags.ts` 한 곳에서 읽는다.
+- E2E 스위치(`window`에 설정): `__GUGU_E2E_CALM__`(똥·병 끔), `__GUGU_E2E_FIELD__`(필드 만남·캡슐 100%), `__GUGU_E2E_PATH__`(길 걸음도 만남 100%), `__GUGU_E2E_NO_WILD__`(강제 안 한 야생 만남 끔, e2e 기본), `__GUGU_E2E_NO_TIMER__`(전투 문제 시간 멈춤), `__GUGU_E2E_TIER__`(야생 강함 단계 고정, `'weak'`·`'normal'`·`'strong'`·`'mighty'`), `__GUGU_E2E_LEGEND__`(만남이 레전드), `__GUGU_E2E_QUESTION__`(전투 문제 고정), `__GUGU_E2E_FAST__`(true면 항상 빠르게=모든 조건 시간 충족, false면 항상 미충족), `__GUGU_E2E_COPY__`(true 복사 100%, false 복사 안 함, 없으면 2%; `e2e/fixtures.ts`가 기본 false), `__GUGU_E2E_THROW__`(`'caught'`·`'healed'`·`'escaped'`·`'angry'`로 던지기 결과 고정), `__GUGU_E2E_COMBAT__`(`{ crit, dodge, effect }`를 true·false로 전투 굴림 고정, `fixtures.ts` 기본은 크리티컬·회피 없음·효과 성공), `__GUGU_E2E_QUIZ__`(true면 퀴즈 모험·타이틀 버튼을 켬. 없으면 꺼짐 — 퀴즈 화면을 보는 스펙은 `helpers.enableQuiz(page)`를 `beforeEach`에서). 트레이닝 도전 시계는 `__GUGU_E2E_NO_TIMER__`로 멈춘다. 필드 스위치는 `src/field/debugFlags.ts` 한 곳에서 읽는다.
 - E2E 하나가 가끔 시간 문제로 실패할 수 있다(`dex.spec` 놀이 장면). 따로 다시 돌려 확인. 파이프로 줄일 때는 `set -o pipefail`로 실패를 놓치지 않기.
 - Windows Git Bash에서 `BASE_PATH=/gugu-monster/`처럼 `/`로 시작하는 값은 경로로 바뀐다 → 로컬 빌드 확인 때 `MSYS_NO_PATHCONV=1`.
 
@@ -76,6 +79,7 @@ npm run build                # 배포용 빌드 (tsc -b && vite build)
 | 확률·강함 단계·문제 시간·캡슐·경험치·연출 시간 | `src/domain/field/tuning.ts` 한 곳 | `tests/field/tuning.test.ts` 고정값, `MVP_DESIGN.md` 이력 |
 | 필드별 단·나오는 종 | `src/domain/field/fields.ts` | 설계서 4-6 |
 | 종 이름 | `src/domain/monsterNames.ts` (기술 이름은 아래 `skills.ts` 행) | — |
+| 트레이닝센터 수치(단 목록·마스터 제한 시간·캡슐 개수·캡슐 종류·계단 열림 조건) | `src/domain/field/tuning.ts`의 `TRAINING_DANS`·`TRAINING_MASTER_MS`·`TRAINING_CAPSULES`·`TRAINING_CAPSULE_OF_DAN`·`STAIRS_OPEN_AFTER_DAN` | `tests/field/tuning.test.ts`, `e2e/training.spec.ts`, `MVP_DESIGN.md` 이력 |
 | 상점 글 | `src/field/shop/shopText.ts` | E2E가 글을 찾으면 `e2e/field.spec.ts`도 |
 | 캡슐·단 연습 수치 | `src/domain/field/tuning.ts` | `tests/field/tuning.test.ts` |
 | 기술(슬롯 패턴 위력·조건 시간·배우는 레벨·이름·종별 특수·주② 효과 M2) | `src/domain/field/skills.ts`의 `SLOT_PATTERN`·`SKILL_NAMES`·`SPECIAL_OF_SPECIES`·`M2_EFFECT_OF_SPECIES` | `tests/field/skillsTable.test.ts` 고정표 |

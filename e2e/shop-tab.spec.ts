@@ -1,6 +1,11 @@
 /** 나의 펫 서랍의 '별 상점 가기'는 그 종류 탭으로 연다 (v1.30) */
-import { collectErrors, seedHatchedPet } from './helpers';
+import { collectErrors, seedHatchedPet, enableQuiz } from './helpers';
 import { expect, test } from './fixtures';
+
+// 퀴즈 모험은 배포에서 꺼져 있으므로 이 파일은 스위치로 켜고 본다
+test.beforeEach(async ({ page }) => {
+  await enableQuiz(page);
+});
 
 const CASES = [
   { care: '씻기', tab: '위생' },

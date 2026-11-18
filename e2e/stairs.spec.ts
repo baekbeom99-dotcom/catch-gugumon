@@ -1,7 +1,12 @@
 /** 설계서 4-5: 무한의 계단 — 맞히면 한 칸, 틀리거나 5초가 지나면 끝, 오른 계단만큼 별·최고 기록 */
 import type { Page } from '@playwright/test';
-import { collectErrors, seedHatchedPet } from './helpers';
+import { collectErrors, seedHatchedPet, enableQuiz } from './helpers';
 import { expect, test } from './fixtures';
+
+// 퀴즈 모험은 배포에서 꺼져 있으므로 이 파일은 스위치로 켜고 본다
+test.beforeEach(async ({ page }) => {
+  await enableQuiz(page);
+});
 
 async function answerStairs(page: Page, correct: boolean): Promise<void> {
   const [a, , b] = (await page.locator('.stairs__question .question > *').allTextContents()).map((t) => t.trim());
@@ -51,6 +56,7 @@ test('무한의 계단: 세 칸 오르고 틀리면 끝, 별 6개(계단 × 2)�
   expect(saved2.stairs.includeChallenge).toBe(false);
 
   await page.getByRole('button', { name: '탐험으로' }).click();
-  await expect(page.locator('.explore__main--stairs')).toContainText('최고 3칸');
+  // 끝내면 퀴즈 탐험 탭이 아니라 필드(마을)로 돌아온다
+  await expect(page).toHaveURL(/#\/field$/);
   expect(errors).toEqual([]);
 });

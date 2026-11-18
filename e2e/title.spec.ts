@@ -1,5 +1,10 @@
 import { expect, test } from './fixtures';
-import { seedHatchedPet } from './helpers';
+import { seedHatchedPet, enableQuiz } from './helpers';
+
+// 퀴즈 모험은 배포에서 꺼져 있으므로 이 파일은 스위치로 켜고 본다
+test.beforeEach(async ({ page }) => {
+  await enableQuiz(page);
+});
 
 test('타이틀에서 퀴즈 모험을 고르면 처음 쓰는 사람은 알 고르기로 간다', async ({ page }) => {
   await page.goto('/');

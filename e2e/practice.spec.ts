@@ -1,6 +1,11 @@
 /** 셈 연습: 탐험 탭 → 받아올림 덧셈 → 오답 힌트 → 끝까지 → 별이 옛 저장본 위에 더해지고 기록 탭에 남는다 */
 import { expect, type Page, test } from '@playwright/test';
-import { collectErrors, seedHatchedPet } from './helpers';
+import { collectErrors, seedHatchedPet, enableQuiz } from './helpers';
+
+// 퀴즈 모험은 배포에서 꺼져 있으므로 이 파일은 스위치로 켜고 본다
+test.beforeEach(async ({ page }) => {
+  await enableQuiz(page);
+});
 
 /** 화면의 셈 문제를 읽어 빈칸 값을 계산한다 */
 async function solveArith(page: Page): Promise<number> {
