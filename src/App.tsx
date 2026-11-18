@@ -13,6 +13,8 @@ import { WildBattleScreen } from './field/battle/WildBattleScreen';
 import { FieldRecordsScreen } from './field/training/FieldRecordsScreen';
 import { isQuizEnabled, QUIZ_ROOTS } from './config/featureFlags';
 import { TrainingScreen } from './field/training/TrainingScreen';
+import { ArithTrainerScreen } from './field/training/ArithTrainerScreen';
+import { StatueScreen } from './field/training/StatueScreen';
 import { TitleScreen } from './screens/TitleScreen';
 import { ExploreScreen } from './screens/ExploreScreen';
 import { HatchScreen } from './screens/HatchScreen';
@@ -93,7 +95,9 @@ export function App() {
         <Route path="/field/starter" element={fullScreen(<StarterScreen />)} />
         <Route path="/field/dex" element={fullScreen(<FieldDexScreen />)} />
         <Route path="/field/battle" element={fullScreen(<WildBattleScreen />)} />
+        <Route path="/field/training/arith/:level" element={fullScreen(<ArithTrainerScreen />)} />
         <Route path="/field/training/:dan" element={fullScreen(<TrainingScreen />)} />
+        <Route path="/field/statue" element={fullScreen(<StatueScreen />)} />
         <Route path="/field/records" element={fullScreen(<FieldRecordsScreen />)} />
         {quizEnabled && <Route path="/welcome" element={fullScreen(<OnboardingScreen />)} />}
         {quizEnabled && <Route path="/hatch" element={fullScreen(<HatchScreen />)} />}

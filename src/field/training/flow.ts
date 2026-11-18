@@ -38,7 +38,24 @@ export function initialFlow(): FlowState {
 
 const finish = (s: FlowState, result: FlowResult): FlowState => ({ ...s, phase: 'done', finished: true, result });
 
+/** 문제 수와 도전 판정 — 단 도전은 기본값, 셈연습·동상은 자기 값을 넘긴다 */
+export interface FlowConfig {
+  count: number;
+  judge: (a: { mistakes: number; timeMs: number }) => 'pass' | 'wrong' | 'slow';
+}
+
+export const DAN_FLOW: FlowConfig = { count: TRAINING_QUESTION_COUNT, judge: judgeChallenge };
+
+export function createFlowReducer(config: FlowConfig): (s: FlowState, e: FlowEvent) => FlowState {
+  return (s, e) => flowStep(config, s, e);
+}
+
+/** 단 트레이닝(9문제, judgeChallenge)용 상태기계 */
 export function trainingFlowReducer(s: FlowState, e: FlowEvent): FlowState {
+  return flowStep(DAN_FLOW, s, e);
+}
+
+function flowStep(config: FlowConfig, s: FlowState, e: FlowEvent): FlowState {
   if (e.type === 'start') {
     if (s.phase !== 'idle') return s;
     // 학습 전의 도전은 거부
@@ -59,7 +76,7 @@ export function trainingFlowReducer(s: FlowState, e: FlowEvent): FlowState {
   }
   const index = s.index + 1;
   const next = { ...s, index, elapsedMs, lastWrong: false };
-  if (index < TRAINING_QUESTION_COUNT) return next;
+  if (index < config.count) return next;
   if (s.mode === 'study') return finish(next, 'complete');
-  return finish(next, judgeChallenge({ mistakes: next.mistakes, timeMs: elapsedMs }));
+  return finish(next, config.judge({ mistakes: next.mistakes, timeMs: elapsedMs }));
 }

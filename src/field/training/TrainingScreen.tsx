@@ -4,18 +4,19 @@
  */
 import { useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { isChallengeOpen, isTrainingOpen } from '../../domain/field/training';
-import { TRAINING_DANS, type TrainingDan } from '../../domain/field/tuning';
+import { isChallengeOpen, isTrainingOpen, planChallenge, planStudy } from '../../domain/field/training';
+import { TRAINING_DANS, TRAINING_MASTER_MS, type TrainingDan } from '../../domain/field/tuning';
 import { useGameStore } from '../../store/useGameStore';
 import { pickCompanion } from '../companion';
 import { ChallengeMode } from './ChallengeMode';
+import { fromTraining, type BoardQuestion } from './boardQuestion';
+import { danRunnerFactory, type TrainingDone } from './runner';
 import { StudyMode } from './StudyMode';
 import { TrainingResult } from './TrainingResult';
 import { trainingText } from './trainingText';
-import type { TrainingDone } from './useTrainingRun';
 import './training.css';
 
-type View = { kind: 'entry' } | { kind: 'study' | 'challenge'; run: number } | { kind: 'result'; done: TrainingDone };
+type View = { kind: 'entry' } | { kind: 'study' | 'challenge'; run: number; questions: BoardQuestion[] } | { kind: 'result'; done: TrainingDone };
 
 export function TrainingScreen() {
   const { dan: param } = useParams();
@@ -41,12 +42,36 @@ function TrainingCenter({ dan }: { dan: TrainingDan }) {
   const toTown = () => navigate('/field', { replace: true });
   const start = (kind: 'study' | 'challenge') => {
     setRun((n) => n + 1);
-    setView({ kind, run: run + 1 });
+    const questions = (kind === 'study' ? planStudy(dan) : planChallenge(Math.random, dan)).map(fromTraining);
+    setView({ kind, run: run + 1, questions });
   };
   const toEntry = () => setView({ kind: 'entry' });
 
-  if (view.kind === 'study') return <StudyMode key={view.run} dan={dan} species={species} onDone={(done) => setView({ kind: 'result', done })} onQuit={toEntry} />;
-  if (view.kind === 'challenge') return <ChallengeMode key={view.run} dan={dan} species={species} onDone={(done) => setView({ kind: 'result', done })} onQuit={toEntry} />;
+  if (view.kind === 'study')
+    return (
+      <StudyMode
+        key={view.run}
+        title={`${dan}단`}
+        questions={view.questions}
+        species={species}
+        makeRunner={danRunnerFactory(dan, 'study')}
+        onDone={(done) => setView({ kind: 'result', done })}
+        onQuit={toEntry}
+      />
+    );
+  if (view.kind === 'challenge')
+    return (
+      <ChallengeMode
+        key={view.run}
+        title={`${dan}단`}
+        questions={view.questions}
+        limitMs={TRAINING_MASTER_MS}
+        species={species}
+        makeRunner={danRunnerFactory(dan, 'challenge')}
+        onDone={(done) => setView({ kind: 'result', done })}
+        onQuit={toEntry}
+      />
+    );
   if (view.kind === 'result') {
     const { done } = view;
     return (

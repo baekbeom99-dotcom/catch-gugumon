@@ -1,24 +1,29 @@
-/** 차례대로 학습 — ×1~×9를 순서대로, 시계 없음. 틀리면 같은 문제를 다시 (틀린 횟수는 센다) */
-import { useMemo, useRef, useState } from 'react';
+/**
+ * 차례대로 풀기 — 문제를 순서대로, 시계 없음. 틀리면 같은 문제를 다시 (틀린 횟수는 센다).
+ * 단 학습(×1~×9)과 체육관 동상이 같이 쓴다: 문제·진행기는 부모가 넘긴다.
+ */
+import { useRef, useState } from 'react';
 import type { SpeciesId } from '../../domain/field/creatures';
-import { planStudy } from '../../domain/field/training';
-import type { TrainingDan } from '../../domain/field/tuning';
+import type { BoardQuestion } from './boardQuestion';
 import { QuizBoard } from './QuizBoard';
+import type { RunDone, RunnerFactory } from './runner';
 import { trainingText } from './trainingText';
 import { useRunClock } from './useRunClock';
 import { useTrainingFx } from './useTrainingFx';
-import { useTrainingRun, type TrainingDone } from './useTrainingRun';
+import { useRun } from './useTrainingRun';
 
-interface Props {
-  dan: TrainingDan;
+interface Props<O> {
+  title: string;
+  questions: BoardQuestion[];
   species: SpeciesId;
-  onDone: (d: TrainingDone) => void;
+  makeRunner: RunnerFactory<BoardQuestion, O>;
+  onDone: (d: RunDone<O>) => void;
   onQuit: () => void;
+  testId?: string;
 }
 
-export function StudyMode({ dan, species, onDone, onQuit }: Props) {
-  const questions = useMemo(() => planStudy(dan), [dan]);
-  const { flow, answer, requestQuit } = useTrainingRun(dan, 'study', onDone);
+export function StudyMode<O>({ title, questions, species, makeRunner, onDone, onQuit, testId = 'training-study' }: Props<O>) {
+  const { flow, answer, requestQuit } = useRun(makeRunner, onDone);
   const fx = useTrainingFx(species);
   const clock = useRunClock(flow.phase === 'running', false);
   const lastAt = useRef(0);
@@ -32,7 +37,7 @@ export function StudyMode({ dan, species, onDone, onQuit }: Props) {
     if (flow.phase !== 'running') return;
     const correct = value === q.answer;
     const ms = Math.round(clock.current - lastAt.current);
-    if (!answer(q.multiplier, correct, ms)) return;
+    if (!answer(q, correct, ms)) return;
     lastAt.current = clock.current;
     if (correct) {
       fx.fire(rights);
@@ -48,10 +53,11 @@ export function StudyMode({ dan, species, onDone, onQuit }: Props) {
 
   return (
     <QuizBoard
-      testId="training-study"
-      dan={dan}
+      testId={testId}
+      title={title}
       species={species}
       question={q}
+      total={questions.length}
       solved={flow.index}
       fx={fx}
       badge={<div className="training__badge">{trainingText.progress(flow.index, questions.length)}</div>}

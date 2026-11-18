@@ -5,16 +5,18 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { creatureSprite, speciesColor } from '../art/creatureSprite';
 import type { SpeciesId } from '../../domain/field/creatures';
-import type { TrainingQuestion } from '../../domain/field/training';
 import { useGameStore } from '../../store/useGameStore';
-import { TRAINING_QUESTION_COUNT } from './flow';
+import type { BoardQuestion } from './boardQuestion';
 import { trainingText } from './trainingText';
 import type { TrainingFx } from './useTrainingFx';
 
 interface Props {
-  dan: number;
+  /** 위쪽 가운데 글: `7단`, `기본 트레이너` */
+  title: string;
   species: SpeciesId;
-  question: TrainingQuestion;
+  question: BoardQuestion;
+  /** 한 번에 푸는 문제 수 (진행 점) */
+  total: number;
   /** 지금까지 맞힌 문제 수 (진행 점) */
   solved: number;
   fx: TrainingFx;
@@ -33,7 +35,7 @@ interface Props {
   testId: string;
 }
 
-export function QuizBoard({ dan, species, question, solved, fx, badge, message, wrongKey, wrongPicks, glowAnswer, disabled, onPick, onQuit, testId }: Props) {
+export function QuizBoard({ title, species, question, total, solved, fx, badge, message, wrongKey, wrongPicks, glowAnswer, disabled, onPick, onQuit, testId }: Props) {
   const stage = useGameStore((s) => s.field.species[species]?.stage ?? 1);
   // 무대 크기를 재서 구구몬 그림 크기를 정한다 (휴대폰·넓은 화면 모두 겹치지 않게)
   const [size, setSize] = useState({ w: 351, h: 220 });
@@ -60,19 +62,26 @@ export function QuizBoard({ dan, species, question, solved, fx, badge, message, 
         <button type="button" className="btn btn--ghost training__quit" onClick={onQuit}>
           {trainingText.quit}
         </button>
-        <div className="training__dan">{dan}단</div>
+        <div className="training__dan">{title}</div>
         {badge}
       </header>
 
-      <div className="training__question" data-multiplier={question.multiplier} aria-label={`${question.dan} 곱하기 ${question.multiplier}은?`}>
-        <span>{question.dan}</span>
-        <span className="training__op">×</span>
-        <span>{question.multiplier}</span>
-        <span className="training__op">=</span>
-        <span className="training__blank">?</span>
+      <div
+        className={`training__question ${question.label.length > 8 ? 'training__question--long' : ''}`}
+        data-key={question.key}
+        data-multiplier={question.multiplier}
+        aria-label={`${question.label}${question.label.includes('?') ? '' : ' = ?'}`}
+      >
+        <span>{question.label}</span>
+        {!question.label.includes('?') && (
+          <>
+            <span className="training__op">=</span>
+            <span className="training__blank">?</span>
+          </>
+        )}
       </div>
       <div className="training__pips" aria-hidden>
-        {Array.from({ length: TRAINING_QUESTION_COUNT }, (_, i) => (
+        {Array.from({ length: total }, (_, i) => (
           <span key={i} className={`training__pip ${i < solved ? 'training__pip--done' : i === solved ? 'training__pip--now' : ''}`} />
         ))}
       </div>

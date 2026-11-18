@@ -190,6 +190,11 @@
   white-space: nowrap;
 }
 
+.training__question--long {
+  font-size: 34px;
+  gap: 8px;
+}
+
 .training__op {
   color: var(--ink-soft);
 }
@@ -441,6 +446,11 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.training__capsule-name {
+  font-size: 14px;
+  color: var(--ink-soft);
 }
 
 .training__capsule-count {

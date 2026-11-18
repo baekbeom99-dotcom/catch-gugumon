@@ -1,16 +1,22 @@
 /** 훈련 결과 — 캡슐·마스터·새 기록·레전드 구구몬. 버튼은 다시 하기 / 마을로 */
 import { speciesDef } from '../../domain/field/creatures';
-import type { TrainingOutcome } from '../../store/useGameStore';
+import { CAPSULE_NAMES } from '../../domain/field/capsules';
+import type { ArithOutcome, TrainingOutcome } from '../../store/useGameStore';
 import { CapsuleBall } from '../art/CapsuleBall';
 import { creatureSprite, speciesColor } from '../art/creatureSprite';
 import type { FlowMode, FlowResult } from './flow';
-import { trainingText } from './trainingText';
+import { trainingText, type ResultText } from './trainingText';
 
 interface Props {
-  dan: number;
+  /** 단 트레이닝일 때만 (글을 단으로 만든다). 셈연습은 text를 직접 넘긴다 */
+  dan?: number;
   mode: FlowMode;
   result: FlowResult;
-  outcome: TrainingOutcome;
+  outcome: TrainingOutcome | ArithOutcome;
+  /** 넘기면 이 글을 쓴다 (셈연습 결과) */
+  text?: ResultText;
+  /** 나가는 버튼 글 (기본 "마을로") */
+  backLabel?: string;
   timeMs: number;
   /** 학습을 마쳤으니 바로 마스터 도전으로 갈 수 있다 */
   onChallenge?: () => void;
@@ -18,8 +24,8 @@ interface Props {
   onTown: () => void;
 }
 
-export function TrainingResult({ dan, mode, result, outcome, timeMs, onChallenge, onAgain, onTown }: Props) {
-  const text = trainingText.result(dan, mode, result, outcome, timeMs);
+export function TrainingResult({ dan = 0, mode, result, outcome, text: given, backLabel = trainingText.backToTown, timeMs, onChallenge, onAgain, onTown }: Props) {
+  const text = given ?? trainingText.result(dan, mode, result, outcome as TrainingOutcome, timeMs);
   const pass = result === 'pass';
   const legend = outcome.legend;
   return (
@@ -35,8 +41,9 @@ export function TrainingResult({ dan, mode, result, outcome, timeMs, onChallenge
         </div>
         {outcome.ok && outcome.capsules > 0 && (
           <div className="training__capsules" data-testid="training-capsules" data-capsules={outcome.capsules}>
-            <CapsuleBall type={outcome.capsuleType} size={72} />
+            {outcome.capsuleType && <CapsuleBall type={outcome.capsuleType} size={72} />}
             <span className="training__capsule-count">× {outcome.capsules}</span>
+            {outcome.capsuleType && <small className="training__capsule-name">{CAPSULE_NAMES[outcome.capsuleType]}</small>}
           </div>
         )}
         {legend && (
@@ -56,7 +63,7 @@ export function TrainingResult({ dan, mode, result, outcome, timeMs, onChallenge
           {trainingText.again}
         </button>
         <button type="button" className="btn btn--ghost training__btn" onClick={onTown}>
-          {trainingText.backToTown}
+          {backLabel}
         </button>
       </div>
     </div>
