@@ -1,4 +1,5 @@
 /** 처음 화면: 퀴즈 모험과 필드 모험 중에서 고른다. 뒤에는 작은 필드 그림 */
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { DAN_COLORS } from '../art/colors';
 import { MonsterSprite } from '../art/MonsterSprite';
@@ -7,10 +8,15 @@ import { PixelSprite } from '../field/art/PixelSprite';
 import { HERO_SPRITES } from '../field/art/hero';
 import { HERO_ART } from '../field/art/localSprites';
 import { isQuizEnabled } from '../config/featureFlags';
+import { PasswordDialog } from '../field/lowgrade/PasswordDialog';
+import { useGameStore } from '../store/useGameStore';
+import '../field/lowgrade/lowgrade.css';
 import './title.css';
 
 export function TitleScreen() {
   const navigate = useNavigate();
+  const lowGrade = useGameStore((s) => s.settings.lowGrade);
+  const [asking, setAsking] = useState(false);
   return (
     <section className="title">
       <div className="title__scene" aria-hidden>
@@ -46,6 +52,21 @@ export function TitleScreen() {
       <button type="button" className="title__admin" onClick={() => navigate('/admin')}>
         관리
       </button>
+      {/* 저학년 모드(덧셈·뺄셈): 부모용 작은 스위치. 켜고 끌 때 모두 비밀번호를 묻는다 */}
+      <button type="button" role="switch" aria-checked={lowGrade} aria-label="저학년 모드" className="title__lowgrade" onClick={() => setAsking(true)}>
+        <span>저학년 모드 {lowGrade ? '켜짐' : '꺼짐'}</span>
+        <span className="title__lowgrade-track" aria-hidden />
+      </button>
+      {asking && (
+        <PasswordDialog
+          turningOn={!lowGrade}
+          onCancel={() => setAsking(false)}
+          onSuccess={() => {
+            useGameStore.getState().setLowGrade(!lowGrade);
+            setAsking(false);
+          }}
+        />
+      )}
       <SpriteCredit />
     </section>
   );

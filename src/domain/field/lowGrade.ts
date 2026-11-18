@@ -5,6 +5,7 @@
  * 사막: 두 자리 + 한 자리 (답도 두 자리 ≤ 99, 받아올림 있음·없음이 반반)
  * 수치는 tuning.ts의 LOWGRADE_*. 체육관·트레이닝은 저학년 모드와 상관없이 구구단 그대로.
  */
+import type { ArithDisplay } from '../arith';
 import { randomInt, shuffle, type Rng } from '../random';
 import type { FieldId } from './fields';
 import type { ArithProblem } from './starPoints';
@@ -82,16 +83,20 @@ function swapDigits(n: number): number {
 /**
  * 3지선다 보기: 정답 하나 + 그럴듯한 오답 둘 (섞어서).
  * 오답 후보는 답 ±1, 답 ±10, 자리 바꾼 수, 반대 셈의 답(더하기면 빼기, 빼기면 더하기).
- * 음수·정답과 같은 수·겹치는 수는 뺀다. 후보가 모자라면 답보다 큰 수로 채운다.
+ * 음수·정답과 같은 수·겹치는 수는 뺀다. 답이 99 이하면 100 이상(세 자리)도 뺀다.
+ * 후보가 모자라면 답+2, 답−2, 답+3…으로 채운다(세 자리·음수는 건너뜀).
  */
 export function lowGradeChoices(rng: Rng, p: LowGradeProblem): number[] {
   const answer = p.result;
   const opposite = p.op === '+' ? p.a - p.b : p.a + p.b;
   const raw = [answer - 1, answer + 1, answer - 10, answer + 10, swapDigits(answer), opposite];
   const pool: number[] = [];
-  for (const n of raw) if (Number.isInteger(n) && n >= 0 && n !== answer && !pool.includes(n)) pool.push(n);
+  const ok = (n: number) => Number.isInteger(n) && n >= 0 && (answer > 99 || n <= 99) && n !== answer;
+  for (const n of raw) if (ok(n) && !pool.includes(n)) pool.push(n);
   const wrong = shuffle(rng, pool).slice(0, 2);
-  for (let k = 2; wrong.length < 2; k++) if (!wrong.includes(answer + k)) wrong.push(answer + k);
+  for (let k = 2; wrong.length < 2; k++) {
+    for (const n of [answer + k, answer - k]) if (wrong.length < 2 && ok(n) && !wrong.includes(n)) wrong.push(n);
+  }
   return shuffle(rng, [answer, ...wrong]);
 }
 
@@ -127,8 +132,12 @@ export function planLowGradeHeal(wrong: readonly LowGradeProblem[], rng: Rng, n:
     if (isLowGradeProblem(q) && !out.some((x) => sameLowGrade(x, q))) out.push({ a: q.a, op: q.op, b: q.b, result: q.result });
   }
   if (out.length >= n) return out;
-  const f = field === 'legend' ? LOW_FIELDS[randomInt(rng, 0, LOW_FIELDS.length - 1)] : field;
-  return fillLowGrade(out, rng, f, n);
+  return fillLowGrade(out, rng, lowGradeFieldOf(rng, field), n);
+}
+
+/** 필드 또는 황금(legend)에서 저학년 문제를 낼 필드 하나: 황금은 세 필드 중 무작위 */
+export function lowGradeFieldOf(rng: Rng, field: FieldId | 'legend'): FieldId {
+  return field === 'legend' ? LOW_FIELDS[randomInt(rng, 0, LOW_FIELDS.length - 1)] : field;
 }
 
 /** 틀린 문제 목록에 넣기: 맨 앞에 넣고(같은 문제는 앞으로 올림), LOWGRADE_WRONG_KEEP개로 자른다. 깨진 문제는 넣지 않는다 */
@@ -162,4 +171,25 @@ export function checkLowGradePassword(input: string): boolean {
 /** 체육관 동상 문제 고르기(planStatueQuestions의 makeArith)에 넣는 그 필드 문제 만들기 */
 export function lowGradeArithMaker(field: FieldId): (rng: Rng) => ArithProblem {
   return (rng) => generateLowGrade(rng, field);
+}
+
+/** 문제 카드에 그릴 모양: a + b = ? (답 칸이 빈칸) */
+export function lowGradeDisplay(p: Pick<LowGradeProblem, 'a' | 'op' | 'b'>): ArithDisplay {
+  return { kind: 'arith', op: p.op, a: p.a, b: p.b, result: null };
+}
+
+/** 글로 쓴 문제: "3 + 4 = ?" (읽기용·테스트용) */
+export function lowGradeText(p: Pick<LowGradeProblem, 'a' | 'op' | 'b'>): string {
+  return `${p.a} ${p.op} ${p.b} = ?`;
+}
+
+/** 화면이 쓰는 문제 하나: 카드 모양·정답·3지선다 보기 */
+export interface LowGradeQuestion {
+  display: ArithDisplay;
+  answer: number;
+  choices: number[];
+}
+
+export function lowGradeQuestion(rng: Rng, p: LowGradeProblem): LowGradeQuestion {
+  return { display: lowGradeDisplay(p), answer: p.result, choices: lowGradeChoices(rng, p) };
 }

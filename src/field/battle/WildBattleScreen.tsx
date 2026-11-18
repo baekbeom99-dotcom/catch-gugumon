@@ -96,6 +96,7 @@ import {
   type GaugeStop,
 } from './skillUse';
 import { useQuestionFeed } from './useQuestionFeed';
+import { LowGradeHint } from '../lowgrade/LowGradeHint';
 import '../../screens/battle.css';
 import './wildBattle.css';
 
@@ -193,9 +194,12 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const buttonRef = useRef<SkillButton>(buttons[0]);
   const [picked, setPicked] = useState<SkillButton>(buttons[0]);
 
-  const { item, fact, question, key, next } = useQuestionFeed(encounter, rng);
+  const { item, fact, question, key, arith, next } = useQuestionFeed(encounter, rng);
   const itemRef = useRef(item);
   itemRef.current = item;
+  /** 저학년(덧뺄셈) 문제면 그 문제, 아니면 null — 기록·상처는 이 값으로 갈린다 */
+  const arithRef = useRef(arith);
+  arithRef.current = arith;
 
   const wildRef = useRef<WildState | null>(null);
   if (!wildRef.current) {
@@ -377,6 +381,12 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   /** 학습 기록: 고르는 순간(시간 초과는 그 순간) 바로 저장한다 (전투 중 앱을 닫아도 남게) */
   const record = useCallback(
     (correct: boolean, ms: number) => {
+      // 저학년 문제: 구구단 학습 기록은 건드리지 않고 틀린 덧뺄셈 목록만 고친다
+      const low = arithRef.current;
+      if (low) {
+        useGameStore.getState().recordLowGradeAnswer(low, correct);
+        return;
+      }
       const it = itemRef.current;
       recordAnswer({
         factId: it.factId,
@@ -441,7 +451,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const onStruck = useCallback(
     (s: WildState) => {
       const it = itemRef.current;
-      if (!showFoeStrike(s, { factId: it.factId, type: it.type })) return;
+      if (!showFoeStrike(s, arithRef.current ? null : { factId: it.factId, type: it.type })) return;
       const timedOut = s.timedOut;
       later(() => {
         if (settledRef.current) return; // 그 사이 도망쳐 끝났으면 끝 글을 덮지 않는다
@@ -873,7 +883,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
         }
         data-species={encounter.species} data-capsule-stage={stage ?? undefined} className={`wild__stage ${wildDef.legend ? 'wild__stage--legend' : ''} ${intro ? 'wild__stage--intro' : ''} ${intro && wildDef.legend ? 'wild__stage--sparkle' : ''} ${inHint ? 'wild__stage--hint' : ''}`}>
         {asking || inHint ? (
-          <div className="wild__bubble" data-fact={item.factId} data-retry={item.isRetry ? 'true' : undefined}>
+          <div className="wild__bubble" data-fact={arith ? undefined : item.factId} data-lowgrade={arith ? 'true' : undefined} data-retry={item.isRetry ? 'true' : undefined}>
             {asking && (
               <TimerBar key={key} ms={wild.timeLeftMs} totalMs={wild.limitMs} fillRef={timerFillRef} stops={stops} elapsedMs={wild.elapsedMs} />
             )}
@@ -882,7 +892,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
         ) : null}
         {inHint ? (
           <div className="wild__hint">
-            <HintPanel fact={fact} type={item.type} />
+            {arith ? <LowGradeHint problem={arith} /> : <HintPanel fact={fact} type={item.type} />}
           </div>
         ) : (
           <>

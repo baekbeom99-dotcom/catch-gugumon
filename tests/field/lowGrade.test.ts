@@ -110,6 +110,26 @@ describe('lowGradeChoices — 3지선다', () => {
     }
   });
 
+  it('답이 99 이하면 세 자리 보기가 없다 (물가·사막 1000번, 답 90 이상 포함)', () => {
+    for (const q of [p(91, '+', 8), p(95, '+', 4), p(99, '−', 1), p(98, '−', 9)]) {
+      const rng = seededRng(q.a);
+      for (let i = 0; i < 200; i++) {
+        const c = lowGradeChoices(rng, q);
+        expect(c.length).toBe(3);
+        expect(new Set(c).size).toBe(3);
+        expect(c).toContain(q.result);
+        expect(c.every((n) => n >= 0 && n <= 99)).toBe(true);
+      }
+    }
+    for (const field of ['waterside', 'desert'] as const) {
+      const rng = seededRng(field.length);
+      for (let i = 0; i < RUNS; i++) {
+        const q = generateLowGrade(rng, field);
+        expect(lowGradeChoices(rng, q).every((n) => n <= 99)).toBe(true);
+      }
+    }
+  });
+
   it('답이 0이어도 음수 보기가 없다', () => {
     const rng = seededRng(5);
     for (let i = 0; i < 200; i++) {

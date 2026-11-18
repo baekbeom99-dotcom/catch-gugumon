@@ -2,9 +2,12 @@
 import { useRef, useState } from 'react';
 import { displayName } from '../../domain/field/growth';
 import { speciesDef, type SpeciesId } from '../../domain/field/creatures';
+import { planLowGradeHeal } from '../../domain/field/lowGrade';
+import { answerLowGradeRun, createLowGradeRun, leaveLowGradeHint, lowGradeRunItem } from '../../domain/field/lowGradeRun';
 import { answerHeal, createHealRun, healRunWound, leaveHealHint, planHealQuestions } from '../../domain/field/wounds';
-import { HEAL_ROUNDS } from '../../domain/field/tuning';
+import { HEAL_QUESTIONS, HEAL_ROUNDS } from '../../domain/field/tuning';
 import { useGameStore } from '../../store/useGameStore';
+import { LowGradeCard } from './LowGradeCard';
 import { PracticeCard } from './PracticeCard';
 import { shopText } from './shopText';
 
@@ -16,7 +19,62 @@ interface Props {
   onQuit: () => void;
 }
 
-export function HealPractice({ species, onDone, onQuit }: Props) {
+/** 회복 연습: 저학년 모드가 켜져 있으면 덧뺄셈 연습, 아니면 구구단 연습 (연습을 여는 순간 정해 끝까지 같다) */
+export function HealPractice(props: Props) {
+  const [low] = useState(() => useGameStore.getState().settings.lowGrade);
+  return low ? <LowGradeHealPractice {...props} /> : <TimesHealPractice {...props} />;
+}
+
+/** 저학년 회복 연습: 지금까지 틀린 덧뺄셈(없으면 그 구구몬 필드 문제) HEAL_QUESTIONS개를 HEAL_ROUNDS바퀴 */
+function LowGradeHealPractice({ species, onDone, onQuit }: Props) {
+  const [run, setRun] = useState(() => {
+    const wrong = useGameStore.getState().field.lowGrade.recentWrong;
+    return createLowGradeRun(planLowGradeHeal(wrong, Math.random, HEAL_QUESTIONS, speciesDef(species).field), HEAL_ROUNDS);
+  });
+  const healed = useRef(false);
+  const stage = useGameStore((s) => s.field.species[species]?.stage ?? 1);
+  const name = displayName(species, stage);
+  const problem = lowGradeRunItem(run);
+
+  const onAnswer = (correct: boolean) => {
+    const next = answerLowGradeRun(run, correct, Math.random);
+    setRun(next);
+    if (next.done && !healed.current) {
+      healed.current = true;
+      useGameStore.getState().healSpecies(species);
+    }
+  };
+
+  if (problem === null) {
+    return (
+      <div className="practice-result" role="status">
+        <p className="practice-result__text">{shopText.healed(name)}</p>
+        <button type="button" className="btn btn--primary fshop-btn" onClick={onDone}>
+          {shopText.ok}
+        </button>
+      </div>
+    );
+  }
+  return (
+    <div className="practice-wrap">
+      <div className="practice-head">
+        <span className="practice-head__title">{shopText.healHeader(name, run.round + 1, HEAL_ROUNDS, run.index + 1, run.order.length)}</span>
+        <button type="button" className="btn btn--ghost fshop-btn fshop-btn--small" onClick={onQuit}>
+          {shopText.quit}
+        </button>
+      </div>
+      <LowGradeCard
+        problem={problem}
+        qkey={`h${run.round}:${run.index}:${problem.a}${problem.op}${problem.b}`}
+        hint={run.hint}
+        onAnswer={onAnswer}
+        onHintPick={() => setRun(leaveLowGradeHint(run, Math.random))}
+      />
+    </div>
+  );
+}
+
+function TimesHealPractice({ species, onDone, onQuit }: Props) {
   const [run, setRun] = useState(() => {
     const { learning } = useGameStore.getState();
     return createHealRun(planHealQuestions(learning.facts, speciesDef(species).field, learning.challengeUnlocked, Math.random), Math.random);

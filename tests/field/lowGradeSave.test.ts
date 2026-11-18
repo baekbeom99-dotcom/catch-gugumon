@@ -106,6 +106,13 @@ describe('스토어 액션', () => {
     expect(st()).toBe(before);
   });
 
+  it('recordLowGradeAnswer: 이미 맨 앞인 문제를 또 틀리면 상태 그대로', () => {
+    st().recordLowGradeAnswer(p(3, '+', 4), false);
+    const before = st();
+    st().recordLowGradeAnswer(p(3, '+', 4), false);
+    expect(st()).toBe(before);
+  });
+
   it(`recordLowGradeAnswer: 최대 ${LOWGRADE_WRONG_KEEP}개`, () => {
     for (let i = 0; i < 25; i++) st().recordLowGradeAnswer(p(10 + i, '+', 2), false);
     expect(st().field.lowGrade.recentWrong.length).toBe(LOWGRADE_WRONG_KEEP);

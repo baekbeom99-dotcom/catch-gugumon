@@ -65,7 +65,7 @@ import {
 } from '../domain/field/tuning';
 import { isStarPointsEnabled } from '../config/featureFlags';
 import { addStarPoints as addStarPointsTo, statueStars } from '../domain/field/starPoints';
-import { isLowGradeProblem, type LowGradeProblem, pushLowGradeWrong, removeLowGradeWrong } from '../domain/field/lowGrade';
+import { isLowGradeProblem, type LowGradeProblem, pushLowGradeWrong, removeLowGradeWrong, sameLowGrade } from '../domain/field/lowGrade';
 import { isChallengeOpen, isFirstMaster, isTrainingOpen, judgeChallenge, pickLegendReward } from '../domain/field/training';
 import { judgeArithTrainer } from '../domain/field/arithTrainer';
 import { addCapsules, type CapsuleType, takeCapsule } from '../domain/field/capsules';
@@ -569,6 +569,8 @@ export const useGameStore = create<GameStore>()(
         const list = get().field.lowGrade.recentWrong;
         const next = correct ? removeLowGradeWrong(list, p) : pushLowGradeWrong(list, p);
         if (next === list) return; // 목록에 없는 문제를 맞힘: 상태 그대로
+        // 이미 맨 앞의 같은 문제를 또 틀림: 목록이 그대로라 새로 저장하지 않는다
+        if (!correct && next.length === list.length && next.every((x, i) => sameLowGrade(x, list[i]))) return;
         set((s) => ({ field: { ...s.field, lowGrade: { ...s.field.lowGrade, recentWrong: [...next] } } }));
       },
       chooseStarter: (id, now) =>
