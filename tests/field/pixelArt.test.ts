@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { ART_SIZE, SHARED_ARTS, TRANSPARENT, exitArrow, type PixelArt } from '../../src/field/art/pixelArt';
 import { parseMap } from '../../src/domain/field/movement';
 import { MONSTER_FILL } from '../../src/field/art/creatureArt';
+import { HERO_DIRS, HERO_FRAMES, HERO_SIZE, HERO_SPRITES, heroFrame } from '../../src/field/art/hero';
 import { MEADOW_TILES } from '../../src/field/world/maps/meadow';
 import { WATERSIDE_TILES } from '../../src/field/world/maps/waterside';
 import { DESERT_TILES } from '../../src/field/world/maps/desert';
@@ -17,8 +18,15 @@ function tileArts(): [string, PixelArt][] {
   return out;
 }
 
+/** 픽셀 주인공 (치비 017 그림이 없을 때 쓰는 그림) */
+function heroArts(): [string, PixelArt][] {
+  const out: [string, PixelArt][] = [];
+  for (const d of HERO_DIRS) HERO_SPRITES[d].forEach((a, i) => out.push([`주인공/${d}${i}`, a]));
+  return out;
+}
+
 function allArts(): [string, PixelArt][] {
-  return tileArts();
+  return [...tileArts(), ...heroArts()];
 }
 
 describe('픽셀 그림', () => {
@@ -35,6 +43,29 @@ describe('픽셀 그림', () => {
       for (const r of art.rows)
         for (const ch of r) if (ch !== TRANSPARENT) expect(art.palette[ch], `${name} 글자 ${ch}`).toMatch(/^#[0-9a-f]{6}$/i);
     }
+  });
+
+  it('주인공은 더 고운 32줄 × 32칸 (한 칸 크기에 두 배 촘촘하게)', () => {
+    expect(HERO_SIZE).toBe(32);
+    for (const [name, art] of heroArts()) {
+      expect(art.rows.length, name).toBe(32);
+      art.rows.forEach((r, y) => expect(r.length, `${name} ${y}줄`).toBe(32));
+    }
+  });
+
+  it('주인공은 4방향 × 걸음 2장, 오른쪽은 왼쪽을 뒤집은 것', () => {
+    expect(HERO_DIRS).toEqual(['down', 'up', 'left', 'right']);
+    expect(HERO_FRAMES).toBe(2);
+    for (const d of HERO_DIRS) expect(HERO_SPRITES[d]).toHaveLength(2);
+    const l = HERO_SPRITES.left[0].rows;
+    const r = HERO_SPRITES.right[0].rows;
+    l.forEach((row, y) => expect(r[y]).toBe([...row].reverse().join('')));
+  });
+
+  it('걷는 중에는 반 걸음마다 그림이 바뀌고, 서 있으면 0번', () => {
+    expect(heroFrame(null)).toBe(0);
+    expect(heroFrame(0.1)).toBe(0);
+    expect(heroFrame(0.6)).toBe(1);
   });
 
   it('동행은 한 칸쯤 채우게 그림 여백만큼 키운다', () => {

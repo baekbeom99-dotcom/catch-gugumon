@@ -1,12 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
-import { type Dir, type FieldMap, type StepResult, safeStartPosition, tryStep } from '../../domain/field/movement';
+import { companionStart, type Dir, type FieldMap, type StepResult, safeStartPosition, tryStep } from '../../domain/field/movement';
 import { displayName } from '../../domain/field/growth';
 import { useSessionStore } from '../../store/useSessionStore';
 import type { FieldNotice } from '../../store/fieldData';
 import { skillDef } from '../../domain/field/skills';
-import { companionImage, companionSheet } from '../art/companionImage';
-import { creatureArt, stageFill } from '../art/creatureArt';
+import { companionImage, companionSheet, sheetFrame } from '../art/companionImage';
+import { artBox, creatureArt } from '../art/creatureArt';
+import { HERO_ART } from '../art/localSprites';
+import { type SheetDir, cellBox, dirFromDelta } from '../art/spriteSheet';
 import { STAGE_SCALE } from '../art/creatureSprite';
 import { playFx, preloadFx, prefersReducedMotion } from '../fx/playFx';
 import type { FieldId, MapId } from '../../domain/field/fields';
@@ -15,7 +17,6 @@ import { rollTierLevel } from '../../domain/field/strength';
 import { isFainted } from '../../domain/field/wounds';
 import { battleText } from '../battle/battleText';
 import { pickCompanion } from '../companion';
-import { companionState } from '../../domain/field/companion';
 import { COMPANION_MAX_HP, ENCOUNTER_FLASH_MS, ROAM_BUBBLE_MS, STEP_MS, TURN_TAP_MS } from '../../domain/field/tuning';
 import { type Roamer, createRoamers, habitatOf, pokeRoamer, reviveRoamers, stepRoamers } from '../../domain/field/roam';
 import { speciesDef, type SpeciesId } from '../../domain/field/creatures';
@@ -24,14 +25,13 @@ import { useGameStore } from '../../store/useGameStore';
 import { ShopPopup } from '../shop/ShopPopup';
 import { SkillOfferDialog } from '../SkillOfferDialog';
 import { Joystick } from './Joystick';
-import { type Companion, drawField, viewScale } from './fieldRenderer';
+import { type Companion, type Hero, drawField, viewScale } from './fieldRenderer';
 import { FieldLoading } from './FieldLoading';
 import type { SavedPosition } from './loadField';
 import { OFFLINE_MESSAGE, getLoadedField, loadField, travelTo, warpTo } from './loadField';
 import { FieldHud } from './FieldHud';
 import { TILE_PX } from './padDirection';
 import { bubblePosition, buildSprites, playerPose, roamerAt, tileAtScreen } from './roamerLayer';
-import { CompanionPickDialog } from './CompanionPickDialog';
 import { enterField, leaveBattleReturn, useFieldSession } from '../useFieldSession';
 import './field.css';
 
@@ -203,8 +203,11 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
     lastBump: null as { key: string; dir: Dir } | null,
     /** 만남이 정해지면 더 걷지 않는다 */
     frozen: false,
-    /** 쓰러져 함께 갈 구구몬을 고르는 창이 떠 있으면 걷지 않는다 */
-    pickOpen: false,
+    /** 동행이 서 있는 칸 (걸음이 끝날 때마다 주인공이 방금 떠난 칸으로) */
+    cx: 0,
+    cy: 0,
+    /** 동행이 마지막으로 향한 방향 (서 있을 때 이 방향 그림) */
+    compDir: 'down' as SheetDir,
     /** 알림 창이 떠 있으면 걷지 않는다 */
     noticeOpen: false,
     /** 상점 팝업이 떠 있으면 걷지 않는다 */
@@ -223,24 +226,19 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
     init.current = true;
     enterField();
     const p = safeStartPosition(map, useGameStore.getState().field.position);
-    Object.assign(st.current, { x: p.x, y: p.y, facing: p.facing });
+    const c = companionStart(map, p, p.facing);
+    Object.assign(st.current, { x: p.x, y: p.y, facing: p.facing, cx: c.x, cy: c.y });
   }
 
   const notice0 = useSessionStore((s) => s.pendingFieldNotices[0] ?? null);
   /** 선택창을 기다리는 기술 제안 수 (알림이 다 닫히고 상점이 닫혀 있을 때 선택창이 뜬다) */
   const offerCount = useSessionStore((s) => s.skillOffers.length);
-  /**
-   * 조작하던 구구몬이 쓰러졌고 도감에 건강한 다른 구구몬이 있으면 고르기 창 (알림이 다 닫히고 상점이 닫혀 있을 때).
-   * 저장 상태에서 바로 정하므로 앱을 닫았다 열어도, 상점에서 다른 구구몬을 살려도 같은 창이 뜬다. 전투 화면에는 이 창이 없다.
-   */
-  const playerId = useGameStore((s) => pickCompanion(s));
-  const needPick = useGameStore((s) => companionState(pickCompanion(s), s.field.species) === 'pick');
-  const pickOpen = needPick && notice0 === null && !shopOpen;
-  const offerOpen = offerCount > 0 && notice0 === null && !shopOpen && !pickOpen;
+  const offerOpen = offerCount > 0 && notice0 === null && !shopOpen;
   st.current.noticeOpen = notice0 !== null;
   st.current.offerOpen = offerOpen;
-  st.current.pickOpen = pickOpen;
   const noticeStage = useGameStore((s) => (notice0 ? s.field.species[notice0.species]?.stage ?? 1 : 1));
+  const replacedId = notice0?.kind === 'fainted' ? notice0.replacedBy : undefined;
+  const replacedStage = useGameStore((s) => (replacedId ? s.field.species[replacedId]?.stage ?? 1 : 1));
   const bubbleStage = useGameStore((s) => (bubble ? s.field.species[bubble]?.stage ?? 1 : 1));
   const bubbleLevel = useGameStore((s) => (bubble ? s.field.species[bubble]?.level ?? 1 : 1));
   const bubbleHp = useGameStore((s) => (bubble ? s.field.species[bubble]?.hp ?? COMPANION_MAX_HP : COMPANION_MAX_HP));
@@ -273,8 +271,8 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
   }, [map.id]);
 
   /**
-   * 마을 구구몬을 세운다: 잡은 종 중 조작하는 구구몬과 keep(이미 서 있는 구구몬)을 빼고,
-   * 조작하는 구구몬·keep이 서 있는 칸은 비워 둔다
+   * 마을 구구몬을 세운다: 잡은 종 중 동행과 keep(이미 서 있는 구구몬)을 빼고,
+   * 주인공·동행·keep이 서 있는 칸은 비워 둔다
    */
   const spawnRoamers = useCallback(
     (keep: Roamer[]): Roamer[] => {
@@ -285,21 +283,12 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
       const list = (Object.keys(species) as SpeciesId[])
         .filter((id) => id !== me && species[id] && !keep.some((r) => r.species === id))
         .map((id) => ({ species: id, fainted: isFainted(species[id]!) }));
-      const taken = (z: { x: number; y: number }) => (z.x === s.x && z.y === s.y) || keep.some((r) => roamerAt([r], z));
+      const taken = (z: { x: number; y: number }) => (z.x === s.x && z.y === s.y) || (z.x === s.cx && z.y === s.cy) || keep.some((r) => roamerAt([r], z));
       const free = (f: FieldId) => (map.zones[f] ?? []).filter((z) => !taken(z));
       const zones = { meadow: free('meadow'), waterside: free('waterside'), desert: free('desert') };
       return [...keep, ...createRoamers({ ...map, zones }, list, Math.random, performance.now())];
     },
     [map],
-  );
-
-  /** 고르기 창에서 골랐다: 그 자리에서 새 구구몬으로 이어 간다. 마을이면 고른 구구몬은 배회에서 빠지고, 쓰러진 구구몬이 누워 쉰다 */
-  const onPicked = useCallback(
-    (id: SpeciesId) => {
-      const s = st.current;
-      if (map.id === 'town') s.roamers = spawnRoamers(s.roamers.filter((r) => r.species !== id));
-    },
-    [map.id, spawnRoamers],
   );
 
   /** 구구몬을 깨워 점프시키고 말풍선을 띄운다 */
@@ -398,7 +387,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
     const ro = new ResizeObserver(resize);
     ro.observe(wrap);
 
-    // 마을에서만: 잡은 구구몬(조작하는 구구몬 빼고)이 서식지를 돌아다닌다
+    // 마을에서만: 잡은 구구몬(동행 빼고)이 서식지를 돌아다닌다
     if (map.id === 'town') s.roamers = spawnRoamers([]);
     const zoneSets = new Map<string, Set<string>>();
     const inHabitat = (id: SpeciesId, p: { x: number; y: number }) => {
@@ -410,10 +399,10 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
       }
       return set.has(`${p.x},${p.y}`);
     };
-    /** 조작하는 구구몬(가는 칸 포함)이 서 있는 칸 */
+    /** 주인공·동행(가는 칸 포함)이 서 있는 칸 */
     const crowded = (p: { x: number; y: number }) => {
       const at = (x: number, y: number) => x === p.x && y === p.y;
-      if (at(s.x, s.y)) return true;
+      if (at(s.x, s.y) || at(s.cx, s.cy)) return true;
       return !!s.move && (at(s.move.tx, s.move.ty) || at(s.move.fx, s.move.fy));
     };
 
@@ -454,6 +443,8 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
 
     const finishMove = () => {
       const m = s.move!;
+      s.cx = m.fx;
+      s.cy = m.fy;
       s.x = m.tx;
       s.y = m.ty;
       s.move = null;
@@ -481,7 +472,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
       if (!s.move) {
         // 부딪힘은 방향을 떼거나 바꿔야 다시 반응한다
         if (s.lastBump && held() !== s.lastBump.dir) s.lastBump = null;
-        const h = s.signOpen || s.frozen || s.noticeOpen || s.shopOpen || s.offerOpen || s.pickOpen ? null : held();
+        const h = s.signOpen || s.frozen || s.noticeOpen || s.shopOpen || s.offerOpen ? null : held();
         if (h !== s.lastHeld) {
           s.lastHeld = h;
           s.heldSince = now;
@@ -520,28 +511,39 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
         hx = s.move.fx + (s.move.tx - s.move.fx) * t;
         hy = s.move.fy + (s.move.ty - s.move.fy) * t;
       }
-      // 조작하는 구구몬: 걷는 중이면 걷기 시트(가는 방향), 서 있으면 가만히 시트(마지막 방향). 시트가 없으면 정지 그림
-      const game = useGameStore.getState();
-      const meId = pickCompanion(game);
-      const meStage = game.field.species[meId]?.stage ?? 1;
-      const art = creatureArt(meId);
       const stepT = s.move ? Math.min(1, (now - s.move.start) / STEP_MS) : null;
-      const sheet = companionSheet(meId, meStage, s.move ? 'walk' : 'idle', s.facing, now);
-      const pose = playerPose(stepT, now, s.facing);
-      const me: Companion = {
-        x: hx,
-        y: hy,
-        img: companionImage(meId, 96, 'idle', meStage),
-        scale: STAGE_SCALE[meStage],
-        fill: art.fill * stageFill(art, meStage),
+      // 주인공: 치비 시트(017)가 있으면 걸을 때 걷기·서면 가만히(바라보는 방향 행), 없으면 픽셀 주인공
+      const heroSheet = HERO_ART?.sheets ? sheetFrame(HERO_ART.sheets, cellBox(HERO_ART.cell), s.move ? 'walk' : 'idle', s.facing, now) : undefined;
+      const hero: Hero = { x: hx, y: hy, facing: s.facing, sheet: heroSheet, fill: HERO_ART?.fill };
+      // 동행: 주인공이 방금 떠난 칸을 따라온다. 걸을 때 걷기·멈추면 가만히 시트(가는 방향), 시트가 없으면 정지 그림
+      const game = useGameStore.getState();
+      const compId = pickCompanion(game);
+      const compStage = game.field.species[compId]?.stage ?? 1;
+      const art = creatureArt(compId);
+      const ct = stepT ?? 0;
+      const fromX = s.move ? s.cx + (s.move.fx - s.cx) * ct : s.cx;
+      const fromY = s.move ? s.cy + (s.move.fy - s.cy) * ct : s.cy;
+      // 동행이 가는 쪽 = 지금 걸음에서 동행이 향하는 칸(주인공이 떠나는 칸) 방향
+      const cd = s.move ? dirFromDelta(s.move.fx - s.cx, s.move.fy - s.cy) : null;
+      if (cd) s.compDir = cd;
+      const compWalk = !!cd;
+      const compSheet = companionSheet(compId, compWalk ? 'walk' : 'idle', s.compDir, now);
+      const pose = playerPose(compWalk ? ct : null, now, s.compDir);
+      const comp: Companion = {
+        x: fromX,
+        y: fromY,
+        img: companionImage(compId, 96, 'idle'),
+        scale: STAGE_SCALE[compStage],
+        fill: art.fill,
         foot: art.foot,
-        sheet,
+        box: artBox(art),
+        sheet: compSheet,
         ...pose,
         // 시트 그림은 걷기 동작에 이미 통통함이 있으니 위로 뜨는 높이는 정지 그림에만 준다
-        ...(sheet ? { lift: 0 } : {}),
+        ...(compSheet ? { lift: 0 } : {}),
       };
       const sprites = s.roamers.length > 0 ? buildSprites(s.roamers, (r) => useGameStore.getState().field.species[r.species]?.stage ?? 1, now) : undefined;
-      const cam = drawField(ctx, map, view, me, { now, step: stepT }, sprites);
+      const cam = drawField(ctx, map, view, hero, comp, { now, step: stepT }, sprites);
       s.camX = cam.cx;
       s.camY = cam.cy;
       s.tile = view.tile;
@@ -559,8 +561,10 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
         }
       }
       canvas.dataset.pos = `${s.x},${s.y}`;
-      canvas.dataset.player = meId; // 지금 조작하는 구구몬 (E2E용)
-      canvas.dataset.playerAnim = sheet ? (s.move ? 'walk' : 'idle') : 'still'; // 걷기·가만히 시트, 시트 없으면 정지 그림 (E2E용)
+      canvas.dataset.companionPos = `${s.cx},${s.cy}`;
+      canvas.dataset.companion = compId; // 지금 함께 다니는 구구몬 (E2E용)
+      canvas.dataset.heroAnim = heroSheet ? (s.move ? 'walk' : 'idle') : 'pixel'; // 치비 주인공 걷기·가만히, 그림이 없으면 픽셀 주인공 (E2E용)
+      canvas.dataset.companionAnim = compSheet ? (compWalk ? 'walk' : 'idle') : 'still'; // 동행 걷기·가만히 시트, 시트 없으면 정지 그림 (E2E용)
     };
     raf = requestAnimationFrame(frame);
 
@@ -635,7 +639,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
             {notice}
           </div>
         )}
-        {!notice && companionDown && !needPick && map.id !== 'town' && (
+        {!notice && companionDown && map.id !== 'town' && (
           <div className="fieldmode__notice fieldmode__notice--down" role="status">
             {battleText.faintedField}
           </div>
@@ -664,7 +668,9 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
                 ? `${displayName(notice0.species, noticeStage)} Lv${notice0.level}`
                 : notice0.kind === 'skill'
                   ? skillNoticeText(notice0)
-                  : `${displayName(notice0.species, noticeStage)} — ${battleText.faintedField}`}
+                  : notice0.replacedBy
+                    ? battleText.replacedField(displayName(notice0.replacedBy, replacedStage))
+                    : `${displayName(notice0.species, noticeStage)} — ${battleText.faintedField}`}
             </span>
             <span className="fieldmode__growth-hint">탭하면 닫혀요</span>
           </button>
@@ -679,7 +685,6 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
         )}
         {shopOpen && <ShopPopup onClose={closeShop} />}
         {offerOpen && <SkillOfferDialog />}
-        {pickOpen && <CompanionPickDialog fainted={playerId} onPicked={onPicked} />}
         {signText && (
           <div className="fieldmode__text" role="dialog" aria-label="표지판" onClick={() => onTap()}>
             {signText}

@@ -1,6 +1,6 @@
 /**
  * 개발 전용 필드 모험 검수 화면 (#/dev/field) — 배포 빌드에는 라우트가 없다.
- * 그림 교체·효과 추가·수치 조정을 한 뒤 여기서 바로 본다: 구구몬 그림(앞·뒤·진화·동행·걷기 시트), 캡슐, 효과, 디버그 스위치.
+ * 그림 교체·효과 추가·수치 조정을 한 뒤 여기서 바로 본다: 구구몬 그림(앞·뒤·동행·치비 시트), 주인공(017 치비·픽셀), 캡슐, 효과, 디버그 스위치.
  */
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -9,9 +9,12 @@ import type { MonsterMood } from '../art/MonsterSprite';
 import { SPECIES } from '../domain/field/creatures';
 import { displayName } from '../domain/field/growth';
 import { companionImage } from './art/companionImage';
-import { creatureArt, stageFill, stageSheets } from './art/creatureArt';
+import { artBox, artSheets, creatureArt } from './art/creatureArt';
 import { SheetSprite, creatureSprite, speciesColor } from './art/creatureSprite';
-import { BATTLE_ROW, DIR_ROW, type SheetDir } from './art/spriteSheet';
+import { BATTLE_ROW, DIR_ROW, cellBox, type SheetDir } from './art/spriteSheet';
+import { HERO_ART } from './art/localSprites';
+import { HERO_DIRS, HERO_SPRITES } from './art/hero';
+import { PixelSprite } from './art/PixelSprite';
 import { CapsuleBall } from './art/CapsuleBall';
 import { CAPSULE_NAMES, CAPSULE_TYPES } from '../domain/field/capsules';
 import { debugFlags, setDebugFlag } from './debugFlags';
@@ -20,12 +23,11 @@ import { EFFECTS, type FxName, type FxSpec } from './fx/effects';
 import { playFx } from './fx/playFx';
 
 const MOODS: MonsterMood[] = ['idle', 'hit', 'happy', 'sleep'];
-const STAGES = [1, 2, 3] as const;
 const row = { display: 'flex', flexWrap: 'wrap', gap: 8, alignItems: 'flex-end' } as const;
 const box = { background: '#f3f0e8', borderRadius: 8, padding: 8 } as const;
 
-/** 전투 그림(내 구구몬 오른쪽 위·야생 왼쪽 아래)을 1.6초마다 공격 한 번씩 틀어 본다 */
-function BattleReplay({ id, stage, side }: { id: (typeof SPECIES)[number]['id']; stage: 1 | 2 | 3; side: 'ally' | 'foe' }) {
+/** 전투 그림(내 구구몬 뒷모습·야생 앞모습)을 1.6초마다 공격 한 번씩 틀어 본다 */
+function BattleReplay({ id, side }: { id: (typeof SPECIES)[number]['id']; side: 'ally' | 'foe' }) {
   const [at, setAt] = useState<number | undefined>(undefined);
   useEffect(() => {
     const t = window.setInterval(() => setAt(Date.now()), 1600);
@@ -34,65 +36,79 @@ function BattleReplay({ id, stage, side }: { id: (typeof SPECIES)[number]['id'];
   return (
     <figure style={{ margin: 0 }} data-testid={`dev-battle-${side}`}>
       <div style={{ width: 96, height: 96, display: 'flex', alignItems: 'flex-end', justifyContent: 'center' }}>
-        {creatureSprite(id, { view: side, stage, attackAt: at, color: DAN_COLORS[5], size: 96 })}
+        {creatureSprite(id, { view: side, attackAt: at, color: DAN_COLORS[5], size: 96 })}
       </div>
-      <small style={{ display: 'block', textAlign: 'center' }}>{side === 'ally' ? '공격 내 구구몬(행3)' : '공격 야생(행7)'}</small>
+      <small style={{ display: 'block', textAlign: 'center' }}>{side === 'ally' ? `공격 내 구구몬(뒤, 행${BATTLE_ROW.ally})` : `공격 야생(앞, 행${BATTLE_ROW.foe})`}</small>
     </figure>
   );
 }
 
 const DIR_NAMES: Record<SheetDir, string> = { down: '앞', right: '오른쪽', up: '뒤', left: '왼쪽' };
 
-/** 시트(걷기·가만히·맞음·잠)가 있는 종만: 단계별로 움직임을 재생해 본다 */
+/** 치비 시트(가만히·걷기·공격)가 있는 종만: 방향마다 움직임을 재생해 본다 */
 function SheetPreview({ id }: { id: (typeof SPECIES)[number]['id'] }) {
   const art = creatureArt(id);
+  const sh = artSheets(art);
+  if (!sh) return null;
+  const box = artBox(art);
+  const cap = (t: string) => <small style={{ display: 'block', textAlign: 'center' }}>{t}</small>;
   return (
-    <>
-      {STAGES.map((st) => {
-        const sh = stageSheets(art, st);
-        if (!sh) return null;
-        const cap = (t: string) => <small style={{ display: 'block', textAlign: 'center' }}>{t}</small>;
-        return (
-          <div key={st} style={{ ...row, marginTop: 6 }} data-testid={`dev-sheet-${id}-${st}`}>
-            <strong style={{ width: '100%' }}>
-              시트 {displayName(id, st)} (칸 {sh.side}px)
-            </strong>
-            {(['down', 'up'] as const).map((d) => (
-              <figure key={'i' + d} style={{ margin: 0 }}>
-                <SheetSprite sheets={sh} anim={sh.idle} row={DIR_ROW[d]} px={72} />
-                {cap(`가만히 ${DIR_NAMES[d]}`)}
-              </figure>
-            ))}
-            {(['down', 'right', 'up', 'left'] as const).map((d) => (
-              <figure key={'w' + d} style={{ margin: 0 }}>
-                <SheetSprite sheets={sh} anim={sh.walk} row={DIR_ROW[d]} px={72} />
-                {cap(`걷기 ${DIR_NAMES[d]}`)}
-              </figure>
-            ))}
-            {sh.hurt &&
-              (['ally', 'foe'] as const).map((v) => (
-                <figure key={'h' + v} style={{ margin: 0 }}>
-                  <SheetSprite sheets={sh} anim={sh.hurt!} row={BATTLE_ROW.hurt[v]} px={72} />
-                  {cap(v === 'ally' ? '맞음 오른쪽위' : '맞음 왼쪽아래')}
-                </figure>
-              ))}
-            {(['ally', 'foe'] as const).map((v) => (
-              <figure key={'bi' + v} style={{ margin: 0 }}>
-                <SheetSprite sheets={sh} anim={sh.idle} row={BATTLE_ROW.idle[v]} px={72} />
-                {cap(v === 'ally' ? '가만히 오른쪽위' : '가만히 왼쪽아래')}
-              </figure>
-            ))}
-            {sh.attack && (['ally', 'foe'] as const).map((v) => <BattleReplay key={'ba' + v} id={id} stage={st} side={v} />)}
-            {sh.sleep && (
-              <figure style={{ margin: 0 }}>
-                <SheetSprite sheets={sh} anim={sh.sleep} row={0} px={72} />
-                {cap('잠')}
-              </figure>
-            )}
-          </div>
-        );
-      })}
-    </>
+    <div style={{ ...row, marginTop: 6 }} data-testid={`dev-sheet-${id}`}>
+      <strong style={{ width: '100%' }}>
+        시트 {displayName(id, 1)} (칸 {sh.cw}×{sh.ch}px)
+      </strong>
+      {(['down', 'up', 'right', 'left'] as const).map((d) => (
+        <figure key={'i' + d} style={{ margin: 0 }}>
+          <SheetSprite sheets={sh} anim={sh.idle} row={DIR_ROW[d]} px={72} box={box} />
+          {cap(`가만히 ${DIR_NAMES[d]}`)}
+        </figure>
+      ))}
+      {(['down', 'up', 'right', 'left'] as const).map((d) => (
+        <figure key={'w' + d} style={{ margin: 0 }}>
+          <SheetSprite sheets={sh} anim={sh.walk} row={DIR_ROW[d]} px={72} box={box} />
+          {cap(`걷기 ${DIR_NAMES[d]}`)}
+        </figure>
+      ))}
+      {sh.attack && (['ally', 'foe'] as const).map((v) => <BattleReplay key={'ba' + v} id={id} side={v} />)}
+    </div>
+  );
+}
+
+/** 주인공: 치비(017) 시트가 있으면 네 방향 가만히·걷기, 없으면 픽셀 주인공(hero.ts) 네 방향 */
+function HeroPreview() {
+  const sh = HERO_ART?.sheets;
+  if (sh) {
+    const box = cellBox(HERO_ART?.cell);
+    return (
+      <div style={row} data-testid="dev-hero">
+        {(['down', 'up', 'right', 'left'] as const).map((d) => (
+          <figure key={'i' + d} style={{ margin: 0 }}>
+            <SheetSprite sheets={sh} anim={sh.idle} row={DIR_ROW[d]} px={72} box={box} />
+            <small style={{ display: 'block', textAlign: 'center' }}>가만히 {DIR_NAMES[d]}</small>
+          </figure>
+        ))}
+        {(['down', 'up', 'right', 'left'] as const).map((d) => (
+          <figure key={'w' + d} style={{ margin: 0 }}>
+            <SheetSprite sheets={sh} anim={sh.walk} row={DIR_ROW[d]} px={72} box={box} />
+            <small style={{ display: 'block', textAlign: 'center' }}>걷기 {DIR_NAMES[d]}</small>
+          </figure>
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div style={row} data-testid="dev-hero">
+      {HERO_DIRS.flatMap((d) =>
+        HERO_SPRITES[d].map((a, i) => (
+          <figure key={d + i} style={{ ...box, margin: 0, textAlign: 'center' }}>
+            <PixelSprite art={a} size={64} />
+            <figcaption>
+              {d} {i}
+            </figcaption>
+          </figure>
+        )),
+      )}
+    </div>
   );
 }
 
@@ -196,18 +212,20 @@ function CompanionPreview({ id }: { id: (typeof SPECIES)[number]['id'] }) {
   }, [id]);
   const art = creatureArt(id);
   const tile = 48;
-  const size = Math.round(tile * art.fill * stageFill(art, 1));
+  const b = artBox(art);
+  const w = Math.round(tile * art.fill * b.w);
+  const h = Math.round(tile * art.fill * b.h);
   return (
     <div style={{ position: 'relative', width: tile, height: tile, background: '#d9b382', outline: '1px dashed #8d5a2b' }} title="필드 동행: 점선이 한 칸">
-      {img && <img src={img.src} alt="" width={size} height={size} style={{ position: 'absolute', left: (tile - size) / 2, top: tile - size * art.foot }} />}
+      {img && <img src={img.src} alt="" width={w} height={h} style={{ position: 'absolute', left: (tile - w) / 2, top: tile - h * art.foot }} />}
     </div>
   );
 }
 
-type CompareMode = 'front' | 'back' | 'walk' | 'hit' | 'attack';
-const COMPARE_MODES: [CompareMode, string][] = [['front', '앞'], ['back', '뒤'], ['walk', '걷기'], ['hit', '맞음'], ['attack', '공격']];
+type CompareMode = 'front' | 'back' | 'walk' | 'attack';
+const COMPARE_MODES: [CompareMode, string][] = [['front', '앞'], ['back', '뒤'], ['walk', '걷기'], ['attack', '공격']];
 
-/** 모든 종·단계의 몸 크기를 한 화면에서 비교 (점선 = 자리 한 칸). 몸 높이 기준은 spriteSheet.BODY_H_TARGET */
+/** 모든 종의 몸 크기를 한 화면에서 비교 (점선 = 자리 한 칸). 몸 높이 기준은 spriteSheet.BODY_H_TARGET */
 function SizeCompare() {
   const [mode, setMode] = useState<CompareMode>('front');
   const [at, setAt] = useState<number | undefined>(undefined);
@@ -216,16 +234,15 @@ function SizeCompare() {
     return () => window.clearInterval(t);
   }, []);
   const px = 44;
-  const one = (id: (typeof SPECIES)[number]['id'], st: 1 | 2 | 3) => {
+  const one = (id: (typeof SPECIES)[number]['id']) => {
     const art = creatureArt(id);
-    const sh = stageSheets(art, st);
+    const sh = artSheets(art);
     let el: JSX.Element;
-    if (mode === 'walk' && sh) el = <SheetSprite sheets={sh} anim={sh.walk} row={DIR_ROW.down} px={Math.round(px * (st === 1 ? 1 : st === 2 ? 1.15 : 1.3))} />;
-    else if (mode === 'hit') el = creatureSprite(id, { view: 'foe', stage: st, mood: 'hit', color: DAN_COLORS[5], size: px });
-    else if (mode === 'attack') el = creatureSprite(id, { view: 'ally', stage: st, attackAt: at, color: DAN_COLORS[5], size: px });
-    else el = creatureSprite(id, { view: mode === 'back' ? 'back' : 'front', stage: st, color: DAN_COLORS[5], size: px });
+    if (mode === 'walk' && sh) el = <SheetSprite sheets={sh} anim={sh.walk} row={DIR_ROW.down} px={px} box={artBox(art)} />;
+    else if (mode === 'attack') el = creatureSprite(id, { view: 'ally', attackAt: at, color: DAN_COLORS[5], size: px });
+    else el = creatureSprite(id, { view: mode === 'back' ? 'back' : 'front', color: DAN_COLORS[5], size: px });
     return (
-      <span key={st} style={{ position: 'relative', width: px, height: px, display: 'inline-flex', alignItems: 'flex-end', justifyContent: 'center', outline: '1px dashed #c9b58f' }} title={displayName(id, st)}>
+      <span key={id} style={{ position: 'relative', width: px, height: px, display: 'inline-flex', alignItems: 'flex-end', justifyContent: 'center', outline: '1px dashed #c9b58f' }} title={displayName(id, 1)}>
         {el}
       </span>
     );
@@ -240,12 +257,7 @@ function SizeCompare() {
           </button>
         ))}
       </div>
-      {SPECIES.map((s) => (
-        <div key={s.id} style={{ display: 'flex', alignItems: 'flex-end', gap: 4, marginBottom: 4 }}>
-          <small style={{ width: 64 }}>{s.name}</small>
-          {STAGES.map((st) => one(s.id, st))}
-        </div>
-      ))}
+      <div style={{ ...row, gap: 4 }}>{SPECIES.map((s) => one(s.id))}</div>
     </section>
   );
 }
@@ -257,6 +269,11 @@ export function DevFieldGallery() {
       <DebugSwitches />
       <EffectButtons />
       <SizeCompare />
+
+      <section>
+        <h2>주인공 ({HERO_ART ? '치비 017' : '픽셀 hero.ts — 치비 그림 없음'})</h2>
+        <HeroPreview />
+      </section>
 
       <section>
         <h2>캡슐</h2>
@@ -283,17 +300,7 @@ export function DevFieldGallery() {
                   {creatureSprite(s.id, { view: 'front', mood: m, color: DAN_COLORS[7], size: 72 })}
                 </span>
               ))}
-              {creatureArt(s.id).type === 'image' &&
-                STAGES.map((st) => (
-                  <span key={'f' + st} title={`앞모습 ${displayName(s.id, st)}`}>
-                    {creatureSprite(s.id, { view: 'front', stage: st, color: DAN_COLORS[7], size: 72 })}
-                  </span>
-                ))}
-              {STAGES.map((st) => (
-                <span key={st} title={displayName(s.id, st)}>
-                  {creatureSprite(s.id, { view: 'back', stage: st, color: DAN_COLORS[5], size: 72 })}
-                </span>
-              ))}
+              <span title="뒷모습">{creatureSprite(s.id, { view: 'back', color: DAN_COLORS[5], size: 72 })}</span>
               {creatureSprite(s.id, { view: 'mini', color: speciesColor(s.id), size: 40 })}
               <CompanionPreview id={s.id} />
             </div>

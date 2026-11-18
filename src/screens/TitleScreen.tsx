@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { DAN_COLORS } from '../art/colors';
 import { MonsterSprite } from '../art/MonsterSprite';
 import { SpriteCredit } from '../field/art/SpriteCredit';
+import { PixelSprite } from '../field/art/PixelSprite';
+import { HERO_SPRITES } from '../field/art/hero';
+import { HERO_ART } from '../field/art/localSprites';
 import './title.css';
 
 export function TitleScreen() {
@@ -18,7 +21,12 @@ export function TitleScreen() {
         <span className="title__path" />
         <div className="title__cast">
           <MonsterSprite kind="cloud" color={DAN_COLORS[5]} mood="happy" size={112} className="title__mon title__mon--a" />
-          <MonsterSprite kind="horn" color={DAN_COLORS[7]} mood="happy" size={72} className="title__mon title__mon--c" />
+          {/* 주인공: 이 PC에 치비 그림(017)이 있으면 그 앞모습, 없으면 픽셀 주인공 */}
+          {HERO_ART ? (
+            <img src={HERO_ART.front} alt="" height={80} className="title__mon title__mon--c title__hero-img" draggable={false} />
+          ) : (
+            <PixelSprite art={HERO_SPRITES.down[0]} size={64} className="title__mon title__mon--c title__hero" />
+          )}
           <MonsterSprite kind="jelly" color={DAN_COLORS[8]} mood="idle" size={100} className="title__mon title__mon--b" />
         </div>
       </div>

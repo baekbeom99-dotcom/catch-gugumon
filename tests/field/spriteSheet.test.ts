@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BODY_H_TARGET, BODY_W_MAX, FILL_MAX, bodyFill, BATTLE_ROW, DIR_ROW, SOURCE_ROWS, attackPlacement, cellOrigin, onceFrameAt, totalMs, dirFromDelta, frameAt, rowForDir } from '../../src/field/art/spriteSheet';
-import cutScript from '../../scripts/cut-sprites.mjs?raw';
+import { BODY_H_TARGET, BODY_W_MAX, BATTLE_ROW, DIR_ROW, SHEET_COLS, SHEET_ROWS, cellBox, cellOrigin, onceFrameAt, totalMs, dirFromDelta, frameAt, rowForDir } from '../../src/field/art/spriteSheet';
+import cutScript from '../../scripts/cut-chibi.py?raw';
 
 describe('frameAt (프레임 시간 → 번호, 되풀이)', () => {
   const ms = [100, 50, 50];
@@ -24,28 +24,20 @@ describe('frameAt (프레임 시간 → 번호, 되풀이)', () => {
   });
 });
 
-describe('방향 → 시트 줄', () => {
-  it('아래(앞)·오른·위(뒤)·왼 순서, 옆모습은 오른 줄과 왼 줄이 따로', () => {
-    expect(DIR_ROW).toEqual({ down: 0, right: 1, up: 2, left: 3 });
+describe('방향 → 시트 행 (치비 4×4)', () => {
+  it('행: 아래(앞)·위(뒤)·오른쪽·왼쪽, 4열 × 4행', () => {
+    expect(DIR_ROW).toEqual({ down: 0, up: 1, right: 2, left: 3 });
     expect(rowForDir('left')).not.toBe(rowForDir('right'));
-    expect(rowForDir('up')).toBe(2);
+    expect(SHEET_COLS).toBe(4);
+    expect(SHEET_ROWS).toBe(4);
   });
-  it('전투 줄: 내 구구몬=원본 3(오른쪽 위)·야생=원본 7(왼쪽 아래)', () => {
-    expect(SOURCE_ROWS.idle[BATTLE_ROW.idle.ally]).toBe(3);
-    expect(SOURCE_ROWS.idle[BATTLE_ROW.idle.foe]).toBe(7);
-    expect(SOURCE_ROWS.hurt[BATTLE_ROW.hurt.ally]).toBe(3);
-    expect(SOURCE_ROWS.hurt[BATTLE_ROW.hurt.foe]).toBe(7);
-    expect(SOURCE_ROWS.attack[BATTLE_ROW.attack.ally]).toBe(3);
-    expect(SOURCE_ROWS.attack[BATTLE_ROW.attack.foe]).toBe(7);
-    // 걷기·가만히의 기본 네 줄(아래·오른·위·왼)은 그대로
-    expect(SOURCE_ROWS.idle.slice(0, 4)).toEqual([0, 2, 4, 6]);
+  it('전투: 내 구구몬은 뒷모습(행 1), 야생은 앞모습(행 0)', () => {
+    expect(BATTLE_ROW).toEqual({ ally: 1, foe: 0 });
   });
-  it('cut-sprites.mjs 의 줄 목록과 같다', () => {
+  it('cut-chibi.py 와 같은 규격 (4열×4행, 가만히·걷기·공격)', () => {
     const src: string = cutScript;
-    expect(src).toContain(`idle: { name: 'Idle', rows: [${SOURCE_ROWS.idle.join(', ')}] }`);
-    expect(src).toContain(`walk: { name: 'Walk', rows: [${SOURCE_ROWS.walk.join(', ')}] }`);
-    expect(src).toContain(`hurt: { name: 'Hurt', rows: [${SOURCE_ROWS.hurt.join(', ')}] }`);
-    expect(src).toContain(`name: 'Attack', rows: [${SOURCE_ROWS.attack.join(', ')}]`);
+    expect(src).toContain('COLS = ROWS = 4');
+    expect(src).toContain("ANIMS = {'idle': 300, 'walk': 150, 'attack': 110}");
   });
 });
 
@@ -63,16 +55,6 @@ describe('공격 시트는 한 번만 재생하고 끝나면 가만히로', () =
     expect(onceFrameAt(ms, 167)).toBeNull();
     expect(onceFrameAt(ms, 5000)).toBeNull();
     expect(onceFrameAt(ms, -5)).toBe(0);
-  });
-  it('Attack 칸을 Idle 칸 기준점에 맞춰 겹친다', () => {
-    // k=1, Idle 칸 70(자리 44 안 가운데·아래), 기준점이 Idle (38,57)·Attack (72,72)
-    const p = attackPlacement({ px: 44, idleCell: 70, side: 144, k: 1, ax: 72, ay: 72, ix: 38, iy: 57 });
-    expect(p.size).toBe(144);
-    expect(p.left).toBe(-13 + 38 - 72);
-    expect(p.top).toBe(-26 + 57 - 72);
-    // 기준점이 같은 위치: Idle 칸 안 기준점 = Attack 칸 안 기준점 + 놓는 자리
-    expect(p.left + 72).toBe(-13 + 38);
-    expect(p.top + 72).toBe(-26 + 57);
   });
 });
 
@@ -92,30 +74,27 @@ describe('이동 변화량 → 방향', () => {
 });
 
 describe('cellOrigin', () => {
-  it('칸 번호 × 한 변', () => {
-    expect(cellOrigin(2, 3, 70)).toEqual({ sx: 140, sy: 210 });
+  it('칸 번호 × 칸 크기 (가로·세로 따로)', () => {
+    expect(cellOrigin(2, 3, 70, 80)).toEqual({ sx: 140, sy: 240 });
   });
 });
 
-describe('bodyFill (몸 높이 맞춤)', () => {
-  it('몸 높이가 목표 비율이 되게 한다', () => {
-    // 몸 높이 = 칸의 긴 쪽 → 배율 = 목표
-    expect(bodyFill({ baseSide: 44, bodyH: 42, bodyW: 34 })).toBeCloseTo(BODY_H_TARGET * 44 / 42, 2);
-    // 큰 종도 작은 종도 (몸 높이 × 배율) / 정지 그림 칸 ≈ 목표
-    for (const m of [{ baseSide: 44, bodyH: 42, bodyW: 34 }, { baseSide: 130, bodyH: 128, bodyW: 78 }, { baseSide: 38, bodyH: 36, bodyW: 26 }]) {
-      expect((m.bodyH * bodyFill(m)) / m.baseSide).toBeCloseTo(BODY_H_TARGET, 1);
+describe('cellBox (몸 높이 맞춤)', () => {
+  it('몸 높이가 자리의 BODY_H_TARGET이 되게 칸을 놓는다', () => {
+    for (const c of [{ cw: 126, ch: 135, bodyH: 117, bodyW: 108 }, { cw: 144, ch: 143, bodyH: 60, bodyW: 50 }, { cw: 90, ch: 120, bodyH: 110, bodyW: 70 }]) {
+      const b = cellBox(c);
+      expect((b.h * c.bodyH) / c.ch).toBeCloseTo(BODY_H_TARGET, 2);
+      expect(b.w / b.h).toBeCloseTo(c.cw / c.ch, 2);
     }
   });
-  it('가로가 넓은 종은 가로 상한으로 줄이고, 상한을 넘지 않는다', () => {
-    const wide = { baseSide: 64, bodyH: 40, bodyW: 62 };
-    expect((wide.bodyW * bodyFill(wide)) / wide.baseSide).toBeLessThanOrEqual(BODY_W_MAX + 0.001);
-    expect(bodyFill({ baseSide: 100, bodyH: 10, bodyW: 10 })).toBe(FILL_MAX);
+  it('가로가 넓은 몸은 가로 상한으로 줄인다', () => {
+    const c = { cw: 200, ch: 100, bodyH: 50, bodyW: 180 };
+    const b = cellBox(c);
+    expect((b.w * c.bodyW) / c.cw).toBeLessThanOrEqual(BODY_W_MAX + 0.001);
   });
-  it('값이 없으면 1', () => {
-    expect(bodyFill({})).toBe(1);
-    expect(bodyFill({ baseSide: 44 })).toBe(1);
-  });
-  it('cut-sprites.mjs 기본 번호는 46개 범위', () => {
-    expect(cutScript).toContain("'1-18,23-28,35-40,50-62,129,130,132'");
+  it('몸 크기를 모르면 칸 전체가 자리에, 칸도 모르면 1×1', () => {
+    expect(cellBox({ cw: 100, ch: 50 })).toEqual({ w: 1, h: 0.5 });
+    expect(cellBox(undefined)).toEqual({ w: 1, h: 1 });
+    expect(cellBox({})).toEqual({ w: 1, h: 1 });
   });
 });

@@ -15,7 +15,8 @@ import { capsuleFor } from '../../domain/field/capsules';
 import { speciesDef } from '../../domain/field/creatures';
 import { ELEMENT_FX, SPECIAL_FX, elementOf, subElementOf } from '../../domain/field/elements';
 import { createAnswerTimer, elapsedMs, pauseTimer, resumeTimer, startTimer } from '../../domain/field/answerTimer';
-import { displayName } from '../../domain/field/growth';
+import { MAX_LEVEL, displayName, expToNext } from '../../domain/field/growth';
+import { battleLayout } from './battleLayout';
 import type { Encounter } from '../../domain/field/encounter';
 import {
   CAPSULE_ABSORB_MS,
@@ -174,6 +175,9 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const [companion] = useState(() => pickCompanion(useGameStore.getState()));
   const companionStage = useGameStore((s) => s.field.species[companion]?.stage ?? 1);
   const companionLevel = useGameStore((s) => s.field.species[companion]?.level ?? 1);
+  /** 내 정보 상자의 경험치 막대: 지금 경험치 / 다음 레벨까지 (growth.expToNext, 최고 레벨이면 0) */
+  const companionExp = useGameStore((s) => s.field.species[companion]?.exp ?? 0);
+  const expNeed = companionLevel >= MAX_LEVEL ? 0 : expToNext(companionLevel);
   const wildDef = speciesDef(encounter.species);
   // 이 야생을 잡는 캡슐 종류 (화나서 강력해져도 종 기준이라 그대로)와 남은 수
   const capsuleType = capsuleFor(encounter.species);
@@ -248,6 +252,23 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
 
   // 효과(기술·잡기): 구구몬 발치에서 틀어 준다. 보기만 하는 것이라 시간·결과와 상관없다
   const stageRef = useRef<HTMLElement>(null);
+  /** 무대 크기 → 그림 자리·받침 배치 (battleLayout: 무대 비율로 정해 휴대폰·넓은 화면 모두 같은 모양) */
+  const [stageSize, setStageSize] = useState({ w: 351, h: 420 });
+  useEffect(() => {
+    const el = stageRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      const w = Math.round(r.width);
+      const h = Math.round(r.height);
+      if (w > 0 && h > 0) setStageSize((p) => (p.w === w && p.h === h ? p : { w, h }));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const lay = battleLayout(stageSize.w, stageSize.h);
   const fxRef = useRef<HTMLCanvasElement>(null);
   const wildElement = elementOf(encounter.species);
   useEffect(() => {
@@ -809,15 +830,6 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   return (
     <div className={`wild ${wildDef.legend ? 'wild--legend' : ''}`}>
       <header className="wild__top">
-        <button
-          type="button"
-          className="btn btn--ghost wild__run"
-          aria-label="도망치기"
-          disabled={!!ending || throwing || wild.phase === 'hit' || wild.phase === 'counter' || wild.phase === 'struck'}
-          onClick={() => setConfirmQuit(true)}
-        >
-          🏃 도망
-        </button>
         <div className={`wild__card ${strongCard}`}>
           <div className="wild__name">
             {wildNameNow} <small>Lv{wild.level}</small>
@@ -829,9 +841,31 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
           </div>
           <HpBar label={`야생 체력 ${Math.round(hpRatio * 100)}`} ratio={hpRatio} />
         </div>
+        <button
+          type="button"
+          className="btn btn--ghost wild__run"
+          aria-label="도망치기"
+          disabled={!!ending || throwing || wild.phase === 'hit' || wild.phase === 'counter' || wild.phase === 'struck'}
+          onClick={() => setConfirmQuit(true)}
+        >
+          🏃 도망
+        </button>
       </header>
 
-      <section ref={stageRef} data-species={encounter.species} data-capsule-stage={stage ?? undefined} className={`wild__stage ${wildDef.legend ? 'wild__stage--legend' : ''} ${intro ? 'wild__stage--intro' : ''} ${intro && wildDef.legend ? 'wild__stage--sparkle' : ''}`}>
+      <section
+        ref={stageRef}
+        style={
+          {
+            '--foe-size': `${lay.foe}px`,
+            '--foe-cx': `${lay.foeCx}px`,
+            '--foe-top': `${lay.foeTop}px`,
+            '--foe-feet': `${lay.foeFeet}px`,
+            '--ally-size': `${lay.ally}px`,
+            '--ally-cx': `${lay.allyCx}px`,
+            '--ally-feet': `${lay.allyFeet}px`,
+          } as CSSProperties
+        }
+        data-species={encounter.species} data-capsule-stage={stage ?? undefined} className={`wild__stage ${wildDef.legend ? 'wild__stage--legend' : ''} ${intro ? 'wild__stage--intro' : ''} ${intro && wildDef.legend ? 'wild__stage--sparkle' : ''} ${inHint ? 'wild__stage--hint' : ''}`}>
         {asking || inHint ? (
           <div className="wild__bubble" data-fact={item.factId} data-retry={item.isRetry ? 'true' : undefined}>
             {asking && (
@@ -846,12 +880,14 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
           </div>
         ) : (
           <>
+            <span className="wild__base wild__base--foe" aria-hidden />
+            <span className="wild__base wild__base--ally" aria-hidden />
             <div
               key={`w${hitCount}`}
               className={`wild__foe ${foeHit ? 'wild__foe--hit' : ''} ${foeDodged ? 'wild__foe--dodge' : ''} ${struck ? 'wild__foe--attack' : ''} ${gone ? 'wild__foe--gone' : ''} ${stage === 'absorb' ? 'wild__foe--absorb' : ''} ${foeHidden ? 'wild__foe--capsule' : ''} ${popped ? 'wild__foe--pop' : ''}`}
               style={stage === 'absorb' ? { animationDuration: `${CAPSULE_ABSORB_MS}ms` } : undefined}
             >
-              {creatureSprite(encounter.species, { view: 'foe', attackAt: attackAt.foe, mood: wildMood, color: DAN_COLORS[encounter.dan], size: 150 })}
+              {creatureSprite(encounter.species, { view: 'foe', attackAt: attackAt.foe, mood: wildMood, color: DAN_COLORS[encounter.dan], size: lay.foe })}
             </div>
             {shadowShown && (
               <span
@@ -872,10 +908,35 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
               </div>
             )}
             <div key={`a${hitCount}-${struckCount}`} className={`wild__ally ${wild.phase === 'hit' ? 'wild__ally--attack' : ''} ${struck && !allyDodged ? 'wild__ally--struck' : ''} ${allyDodged ? 'wild__ally--dodge' : ''}`}>
-              {creatureSprite(companion, { view: 'ally', attackAt: attackAt.ally, mood: struck && !allyDodged ? 'hit' : 'idle', stage: companionStage, color: COMPANION_COLOR, size: 120 })}
+              {creatureSprite(companion, { view: 'ally', attackAt: attackAt.ally, mood: struck && !allyDodged ? 'hit' : 'idle', stage: companionStage, color: COMPANION_COLOR, size: lay.ally })}
             </div>
           </>
         )}
+        {/* 내 정보 상자: 무대 오른쪽 아래 (힌트가 떠도 보인다 — 힌트 칸은 이 상자 위에서 끝난다) */}
+        <div className="wild__ally-card">
+          <div className="wild__ally-name">
+            {allyName} <small>Lv{companionLevel}</small>
+            {buffs.length > 0 && (
+              <span className="wild__buffs" aria-label={`남은 효과 ${buffs.join(' ')}`}>
+                {buffs.map((b) => (
+                  <span key={b} className="wild__buff">
+                    {b}
+                  </span>
+                ))}
+              </span>
+            )}
+          </div>
+          <HpBar label={`내 체력 ${wild.allyHp}`} ratio={wild.allyHp / COMPANION_MAX_HP} low={wild.allyHp <= TIER_RULES[wild.tier].damage} />
+          <div className="wild__ally-hp" aria-hidden>
+            {Math.max(0, Math.round(wild.allyHp))}/{COMPANION_MAX_HP}
+          </div>
+          <div className="wild__exp" role="img" aria-label={`경험치 ${companionExp}/${expNeed}`}>
+            <span className="wild__exp-label">EXP</span>
+            <span className="wild__exp-bar">
+              <span className="wild__exp-fill" style={{ width: `${expNeed > 0 ? Math.min(100, (companionExp / expNeed) * 100) : 0}%` }} />
+            </span>
+          </div>
+        </div>
         <canvas ref={fxRef} className="wild__fx" aria-hidden />
         {burst && (
           <span key={burst.n} className={`wild__burst wild__burst--${burst.kind} wild__burst--${burst.on}`} data-burst={burst.kind} aria-hidden>
@@ -883,22 +944,6 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
           </span>
         )}
       </section>
-
-      <div className="wild__ally-card">
-        <div className="wild__ally-name">
-          {allyName} <small>Lv{companionLevel}</small>
-          {buffs.length > 0 && (
-            <span className="wild__buffs" aria-label={`남은 효과 ${buffs.join(' ')}`}>
-              {buffs.map((b) => (
-                <span key={b} className="wild__buff">
-                  {b}
-                </span>
-              ))}
-            </span>
-          )}
-        </div>
-        <HpBar label={`내 체력 ${wild.allyHp}`} ratio={wild.allyHp / COMPANION_MAX_HP} low={wild.allyHp <= TIER_RULES[wild.tier].damage} />
-      </div>
 
       <p className="wild__message" role="status" onClick={() => intro && setIntro(false)}>
         {message}

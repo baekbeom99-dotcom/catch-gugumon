@@ -5,7 +5,10 @@
   flex-direction: column;
   gap: 10px;
   padding: calc(10px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom));
-  background: linear-gradient(#bfe9ff 0 45%, #9fdc7a 45% 100%);
+  /* 포켓몬 3세대 전투처럼: 위는 연한 하늘, 아래는 초록 잔디 줄무늬 */
+  background:
+    repeating-linear-gradient(180deg, transparent 0 22px, rgba(255, 255, 255, 0.14) 22px 44px) 0 100% / 100% 72% no-repeat,
+    linear-gradient(#cdefff 0, #e6f7ff 28%, #9fdc7a 28%, #8ccf68 100%);
   user-select: none;
   -webkit-user-select: none;
 }
@@ -84,13 +87,92 @@
   color: #a85400;
 }
 
-/* 내 구구몬 이름·Lv·체력 (무대 아래) */
+/* 내 정보 상자: 무대 오른쪽 아래 (이름·Lv·체력 막대·체력 숫자·경험치 막대) — 적 정보 상자는 왼쪽 위(.wild__top) */
 .wild__ally-card {
-  padding: 6px 10px;
+  position: absolute;
+  z-index: 3;
+  right: 0;
+  bottom: 0;
+  width: 168px; /* battleLayout.allyCard 와 같게 */
+  padding: 6px 10px 7px;
   border: var(--border);
   border-radius: var(--radius);
   background: var(--paper);
   box-shadow: var(--shadow-sm);
+}
+
+.wild__ally-card .wild__buffs {
+  display: flex;
+  flex-wrap: wrap;
+  margin: 2px 0 0;
+}
+
+.wild__ally-hp {
+  margin-top: 2px;
+  text-align: right;
+  font-family: var(--font-display);
+  font-size: 15px;
+  line-height: 1;
+}
+
+.wild__exp {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.wild__exp-label {
+  font-family: var(--font-body);
+  font-size: 11px;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.wild__exp-bar {
+  position: relative;
+  flex: 1;
+  height: 7px;
+  border: 2px solid var(--ink);
+  border-radius: 4px;
+  background: var(--grey);
+  overflow: hidden;
+}
+
+.wild__exp-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: #3fa9f5;
+}
+
+/* 잔디 타원 받침: 그림 발밑 (그림이 흔들려도 받침은 그대로) */
+.wild__base {
+  position: absolute;
+  z-index: 0;
+  height: 38px;
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, #7bc35a 0 55%, #5fae45 56% 100%);
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+}
+
+.wild__base--foe {
+  left: calc(var(--foe-cx, 235px) - var(--foe-size, 144px) * 0.6);
+  top: calc(var(--foe-feet, 226px) - var(--foe-size, 144px) * 0.15);
+  width: calc(var(--foe-size, 144px) * 1.2);
+  height: calc(var(--foe-size, 144px) * 0.27);
+}
+
+.wild__base--ally {
+  left: calc(var(--ally-cx, 105px) - var(--ally-size, 144px) * 0.6);
+  top: calc(var(--ally-feet, 400px) - var(--ally-size, 144px) * 0.15);
+  width: calc(var(--ally-size, 144px) * 1.2);
+  height: calc(var(--ally-size, 144px) * 0.27);
+}
+
+/* 힌트 칸은 내 정보 상자 위에서 끝난다 */
+.wild__stage--hint .wild__hint {
+  bottom: 104px;
 }
 
 .wild__ally-name {
@@ -107,6 +189,10 @@
 .wild__ally-card .wild__hp {
   margin-top: 4px;
   height: 14px;
+}
+
+.wild__card .wild__hp {
+  margin-top: 4px;
 }
 
 /* 문제 시간 막대 (말풍선 맨 위). 마지막 TIMER_WARN_MS는 빨강 */
@@ -304,10 +390,12 @@
   }
 }
 
+/* 그림 자리: battleLayout이 정한 무대 비율 위치 (적 오른쪽 위·문제 말풍선 아래, 내 구구몬 왼쪽 아래) */
 .wild__foe {
   position: absolute;
-  top: 0;
-  right: 0;
+  z-index: 1;
+  left: calc(var(--foe-cx, 235px) - var(--foe-size, 144px) / 2);
+  top: var(--foe-top, 82px);
 }
 
 .wild__foe--hit {
@@ -333,8 +421,9 @@
 
 .wild__ally {
   position: absolute;
-  bottom: 0;
-  left: 0;
+  z-index: 1;
+  left: calc(var(--ally-cx, 105px) - var(--ally-size, 144px) / 2);
+  top: calc(var(--ally-feet, 400px) - var(--ally-size, 144px));
 }
 
 /* 적이 공격: 야생은 앞으로 뛰고 내 구구몬은 흔들리며 깜빡인다 */
@@ -750,8 +839,9 @@
 
 .wild__capsule-ball {
   position: absolute;
-  top: 86px;
-  right: 43px;
+  /* 적 발밑(자리 아래 가운데)에 떨어진다 */
+  top: calc(var(--foe-feet, 226px) - 64px);
+  left: calc(var(--foe-cx, 235px) - 32px);
   z-index: 2;
   line-height: 0;
   transform-origin: 50% 90%;
@@ -762,8 +852,8 @@
 /* 바닥 그림자 (낙하·통통·흔들림 동안 공 아래에) */
 .wild__capsule-shadow {
   position: absolute;
-  top: 142px;
-  right: 51px;
+  top: calc(var(--foe-feet, 226px) - 8px);
+  left: calc(var(--foe-cx, 235px) - 24px);
   width: 48px;
   height: 10px;
   border-radius: 50%;

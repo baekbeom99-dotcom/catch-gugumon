@@ -49,7 +49,8 @@ import { type Tier, tierExp } from '../domain/field/strength';
 import { COMPANION_MAX_HP, MAX_SKILLS } from '../domain/field/tuning';
 import { addCapsules, type CapsuleType, takeCapsule } from '../domain/field/capsules';
 import { addWound, applyDamage, isFainted, type Wound } from '../domain/field/wounds';
-import { healthyCompanions } from '../domain/field/companion';
+import { pickReplacement } from '../domain/field/companion';
+import { pickCompanion } from '../field/companion';
 import {
   type FieldData,
   type FieldNotice,
@@ -226,12 +227,11 @@ interface GameActions {
   /** 필드 모험: 함께 다닐 구구몬 (잡은 종, 쓰러지지 않은 종만) */
   setCompanion: (id: SpeciesId) => boolean;
   /**
-   * 필드 모험: 전투에서 맞은 순간 체력·상처를 저장. 체력 0이 되면 같은 저장에서 자리를 정한다:
-   * 도감에 건강한 다른 구구몬이 있으면 그 자리 그대로(필드로 돌아가 고르기 창, pick), 없으면 태초마을 시작 칸으로.
-   * 동행을 저절로 바꾸지는 않는다. 이미 쓰러진 종은 아무것도 안 바뀐다.
+   * 필드 모험: 전투에서 맞은 순간 체력·상처를 저장. 체력 0이면 같은 저장에서 태초마을 시작 칸으로 옮기고,
+   * 함께 다니던 종이면 도감의 다른 건강한 종으로 동행을 바꾼다(replacedBy). 이미 쓰러진 종은 아무것도 안 바뀐다.
    * 상처(wound)는 틀린 문제가 있을 때만 더한다 — 적의 주기 공격(정답 뒤)은 틀린 문제가 없어 체력만 준다
    */
-  damageCompanion: (id: SpeciesId, dmg: number, wound?: Wound) => { hp: number; fainted: boolean; pick: boolean };
+  damageCompanion: (id: SpeciesId, dmg: number, wound?: Wound) => { hp: number; fainted: boolean; replacedBy: SpeciesId | null };
   /** 필드 모험: 체력 가득, 상처 비움 */
   healSpecies: (id: SpeciesId) => void;
   /** 필드 모험: 전투 중 회복 기술 — 체력만 amount 더한다(가득을 넘지 않음, 상처는 그대로). 쓰러진 종·없는 종은 그대로. 새 체력을 돌려준다 */
@@ -423,27 +423,28 @@ export const useGameStore = create<GameStore>()(
         return ok;
       },
       damageCompanion: (id, dmg, wound) => {
-        let result: { hp: number; fainted: boolean; pick: boolean } = { hp: 0, fainted: false, pick: false };
+        let result: { hp: number; fainted: boolean; replacedBy: SpeciesId | null } = { hp: 0, fainted: false, replacedBy: null };
         set((s) => {
           const e = speciesEntry(s.field, id);
           if (!e) return {};
           // 이미 쓰러진 종은 더 맞지 않는다 (위치·상처·동행 모두 그대로)
           if (isFainted(e)) {
-            result = { hp: 0, fainted: true, pick: false };
+            result = { hp: 0, fainted: true, replacedBy: null };
             return {};
           }
           const hp = applyDamage(e.hp, dmg);
           const fainted = isFainted({ hp });
           const species = { ...s.field.species, [id]: { ...e, hp, wounds: wound ? addWound(e.wounds, wound) : e.wounds } };
-          // 쓰러졌을 때 도감에 건강한 다른 구구몬이 있으면 필드로 돌아가 고른다 (그 자리에서 이어서)
-          const pick = fainted && healthyCompanions(species, id).length > 0;
-          result = { hp, fainted, pick };
-          // 고를 구구몬이 없으면 같은 저장에서 마을로 (전투 끝 글을 보다 앱을 닫아도 다시 열면 마을)
+          // 함께 다니던 구구몬(동행이 비었으면 화면이 고른 종)이 쓰러지면 도감의 다른 건강한 구구몬이 대신 함께 다닌다
+          const replacedBy = fainted && pickCompanion(s) === id ? pickReplacement(species, id) : null;
+          result = { hp, fainted, replacedBy };
+          // 쓰러지면 자리 옮기기·동행 바꾸기도 같은 저장에서 (전투 끝 글을 보다 앱을 닫아도 다시 열면 마을, 새 동행)
           return {
             field: {
               ...s.field,
               species,
-              position: fainted && !pick ? { map: 'town', ...townStart(), facing: 'down' } : s.field.position,
+              companion: replacedBy ?? s.field.companion,
+              position: fainted ? { map: 'town', ...townStart(), facing: 'down' } : s.field.position,
             },
           };
         });
@@ -547,8 +548,10 @@ export const useGameStore = create<GameStore>()(
             }
           }
           if (r.end === 'fainted' && companion) {
-            // 건강한 다른 구구몬이 있으면 알림 대신 필드의 고르기 창이 뜬다. 없을 때만 "마을에서 회복" 알림
-            if (healthyCompanions(species, companion).length === 0) notices.unshift({ kind: 'fainted', species: companion });
+            // 쓰러지는 순간 damageCompanion이 동행을 바꿔 두었으면, 대신 함께 다니는 종을 알림에 담는다
+            const current = s.field.companion;
+            const replacedBy = current && current !== companion && species[current] && !isFainted(species[current]!) ? current : null;
+            notices.unshift(replacedBy ? { kind: 'fainted', species: companion, replacedBy } : { kind: 'fainted', species: companion });
           }
           const stats = {
             battles: s.field.stats.battles + 1,

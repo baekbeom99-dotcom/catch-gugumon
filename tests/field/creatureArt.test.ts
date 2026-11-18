@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { SPECIES } from '../../src/domain/field/creatures';
-import { creatureArt, imageView, stageFill, stageSheets, MONSTER_FILL, MONSTER_FOOT } from '../../src/field/art/creatureArt';
-import { buildLocalSprites, LOCAL_SPRITE_MAP } from '../../src/field/art/localSprites';
-import { bodyFill } from '../../src/field/art/spriteSheet';
+import { artBox, artSheets, creatureArt, imageView, MONSTER_FILL, MONSTER_FOOT } from '../../src/field/art/creatureArt';
+import { buildChibiArt, buildLocalSprites, chibiNum, CHIBI_FIELD_FILL, HERO_NUM } from '../../src/field/art/localSprites';
+import { cellBox } from '../../src/field/art/spriteSheet';
 import { companionRect } from '../../src/field/world/fieldRenderer';
 
 describe('구구몬 그림 등록표', () => {
@@ -30,145 +30,85 @@ describe('구구몬 그림 등록표', () => {
   it('동행 자리: 칸 가운데에 서고 발끝이 칸 바닥에 닿는다', () => {
     const tile = 48;
     const r = companionRect(0, 0, tile, { scale: 1, fill: 1, foot: 1 });
-    expect(r).toEqual({ x: 0, y: 0, size: 48 });
+    expect(r).toEqual({ x: 0, y: 0, w: 48, h: 48 });
     const m = companionRect(0, 0, tile, { scale: 1, fill: MONSTER_FILL, foot: MONSTER_FOOT });
-    expect(m.size).toBe(Math.round(48 * 1.45));
-    expect(Math.round(m.y + m.size * MONSTER_FOOT)).toBe(tile);
+    expect(m.w).toBe(Math.round(48 * 1.45));
+    expect(Math.round(m.y + m.h * MONSTER_FOOT)).toBe(tile);
   });
 
-  it('진화 단계별 그림이 있으면 단계마다 그 그림, 없으면 front/back', () => {
-    const stages: [{ front: string; back?: string }, { front: string; back?: string }, { front: string; back?: string }] = [
-      { front: 'f1.png', back: 'b1.png' },
-      { front: 'f2.png' },
-      { front: 'f3.png', back: 'b3.png' },
-    ];
-    const art = creatureArt('c034', { c034: { front: 'f1.png', back: 'b1.png', stages } });
-    if (art.type !== 'image') throw new Error('이미지 그림이어야 함');
-    expect(imageView(art, 'front', 1)).toEqual({ src: 'f1.png', flip: false });
-    expect(imageView(art, 'front', 2)).toEqual({ src: 'f2.png', flip: false });
-    expect(imageView(art, 'back', 2)).toEqual({ src: 'f2.png', flip: true });
-    expect(imageView(art, 'back', 3)).toEqual({ src: 'b3.png', flip: false });
-    const plain = creatureArt('c034', { c034: { front: 'f.png', back: 'b.png' } });
-    if (plain.type !== 'image') throw new Error('이미지 그림이어야 함');
-    expect(imageView(plain, 'front', 3)).toEqual({ src: 'f.png', flip: false });
-    expect(imageView(plain, 'back', 2)).toEqual({ src: 'b.png', flip: false });
+  it('치비 자리: 칸 비율(box)대로 그리고 발(칸 아래)이 칸 바닥, 가로 가운데', () => {
+    const r = companionRect(0, 0, 40, { scale: 1, fill: 1.5, foot: 1, box: { w: 0.5, h: 0.8 } });
+    expect(r).toEqual({ x: 5, y: -8, w: 30, h: 48 });
+  });
+
+  it('SVG·정사각형 그림은 상자 1×1, 시트 없음', () => {
+    expect(artBox(creatureArt('c034', {}))).toEqual({ w: 1, h: 1 });
+    expect(artBox(creatureArt('c034', { c034: { front: 'f' } }))).toEqual({ w: 1, h: 1 });
+    expect(artSheets(creatureArt('c034', {}))).toBeUndefined();
   });
 });
 
-describe('로컬 스프라이트 등록', () => {
-  const map = { c034: { ids: ['0001', '0002', '0003'], fill: 1.1 }, c035: { ids: ['0004'] } };
-  it('파일이 없으면 빈 객체 (기존 SVG 그대로)', () => {
-    expect(buildLocalSprites({}, map)).toEqual({});
-  });
-  it('파일이 모두 있는 종만 단계별로 등록, 단계가 모자라면 마지막 그림을 되풀이', () => {
-    const files = {
-      './creatures/pmd/0001-front.png': 'a', './creatures/pmd/0001-back.png': 'A',
-      './creatures/pmd/0002-front.png': 'b', './creatures/pmd/0002-back.png': 'B',
-      './creatures/pmd/0003-front.png': 'c', './creatures/pmd/0003-back.png': 'C',
-      './creatures/pmd/0004-front.png': 'd',
-    };
-    const r = buildLocalSprites(files, map);
-    expect(r.c034?.stages?.map((x) => x.front)).toEqual(['a', 'b', 'c']);
-    expect(r.c034?.fill).toBe(1.1);
-    expect(r.c035?.stages?.map((x) => x.front)).toEqual(['d', 'd', 'd']);
-    expect(r.c035?.stages?.[0].back).toBeUndefined();
-  });
-  it('일부 번호만 없으면 그 종은 등록하지 않는다', () => {
-    expect(buildLocalSprites({ './creatures/pmd/0001-front.png': 'a' }, map)).toEqual({});
-  });
-});
-
-describe('시트 등록', () => {
-  const map = { c034: { ids: ['0001'], fill: 1.0, foot: 0.98 } };
-  const files = {
-    './creatures/pmd/0001-front.png': 'f', './creatures/pmd/0001-back.png': 'b',
-    './creatures/pmd/0001-idle.png': 'i', './creatures/pmd/0001-walk.png': 'w',
-    './creatures/pmd/0001-hurt.png': 'h', './creatures/pmd/0001-sleep.png': 's',
-  };
+describe('치비 그림 등록 (번호 = 종 id 숫자, 017은 주인공)', () => {
   const manifest = {
-    '0001': {
-      side: 70, baseSide: 44, foot: 0.986,
-      idle: { ms: [667, 100, 100], rows: 4 }, walk: { ms: [67, 67], rows: 4 },
-      hurt: { ms: [33, 133], rows: 2 }, sleep: { ms: [500, 583], rows: 1 },
-      attack: { ms: [67, 33, 67], rows: 2, side: 144, ax: 72, ay: 72, ix: 38, iy: 57 },
-    },
+    '034': { cw: 120, ch: 130, cols: 4, rows: 4, bodyH: 100, bodyW: 90, idle: { ms: [300, 300, 300, 300] }, walk: { ms: [150, 150, 150, 150] }, attack: { ms: [110, 110, 110, 110] } },
+    '035': { cw: 100, ch: 100, bodyH: 80, idle: { ms: [300] }, walk: { ms: [150] } },
+    '017': { cw: 144, ch: 143, bodyH: 120, bodyW: 100, idle: { ms: [300] }, walk: { ms: [150] } },
   };
-  it('manifest가 있으면 단계에 시트를 붙이고 크기 보정값을 채운다', () => {
-    const sh = buildLocalSprites(files, map, manifest).c034?.stages?.[0].sheets;
-    expect(sh?.idle).toEqual({ url: 'i', ms: [667, 100, 100], rows: 4 });
-    expect(sh?.walk.url).toBe('w');
-    expect(sh?.hurt?.rows).toBe(2);
-    expect(sh?.sleep?.url).toBe('s');
-    expect(sh?.scale).toBeCloseTo(70 / 44, 5);
-    expect(sh?.foot).toBe(0.986);
-    expect(sh?.side).toBe(70);
-  });
-  it('attack 시트 등록: 파일과 manifest가 둘 다 있을 때만', () => {
-    const withAtk = { ...files, './creatures/pmd/0001-attack.png': 'a' };
-    const sh = buildLocalSprites(withAtk, map, manifest).c034?.stages?.[0].sheets;
-    expect(sh?.attack).toEqual({ url: 'a', ms: [67, 33, 67], rows: 2, side: 144, ax: 72, ay: 72, ix: 38, iy: 57 });
-    // 파일이 없으면 attack만 빠지고 나머지 시트는 그대로
-    const noFile = buildLocalSprites(files, map, manifest).c034?.stages?.[0].sheets;
-    expect(noFile?.attack).toBeUndefined();
-    expect(noFile?.idle.url).toBe('i');
-  });
-  it('manifest나 시트 파일이 없으면 시트 없이 정지 그림만', () => {
-    expect(buildLocalSprites(files, map).c034?.stages?.[0].sheets).toBeUndefined();
-    const noWalk = { ...files };
-    delete (noWalk as Record<string, string>)['./creatures/pmd/0001-walk.png'];
-    const r = buildLocalSprites(noWalk, map, manifest);
-    expect(r.c034?.stages?.[0].sheets).toBeUndefined();
-    expect(r.c034?.stages?.[0].front).toBe('f');
-  });
-  it('stageSheets: 시트 있는 이미지만 돌려준다', () => {
-    const imgs = buildLocalSprites(files, map, manifest);
-    expect(stageSheets(creatureArt('c034', imgs), 2)?.side).toBe(70);
-    expect(stageSheets(creatureArt('c034', {}), 1)).toBeUndefined();
-  });
-});
+  const full = (n: string, views = ['front', 'back', 'idle', 'walk', 'attack']) =>
+    Object.fromEntries(views.map((v) => [`./creatures/chibi/${n}-${v}.png`, `${n}${v}`]));
 
+  it('종 id → 그림 번호, 주인공은 017', () => {
+    expect(chibiNum('c034')).toBe('034');
+    expect(chibiNum('c001')).toBe('001');
+    expect(HERO_NUM).toBe('017');
+  });
 
-describe('종-번호 표 (LOCAL_SPRITE_MAP)', () => {
-  const speciesIds = new Set<string>(SPECIES.map((x) => x.id));
-  it('키는 모두 SpeciesId, 번호는 4자리 3단계', () => {
-    for (const [k, v] of Object.entries(LOCAL_SPRITE_MAP)) {
-      expect(speciesIds.has(k), k).toBe(true);
-      expect(v.ids).toHaveLength(3);
-      for (const id of v.ids) expect(id).toMatch(/^\d{4}$/);
-    }
+  it('파일이 없으면 빈 객체 (배포본: 모두 SVG 그대로)', () => {
+    expect(buildLocalSprites({}, manifest)).toEqual({});
+    expect(buildLocalSprites({})).toEqual({});
+    expect(buildChibiArt({}, HERO_NUM, manifest)).toBeUndefined();
   });
-  it('49종으로 바꾼 뒤에는 비어 있다 (새 그림은 다음 작업에서 연결)', () => {
-    expect(Object.keys(LOCAL_SPRITE_MAP)).toEqual([]);
-  });
-  it('한 종의 번호 하나라도 그림이 없으면 그 종만 SVG로 (다른 종은 그대로)', () => {
-    const map = { c034: { ids: ['0001', '0002', '0003'] }, c035: { ids: ['0004', '0005', '0006'] } };
-    const files: Record<string, string> = {};
-    for (const id of ['0001', '0002', '0003', '0004', '0005']) files[`./creatures/pmd/${id}-front.png`] = id;
-    const r = buildLocalSprites(files, map);
+
+  it('번호가 같은 종에만 붙고, 017 그림은 어떤 종에도 붙지 않는다', () => {
+    const r = buildLocalSprites({ ...full('034'), ...full('017') }, manifest);
     expect(Object.keys(r)).toEqual(['c034']);
     expect(creatureArt('c035', r).type).toBe('monster');
   });
-  it('Sleep·Hurt·Attack이 없는 번호도 Idle·Walk만으로 시트가 붙는다', () => {
-    const map = { c034: { ids: ['0015'] } };
-    const files = { './creatures/pmd/0015-front.png': 'f', './creatures/pmd/0015-idle.png': 'i', './creatures/pmd/0015-walk.png': 'w' };
-    const manifest = { '0015': { side: 90, baseSide: 50, foot: 0.989, bodyH: 48, bodyW: 46, idle: { ms: [67], rows: 6 }, walk: { ms: [67], rows: 4 } } };
-    const sh = buildLocalSprites(files, map, manifest).c034?.stages?.[0].sheets;
-    expect(sh?.idle.url).toBe('i');
-    expect(sh?.hurt).toBeUndefined();
-    expect(sh?.sleep).toBeUndefined();
-    expect(sh?.attack).toBeUndefined();
+
+  it('시트 묶음: 칸 크기·가만히·걷기·공격, 필드 자리 크기·발끝', () => {
+    const e = buildLocalSprites(full('034'), manifest).c034!;
+    expect(e).toMatchObject({ front: '034front', back: '034back', fill: CHIBI_FIELD_FILL, foot: 1, cell: { cw: 120, ch: 130, bodyH: 100, bodyW: 90 } });
+    expect(e.sheets).toEqual({
+      cw: 120,
+      ch: 130,
+      idle: { url: '034idle', ms: [300, 300, 300, 300] },
+      walk: { url: '034walk', ms: [150, 150, 150, 150] },
+      attack: { url: '034attack', ms: [110, 110, 110, 110] },
+    });
+    const art = creatureArt('c034', { c034: e });
+    expect(artSheets(art)?.cw).toBe(120);
+    expect(artBox(art)).toEqual(cellBox({ cw: 120, ch: 130, bodyH: 100, bodyW: 90 }));
   });
-  it('단계마다 몸 높이로 fill을 계산해 붙인다 (stageFill)', () => {
-    const map = { c034: { ids: ['0001', '0002'] } };
-    const files = { './creatures/pmd/0001-front.png': 'a', './creatures/pmd/0002-front.png': 'b' };
-    const manifest = {
-      '0001': { side: 70, baseSide: 44, foot: 0.98, bodyH: 42, bodyW: 34 },
-      '0002': { side: 90, baseSide: 130, foot: 0.98, bodyH: 128, bodyW: 78 },
-    };
-    const imgs = buildLocalSprites(files, map, manifest);
-    const art = creatureArt('c034', imgs);
-    expect(stageFill(art, 1)).toBeCloseTo(bodyFill({ baseSide: 44, bodyH: 42, bodyW: 34 }), 5);
-    expect(stageFill(art, 2)).toBeCloseTo(0.8 * 130 / 128, 2);
-    expect(stageFill(creatureArt('c042', imgs), 2)).toBe(1);
+
+  it('공격 시트가 없으면 가만히·걷기만, 걷기가 없으면 시트 없이 정지 그림', () => {
+    const noAtk = buildLocalSprites(full('034', ['front', 'idle', 'walk']), manifest).c034!;
+    expect(noAtk.sheets?.attack).toBeUndefined();
+    expect(noAtk.back).toBeUndefined();
+    const noWalk = buildLocalSprites(full('034', ['front', 'idle']), manifest).c034!;
+    expect(noWalk.sheets).toBeUndefined();
+    expect(noWalk.front).toBe('034front');
+  });
+
+  it('manifest가 없으면 정지 그림(정사각형 상자)만', () => {
+    const e = buildLocalSprites(full('034'), {}).c034!;
+    expect(e.sheets).toBeUndefined();
+    expect(e.cell).toBeUndefined();
+    expect(artBox(creatureArt('c034', { c034: e }))).toEqual({ w: 1, h: 1 });
+  });
+
+  it('주인공(017) 그림은 따로 만든다', () => {
+    const h = buildChibiArt(full('017'), HERO_NUM, manifest)!;
+    expect(h.front).toBe('017front');
+    expect(h.sheets?.walk.url).toBe('017walk');
   });
 });

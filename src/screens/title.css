@@ -134,6 +134,14 @@
   animation: title-hop 1.6s steps(2) 0.4s infinite;
 }
 
+.title__hero {
+  image-rendering: pixelated;
+}
+
+.title__hero-img {
+  width: auto;
+}
+
 .title__mon--a {
   animation: title-hop 1.6s steps(2) infinite;
 }

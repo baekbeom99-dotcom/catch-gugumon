@@ -125,9 +125,8 @@ export const battleText = {
   quit: '무사히 도망쳤다!',
   /** 필드: 동행이 쓰러져 있을 때 */
   faintedField: '구구몬이 쓰러졌어요. 상점에서 회복시켜요',
-  /** 필드 고르기 창: 쓰러졌고 도감에 건강한 다른 구구몬이 있을 때 */
-  pickTitle: '쓰러졌어… 함께 갈 구구몬을 골라요',
-  pickBody: (name: string) => `${josa(name, '이', '가')} 쉬는 동안 누구와 갈까?`,
+  /** 필드 알림: 쓰러지면서 도감의 다른 구구몬이 대신 함께 다니게 됐을 때 */
+  replacedField: (name: string) => `${josa(name, '이', '가')} 대신 함께 다녀요`,
   /** 필드 알림: 레벨이 올라 새 기술을 가짐 */
   skillLearnedTitle: '새 기술을 배웠어!',
   skillLearned: (mon: string, skill: string) => `${josa(mon, '이', '가')} 「${skill}」${particle(skill, '을', '를')} 배웠어요!`,

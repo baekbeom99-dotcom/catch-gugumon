@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FIELDS, fieldDans } from '../../src/domain/field/fields';
-import { parseMap, safeStartPosition, tryStep } from '../../src/domain/field/movement';
+import { companionStart, parseMap, safeStartPosition, tryStep } from '../../src/domain/field/movement';
 
 const map = parseMap('meadow', ['#####', '<.,.>', '#.S.#', '#@..#', '#####'], {
   exits: { '<': 'waterside', '>': 'desert' },
@@ -62,6 +62,18 @@ describe('fieldDans', () => {
     expect(FIELDS.meadow.species).toEqual(['c033', 'c034', 'c035', 'c036', 'c037', 'c038', 'c039', 'c040', 'c041', 'c042', 'c043', 'c044']);
     expect(FIELDS.desert.species).toEqual(['c001', 'c002', 'c003', 'c004', 'c005', 'c006', 'c007', 'c008', 'c009', 'c010', 'c011', 'c012']);
     expect(FIELDS.waterside.species).toHaveLength(13);
+  });
+});
+
+describe('companionStart', () => {
+  it('바라보는 방향의 반대쪽 칸이 걸을 수 있으면 거기', () => {
+    expect(companionStart(map, { x: 2, y: 3 }, 'right')).toEqual({ x: 1, y: 3 });
+    expect(companionStart(map, { x: 3, y: 3 }, 'down')).toEqual({ x: 3, y: 2 });
+  });
+  it('뒤가 막힘·표지판이거나 지도 밖이면 주인공 칸', () => {
+    expect(companionStart(map, { x: 1, y: 3 }, 'right')).toEqual({ x: 1, y: 3 });
+    expect(companionStart(map, { x: 2, y: 3 }, 'up')).toEqual({ x: 2, y: 3 });
+    expect(companionStart(map, { x: 2, y: 3 }, 'down')).toEqual({ x: 2, y: 3 });
   });
 });
 

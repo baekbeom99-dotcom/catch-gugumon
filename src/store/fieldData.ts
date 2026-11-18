@@ -82,8 +82,8 @@ export interface FieldData {
 /** 저장 안 되는 알림: 레벨이 올랐을 때 등 화면에 띄운다 (필드 구구몬은 진화하지 않는다) */
 export type FieldNotice =
   | { kind: 'levelUp'; species: SpeciesId; level: number }
-  /** 쓰러졌고 고를 다른 구구몬이 없어 마을로 왔다 (있으면 알림 대신 고르기 창) */
-  | { kind: 'fainted'; species: SpeciesId }
+  /** 쓰러져 마을로 왔다. replacedBy: 쓰러지면서 대신 함께 다니게 된 종 (없으면 동행 그대로) — 알림은 저장하지 않는다(useSessionStore) */
+  | { kind: 'fainted'; species: SpeciesId; replacedBy?: SpeciesId }
   /** 기술을 가졌다: learned 레벨이 올라 배움, copied 야생 구구몬(fromSpecies)에게서 따라 배움 */
   | { kind: 'skill'; species: SpeciesId; skillId: SkillId; how: 'learned' | 'copied'; fromSpecies?: SpeciesId };
 

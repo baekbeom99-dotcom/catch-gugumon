@@ -8,60 +8,36 @@
  *   2. 이 파일 위에서 import 하고 IMAGE_ART에 한 줄:  cloud: { front: cloudFront, back: cloudBack }
  *      뒷모습이 없으면 앞모습을 좌우로 뒤집어 쓴다. 그림 둘레 여백이 크면 fill(키우기)·foot(발끝 높이)로 맞춘다
  *   3. 개발 서버의 #/dev/field 화면에서 앞·뒤·동행 크기를 한눈에 확인
+ * 이 PC에 치비 그림(src/field/art/creatures/chibi/, scripts/cut-chibi.py)이 있으면 종 cNNN은 번호 NNN 그림을 저절로 쓴다 (localSprites.ts).
  * 진화 단계 크기(STAGE_SCALE)와 뒷모습 크기(BACK_VIEW_SCALE)는 creatureSprite.tsx에 있다.
  */
 import type { MonsterKind } from '../../domain/battle';
 import { speciesDef, type SpeciesId } from '../../domain/field/creatures';
 import { LOCAL_SPRITES } from './localSprites';
+import { type CellSize, cellBox } from './spriteSheet';
 
 /** MonsterSprite는 둘레에 여백이 있다: 몸이 한 칸쯤 차게 이만큼 키워 그린다 (viewBox 224 중 몸통이 약 155) */
 export const MONSTER_FILL = 1.45;
 /** MonsterSprite에서 발끝이 그림 높이의 어디쯤인지 (viewBox -24~200 중 발끝 ≈ 195) */
 export const MONSTER_FOOT = 0.98;
 
-/** 시트 한 가지(걷기 등): 가로=프레임, 세로=줄. ms는 프레임별 보이는 시간 */
+/** 시트 한 가지(가만히·걷기·공격): 4열(프레임) × 4행(아래·위·오른쪽·왼쪽). ms는 프레임별 보이는 시간 */
 export interface SheetAnim {
   url: string;
   ms: number[];
-  rows: number;
-}
-
-/** 공격 시트: 칸이 Idle보다 크다(attackSide). 기준점 (ax,ay)=공격 칸 안, (ix,iy)=Idle 칸 안 — 두 점이 겹치게 놓는다 */
-export interface AttackAnim extends SheetAnim {
-  side: number;
-  ax: number;
-  ay: number;
-  ix: number;
-  iy: number;
 }
 
 /**
- * 한 단계의 시트 묶음 (scripts/cut-sprites.mjs 가 만든다). 칸은 모두 side×side 정사각형.
- * scale = side / 정지 그림 크기: 시트 칸이 더 크므로 이만큼 키워 그려야 몸이 정지 그림과 같은 크기다.
- * foot = 칸 높이 중 발끝 위치(0~1)
+ * 한 캐릭터의 시트 묶음 (scripts/cut-chibi.py 가 만든다). 칸은 모두 cw×ch (발은 칸 아래, 몸은 가로 가운데).
+ * 맞음·잠 시트는 없다: 맞으면 가만히 그림을 흔들고, 자는 구구몬은 가만히 그림에 Zz를 띄운다.
  */
 export interface StageSheets {
-  side: number;
-  scale: number;
-  foot: number;
-  /** 몸 크기 맞춤(StageArt.fill과 같은 값): 시트 칸을 이만큼 더 키워 그린다 (기본 1) */
-  fill?: number;
+  cw: number;
+  ch: number;
   idle: SheetAnim;
   walk: SheetAnim;
-  hurt?: SheetAnim;
-  sleep?: SheetAnim;
-  /** 전투 공격 (오른쪽위·왼쪽아래 2줄, 없으면 공격 때도 가만히) */
-  attack?: AttackAnim;
-}
-
-/** 진화 단계 하나의 그림 */
-export interface StageArt {
-  front: string;
-  back?: string;
-  /** 이 단계의 몸 크기 맞춤: 자리(정사각형) 대비 곱하는 배율, 기본 1. localSprites가 manifest의 몸 높이로 계산한다 (spriteSheet.bodyFill) */
-  fill?: number;
-  /** 움직이는 시트 (선택, 없으면 정지 그림) */
-  sheets?: StageSheets;
+  /** 전투 공격 (없으면 공격 때도 가만히) */
+  attack?: SheetAnim;
 }
 
 export interface ImageArtEntry {
@@ -69,9 +45,11 @@ export interface ImageArtEntry {
   front: string;
   /** 뒷모습 (내 구구몬이 싸울 때). 없으면 앞모습을 뒤집는다 */
   back?: string;
-  /** 진화 1·2·3단계별 그림 (선택). 있으면 그 단계 그림을 쓰고, 없으면 front/back */
-  stages?: [StageArt, StageArt, StageArt];
-  /** 필드 동행으로 그릴 때 한 칸 대비 크기 (기본 1) */
+  /** 그림 칸 크기·몸 크기 (치비 그림). 있으면 몸 높이로 자리에 맞춰 놓고(spriteSheet.cellBox), 없으면 정사각형 그림 */
+  cell?: CellSize;
+  /** 움직이는 시트 (선택, 없으면 정지 그림) */
+  sheets?: StageSheets;
+  /** 필드에서 그릴 때 한 칸 대비 자리 크기 (기본 1) */
   fill?: number;
   /** 발끝이 그림 높이의 어디쯤인지 0~1 (기본 1 = 맨 아래) */
   foot?: number;
@@ -79,7 +57,7 @@ export interface ImageArtEntry {
 
 export type CreatureArt =
   | { type: 'monster'; kind: MonsterKind; golden: boolean; fill: number; foot: number }
-  | { type: 'image'; front: string; back?: string; stages?: [StageArt, StageArt, StageArt]; fill: number; foot: number };
+  | { type: 'image'; front: string; back?: string; cell?: CellSize; sheets?: StageSheets; fill: number; foot: number };
 
 /** 이미지로 바꾼 종. 여기 없는 종은 몬스터 SVG */
 const IMAGE_ART: Partial<Record<SpeciesId, ImageArtEntry>> = {
@@ -92,7 +70,8 @@ export function creatureArt(id: SpeciesId, images: Partial<Record<SpeciesId, Ima
   const img = images[id];
   if (img) {
     const art: CreatureArt = { type: 'image', front: img.front, back: img.back, fill: img.fill ?? 1, foot: img.foot ?? 1 };
-    if (img.stages) art.stages = img.stages;
+    if (img.cell) art.cell = img.cell;
+    if (img.sheets) art.sheets = img.sheets;
     return art;
   }
   const def = speciesDef(id);
@@ -100,21 +79,18 @@ export function creatureArt(id: SpeciesId, images: Partial<Record<SpeciesId, Ima
   return { type: 'monster', kind: def.svgKind, golden: def.legend, fill: MONSTER_FILL, foot: MONSTER_FOOT };
 }
 
-/** 이 단계의 시트 묶음 (없으면 undefined = 정지 그림) */
-export function stageSheets(art: CreatureArt, stage: 1 | 2 | 3 = 1): StageSheets | undefined {
-  if (art.type !== 'image') return undefined;
-  return art.stages?.[stage - 1]?.sheets;
+/** 시트 묶음 (없으면 undefined = 정지 그림). 진화가 없어 단계와 상관없이 한 묶음 */
+export function artSheets(art: CreatureArt): StageSheets | undefined {
+  return art.type === 'image' ? art.sheets : undefined;
 }
 
-/** 이 단계의 몸 크기 맞춤 배율 (이미지 그림에 없으면 1, 필드 동행은 art.fill에 곱한다) */
-export function stageFill(art: CreatureArt, stage: 1 | 2 | 3 = 1): number {
-  if (art.type !== 'image') return 1;
-  return art.stages?.[stage - 1]?.fill ?? 1;
+/** 정사각형 자리(한 변 1) 안에 그림을 놓을 크기 — 치비 그림은 몸 높이로 맞추고, 다른 그림은 1×1 */
+export function artBox(art: CreatureArt): { w: number; h: number } {
+  return art.type === 'image' ? cellBox(art.cell) : { w: 1, h: 1 };
 }
 
 /** 이미지 그림에서 보는 쪽에 맞는 파일과 뒤집기 여부 */
-export function imageView(art: Extract<CreatureArt, { type: 'image' }>, view: 'front' | 'back' | 'mini', stage: 1 | 2 | 3 = 1): { src: string; flip: boolean } {
-  const pick = art.stages?.[stage - 1] ?? art;
-  if (view !== 'back') return { src: pick.front, flip: false };
-  return pick.back ? { src: pick.back, flip: false } : { src: pick.front, flip: true };
+export function imageView(art: Extract<CreatureArt, { type: 'image' }>, view: 'front' | 'back' | 'mini'): { src: string; flip: boolean } {
+  if (view !== 'back') return { src: art.front, flip: false };
+  return art.back ? { src: art.back, flip: false } : { src: art.front, flip: true };
 }

@@ -4,8 +4,8 @@ import { DAN_COLORS } from '../../art/colors';
 import { MonsterSprite, type MonsterMood } from '../../art/MonsterSprite';
 import type { MonsterKind } from '../../domain/battle';
 import { speciesDef, type SpeciesId } from '../../domain/field/creatures';
-import { creatureArt, imageView, stageFill, stageSheets, type SheetAnim, type StageSheets } from './creatureArt';
-import { BATTLE_ROW, DIR_ROW, attackPlacement, onceFrameAt, totalMs, type BattleSide } from './spriteSheet';
+import { artBox, artSheets, creatureArt, imageView, type SheetAnim, type StageSheets } from './creatureArt';
+import { BATTLE_ROW, DIR_ROW, SHEET_COLS, SHEET_ROWS, cellBox, onceFrameAt, totalMs, type BattleSide } from './spriteSheet';
 
 /** 내 구구몬(뒷모습)은 조금 작게 */
 export const BACK_VIEW_SCALE = 0.8;
@@ -13,7 +13,7 @@ export const BACK_VIEW_SCALE = 0.8;
 export const STAGE_SCALE: Record<1 | 2 | 3, number> = { 1: 1, 2: 1.15, 3: 1.3 };
 
 interface Opts {
-  /** ally·foe = 전투 화면 (내 구구몬은 오른쪽 위, 야생은 왼쪽 아래를 봄). front·back = 도감 등 정지 앞·뒷모습 */
+  /** ally·foe = 전투 화면 (내 구구몬은 왼쪽 아래에서 뒷모습, 야생은 오른쪽 위에서 앞모습). front·back = 도감 등 정지 앞·뒷모습 */
   view: 'front' | 'back' | 'mini' | BattleSide;
   /** 전투: 공격을 시작한 시각(Date.now()). 이 시각부터 Attack 시트를 한 번 틀고 끝나면 가만히로 돌아간다 (다시 그려져도 이어서 본다) */
   attackAt?: number;
@@ -33,8 +33,37 @@ function reducedMotion(): boolean {
   }
 }
 
-/** 시트 한 줄을 프레임 시간에 맞춰 되풀이해 보여 준다. 자리 크기(px)는 정지 그림과 같고, 칸은 scale배라 발끝·가운데를 맞춰 넘치게 둔다 */
-export function SheetSprite({ sheets, anim, row, px, testId }: { sheets: StageSheets; anim: SheetAnim; row: number; px: number; testId?: string }) {
+/** 자리(px×px 정사각형) 안에 칸 그림(가로 w·세로 h, 자리 대비)을 놓을 위치: 칸 아래 = 자리 아래, 가로 가운데 */
+function placeBox(px: number, box: { w: number; h: number }) {
+  const w = Math.round(px * box.w);
+  const h = Math.round(px * box.h);
+  return { w, h, left: Math.round((px - w) / 2), top: px - h };
+}
+
+/** 시트 한 칸(col, row)을 자리 안에 그린다. 칸이 자리보다 크면 넘쳐 보인다 */
+function SheetCell({ url, col, row, px, box, testId, frame }: { url: string; col: number; row: number; px: number; box: { w: number; h: number }; testId?: string; frame?: number }) {
+  const p = placeBox(px, box);
+  return (
+    <span style={{ position: 'relative', display: 'block', width: px, height: px, overflow: 'visible' }} data-sheet={testId} data-frame={frame}>
+      <span
+        style={{
+          position: 'absolute',
+          left: p.left,
+          top: p.top,
+          width: p.w,
+          height: p.h,
+          backgroundImage: `url(${url})`,
+          backgroundRepeat: 'no-repeat',
+          backgroundSize: `${SHEET_COLS * p.w}px ${SHEET_ROWS * p.h}px`,
+          backgroundPosition: `${-col * p.w}px ${-row * p.h}px`,
+        }}
+      />
+    </span>
+  );
+}
+
+/** 시트 한 행(방향)을 프레임 시간에 맞춰 되풀이해 보여 준다. 자리 크기(px)는 정지 그림과 같고, 몸 높이로 맞춘 칸을 발끝·가운데에 둔다 */
+export function SheetSprite({ sheets, anim, row, px, testId, box }: { sheets: StageSheets; anim: SheetAnim; row: number; px: number; testId?: string; box?: { w: number; h: number } }) {
   const [frame, setFrame] = useState(0);
   const ms = anim.ms;
   useEffect(() => {
@@ -52,50 +81,29 @@ export function SheetSprite({ sheets, anim, row, px, testId }: { sheets: StageSh
     next();
     return () => window.clearTimeout(t);
   }, [ms]);
-  const cell = Math.round(px * (sheets.fill ?? 1) * sheets.scale);
-  const col = Math.min(frame, ms.length - 1);
-  return (
-    <span style={{ position: 'relative', display: 'block', width: px, height: px }} data-sheet={testId}>
-      <span
-        style={{
-          position: 'absolute',
-          left: Math.round((px - cell) / 2),
-          bottom: 0,
-          width: cell,
-          height: cell,
-          backgroundImage: `url(${anim.url})`,
-          backgroundRepeat: 'no-repeat',
-          backgroundSize: `${ms.length * cell}px ${anim.rows * cell}px`,
-          backgroundPosition: `${-col * cell}px ${-row * cell}px`,
-          imageRendering: 'pixelated',
-        }}
-      />
-    </span>
-  );
+  return <SheetCell url={anim.url} col={Math.min(frame, ms.length - 1)} row={row} px={px} box={box ?? cellBox(sheets)} testId={testId} />;
 }
 
 /**
- * 지금 보여 줄 시트와 줄. 시트가 없거나 동작 줄이기면 undefined(정지 그림).
- * 전투(ally·foe)는 대각선 줄(오래된 시트라 줄이 모자라면 앞·뒤 줄), 맞음은 전투에서만
+ * 지금 보여 줄 시트 행. 시트가 없거나 동작 줄이기면 undefined(정지 그림).
+ * 전투: 내 구구몬은 뒷모습 행, 야생은 앞모습 행. 맞음 시트는 없어 가만히 그림을 CSS로 흔든다. 잠도 가만히 행
  */
-export function pickSheet(sheets: StageSheets | undefined, view: 'front' | 'back' | BattleSide, mood: MonsterMood): { anim: SheetAnim; row: number; key: string } | undefined {
+export function pickSheet(sheets: StageSheets | undefined, view: 'front' | 'back' | BattleSide): { anim: SheetAnim; row: number; key: string } | undefined {
   if (!sheets || reducedMotion()) return undefined;
-  const battle = view === 'ally' || view === 'foe' ? view : null;
-  if (battle && mood === 'hit' && sheets.hurt && sheets.hurt.rows > BATTLE_ROW.hurt[battle]) return { anim: sheets.hurt, row: BATTLE_ROW.hurt[battle], key: 'hurt' };
-  if (mood === 'sleep' && sheets.sleep) return { anim: sheets.sleep, row: 0, key: 'sleep' };
-  if (battle && sheets.idle.rows > BATTLE_ROW.idle[battle]) return { anim: sheets.idle, row: BATTLE_ROW.idle[battle], key: 'idle' };
-  return { anim: sheets.idle, row: view === 'back' || view === 'ally' ? DIR_ROW.up : DIR_ROW.down, key: 'idle' };
+  if (view === 'ally' || view === 'foe') return { anim: sheets.idle, row: BATTLE_ROW[view], key: 'idle' };
+  return { anim: sheets.idle, row: view === 'back' ? DIR_ROW.up : DIR_ROW.down, key: 'idle' };
 }
 
-/** 전투 그림: Idle(되풀이)에 공격 신호가 오면 Attack을 한 번만 겹쳐 틀고 끝나면 Idle. Attack 칸이 커서 자리 밖으로 넘치게 둔다 */
-function BattleSprite({ sheets, base, side, attackAt, px }: { sheets: StageSheets; base: { anim: SheetAnim; row: number; key: string }; side: BattleSide; attackAt?: number; px: number }) {
+/** 전투 그림: 가만히(되풀이)에 공격 신호가 오면 같은 행의 공격 시트를 한 번만 틀고 끝나면 가만히 */
+function BattleSprite({ sheets, box, side, attackAt, px }: { sheets: StageSheets; box: { w: number; h: number }; side: BattleSide; attackAt?: number; px: number }) {
   const atk = sheets.attack;
   const total = atk ? totalMs(atk.ms) : 0;
   const [now, setNow] = useState(() => Date.now());
-  const live = !!atk && attackAt !== undefined && base.key === 'idle' && now - attackAt < total;
+  const live = !!atk && attackAt !== undefined && now - attackAt < total;
   useEffect(() => {
     if (!atk || attackAt === undefined) return;
     if (Date.now() - attackAt >= total) return;
+    setNow(Date.now());
     const id = window.setInterval(() => {
       setNow(Date.now());
       if (Date.now() - attackAt >= total) window.clearInterval(id);
@@ -103,28 +111,9 @@ function BattleSprite({ sheets, base, side, attackAt, px }: { sheets: StageSheet
     return () => window.clearInterval(id);
   }, [atk, attackAt, total]);
   const col = live && atk ? onceFrameAt(atk.ms, now - attackAt!) : null;
-  if (!live || !atk || col === null) return <SheetSprite sheets={sheets} anim={base.anim} row={base.row} px={px} testId={`${side}-${base.key}`} />;
-  const cell = Math.round(px * (sheets.fill ?? 1) * sheets.scale);
-  const pl = attackPlacement({ px, idleCell: cell, side: atk.side, k: cell / sheets.side, ax: atk.ax, ay: atk.ay, ix: atk.ix, iy: atk.iy });
-  const row = BATTLE_ROW.attack[side];
-  return (
-    <span style={{ position: 'relative', display: 'block', width: px, height: px, overflow: 'visible' }} data-sheet={`${side}-attack`} data-frame={col}>
-      <span
-        style={{
-          position: 'absolute',
-          left: pl.left,
-          top: pl.top,
-          width: pl.size,
-          height: pl.size,
-          backgroundImage: `url(${atk.url})`,
-          backgroundRepeat: 'no-repeat',
-          backgroundSize: `${atk.ms.length * pl.size}px ${atk.rows * pl.size}px`,
-          backgroundPosition: `${-col * pl.size}px ${-row * pl.size}px`,
-          imageRendering: 'pixelated',
-        }}
-      />
-    </span>
-  );
+  const row = BATTLE_ROW[side];
+  if (!live || !atk || col === null) return <SheetSprite sheets={sheets} anim={sheets.idle} row={row} px={px} box={box} testId={`${side}-idle`} />;
+  return <SheetCell url={atk.url} col={col} row={row} px={px} box={box} testId={`${side}-attack`} frame={col} />;
 }
 
 const flipped = (el: JSX.Element) => <span style={{ display: 'inline-block', transform: 'scaleX(-1)' }}>{el}</span>;
@@ -134,25 +123,22 @@ export function creatureSprite(id: SpeciesId, { view: viewIn, attackAt, stage = 
   const battle = viewIn === 'ally' || viewIn === 'foe' ? viewIn : null;
   // 시트가 없을 때의 정지 그림은 내 구구몬=뒷모습, 야생=앞모습
   const view: 'front' | 'back' | 'mini' = battle ? (battle === 'ally' ? 'back' : 'front') : (viewIn as 'front' | 'back' | 'mini');
-  const scale = STAGE_SCALE[stage] * (view === 'back' ? BACK_VIEW_SCALE : 1);
+  const scale = STAGE_SCALE[stage] * (view === 'back' && !battle ? BACK_VIEW_SCALE : 1);
   const px = Math.round(size * scale);
   if (art.type === 'image') {
-    const sheets = stageSheets(art, stage);
-    const pick = view === 'mini' ? undefined : pickSheet(sheets, battle ?? view, mood);
-    if (sheets && pick && battle) return <BattleSprite sheets={sheets} base={pick} side={battle} attackAt={attackAt} px={px} />;
-    if (sheets && pick) return <SheetSprite sheets={sheets} anim={pick.anim} row={pick.row} px={px} testId={`${view}-${pick.key}`} />;
-    const { src, flip } = imageView(art, view, stage);
-    const fill = stageFill(art, stage);
-    const w = Math.round(px * fill);
+    const sheets = artSheets(art);
+    const box = artBox(art);
+    const pick = view === 'mini' ? undefined : pickSheet(sheets, battle ?? view);
+    if (sheets && pick && battle) return <BattleSprite sheets={sheets} box={box} side={battle} attackAt={attackAt} px={px} />;
+    if (sheets && pick) return <SheetSprite sheets={sheets} anim={pick.anim} row={pick.row} px={px} box={box} testId={`${view}-${pick.key}`} />;
+    const { src, flip } = imageView(art, view);
+    const p = placeBox(px, box);
     // 몸 크기 맞춤: 자리(px)는 그대로 두고 그림만 키워 발끝·가운데를 맞춘다
-    const img =
-      fill === 1 ? (
-        <img src={src} width={px} height={px} alt="" draggable={false} style={{ imageRendering: 'pixelated', display: 'block' }} />
-      ) : (
-        <span style={{ position: 'relative', display: 'block', width: px, height: px }}>
-          <img src={src} width={w} height={w} alt="" draggable={false} style={{ imageRendering: 'pixelated', display: 'block', position: 'absolute', left: Math.round((px - w) / 2), bottom: 0 }} />
-        </span>
-      );
+    const img = (
+      <span style={{ position: 'relative', display: 'block', width: px, height: px }}>
+        <img src={src} width={p.w} height={p.h} alt="" draggable={false} style={{ display: 'block', position: 'absolute', left: p.left, top: p.top }} />
+      </span>
+    );
     return flip ? flipped(img) : img;
   }
   const sprite = <MonsterSprite kind={art.kind} color={color} golden={art.golden} mood={battle === 'ally' ? 'idle' : mood} size={px} />;
