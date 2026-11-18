@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { companionStart, type Dir, type FieldMap, type StepResult, safeStartPosition, tryStep } from '../../domain/field/movement';
+import { doorAction, doorFront } from '../../domain/field/doorEntry';
 import { displayName } from '../../domain/field/growth';
 import { useSessionStore } from '../../store/useSessionStore';
 import type { FieldNotice } from '../../store/fieldData';
@@ -164,6 +165,8 @@ function FieldRoot(props: Props) {
 
 function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onExit: (to: MapId, warp?: boolean) => void; notice: string | null }) {
   const navigate = useNavigate();
+  const navigateRef = useRef(navigate);
+  navigateRef.current = navigate;
   const wrapRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -491,13 +494,28 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
             if (s.lastBump?.key !== key) {
               s.lastBump = { key, dir: h };
               const sign = map.signs.find((g) => g.pos.x === b.x && g.pos.y === b.y);
-              const isDoor = map.doors.some((d) => d.pos.x === b.x && d.pos.y === b.y);
-              if (!sign && !isDoor) pokeRef.current(b);
-              else if (!sign) {
-                // 상점 문: 팝업이 뜬다 (걷기는 멈춘다)
-                s.shopOpen = true;
-                setShopOpen(true);
-              } else {
+              const door = map.doors.find((d) => d.pos.x === b.x && d.pos.y === b.y);
+              if (!sign && !door) pokeRef.current(b);
+              else if (!sign && door) {
+                const act = doorAction(door, useGameStore.getState().field.training);
+                if (act.type === 'shop') {
+                  // 상점 문: 팝업이 뜬다 (걷기는 멈춘다)
+                  s.shopOpen = true;
+                  setShopOpen(true);
+                } else if (act.type === 'locked') {
+                  s.signOpen = true;
+                  setSignText(act.text);
+                } else {
+                  // 건물 안으로: 돌아오면 문 앞 칸에 서도록 자리를 정해 두고 (내려갈 때 저장됨) 이동
+                  const f = doorFront(map, door);
+                  s.x = f.x;
+                  s.y = f.y;
+                  s.facing = 'down';
+                  s.frozen = true;
+                  save();
+                  navigateRef.current(act.to);
+                }
+              } else if (sign) {
                 s.signOpen = true;
                 setSignText(sign.text);
               }
