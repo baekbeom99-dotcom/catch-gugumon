@@ -13,6 +13,7 @@ import { ARITH_INFO, ARITH_KINDS } from '../domain/arith';
 import { josa } from '../domain/korean';
 import { STAGE_LABELS } from '../domain/pet';
 import { useGameStore } from '../store/useGameStore';
+import { QUIZ_ADVENTURE_ENABLED } from '../config/featureFlags';
 import './records.css';
 
 /** 색만으로 구분하지 않도록 단계마다 기호를 함께 쓴다. */
@@ -47,9 +48,11 @@ export function RecordsScreen() {
     <section className="records">
       <div className="records__head">
         <h1 className="records__title">학습 기록</h1>
-        <a className="btn btn--ghost records__dex" href="#/dex">
-          📖 펫 도감
-        </a>
+        {QUIZ_ADVENTURE_ENABLED && (
+          <a className="btn btn--ghost records__dex" href="#/dex">
+            📖 펫 도감
+          </a>
+        )}
       </div>
 
       <div className="tiles">

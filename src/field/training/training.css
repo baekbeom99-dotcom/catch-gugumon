@@ -471,3 +471,20 @@
     animation: none;
   }
 }
+
+/* 필드에서 보는 학습 기록 */
+.field-records {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.field-records__bar {
+  flex: none;
+  padding: calc(env(safe-area-inset-top) + 8px) 16px 8px;
+}
+.field-records__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}

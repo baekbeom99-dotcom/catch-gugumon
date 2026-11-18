@@ -6,6 +6,7 @@ import { SpriteCredit } from '../field/art/SpriteCredit';
 import { PixelSprite } from '../field/art/PixelSprite';
 import { HERO_SPRITES } from '../field/art/hero';
 import { HERO_ART } from '../field/art/localSprites';
+import { QUIZ_ADVENTURE_ENABLED } from '../config/featureFlags';
 import './title.css';
 
 export function TitleScreen() {
@@ -32,10 +33,12 @@ export function TitleScreen() {
       </div>
       <h1 className="title__name">구구단 몬스터 탐험대</h1>
       <div className="title__buttons">
-        <button type="button" className="btn btn--primary title__btn" onClick={() => navigate('/pet')}>
-          퀴즈 모험
-        </button>
-        <button type="button" className="btn btn--ghost title__btn" onClick={() => navigate('/field')}>
+        {QUIZ_ADVENTURE_ENABLED && (
+          <button type="button" className="btn btn--primary title__btn" onClick={() => navigate('/pet')}>
+            퀴즈 모험
+          </button>
+        )}
+        <button type="button" className={`btn title__btn ${QUIZ_ADVENTURE_ENABLED ? 'btn--ghost' : 'btn--primary'}`} onClick={() => navigate('/field')}>
           필드 모험
         </button>
       </div>

@@ -10,6 +10,8 @@ import { FieldScreen } from './field/world/FieldScreen';
 import { FieldDexScreen } from './field/FieldDexScreen';
 import { StarterScreen } from './field/StarterScreen';
 import { WildBattleScreen } from './field/battle/WildBattleScreen';
+import { FieldRecordsScreen } from './field/training/FieldRecordsScreen';
+import { QUIZ_ADVENTURE_ENABLED } from './config/featureFlags';
 import { TrainingScreen } from './field/training/TrainingScreen';
 import { TitleScreen } from './screens/TitleScreen';
 import { ExploreScreen } from './screens/ExploreScreen';
@@ -47,6 +49,9 @@ function TabLayout() {
   );
 }
 
+const QUIZ_PATHS = ['/pet', '/explore', '/shop', '/records', '/dex', '/battle', '/practice', '/hatch', '/welcome'];
+const toField = <Navigate to="/field" replace />;
+
 const fullScreen = (el: JSX.Element) => <div className="app app--full">{el}</div>;
 
 export function App() {
@@ -59,29 +64,41 @@ export function App() {
     // 정적 호스팅(서버 설정 없음)에서도 새로고침이 되도록 해시 라우터를 쓴다.
     <HashRouter>
       <Routes>
-        <Route element={<OnboardingGuard />}>
+        {/* 퀴즈 모험이 꺼져 있으면 퀴즈 경로는 모두 필드로 보낸다(화면·데이터는 그대로, 플래그만 켜면 되살아남) */}
+        {QUIZ_ADVENTURE_ENABLED ? (
+          <Route element={<OnboardingGuard />}>
+            <Route element={<TabLayout />}>
+              <Route path="/pet" element={<PetScreen />} />
+              <Route path="/explore" element={<ExploreScreen />} />
+              <Route path="/shop" element={<ShopScreen />} />
+              <Route path="/records" element={<RecordsScreen />} />
+              <Route path="/admin" element={<AdminScreen />} />
+            </Route>
+          </Route>
+        ) : (
+          QUIZ_PATHS.map((p) => <Route key={p} path={`${p}/*`} element={toField} />)
+        )}
+        {QUIZ_ADVENTURE_ENABLED ? (
           <Route element={<TabLayout />}>
-            <Route path="/pet" element={<PetScreen />} />
-            <Route path="/explore" element={<ExploreScreen />} />
-            <Route path="/shop" element={<ShopScreen />} />
-            <Route path="/records" element={<RecordsScreen />} />
+            <Route path="/dex" element={<DexScreen />} />
+          </Route>
+        ) : (
+          <Route element={<TabLayout />}>
             <Route path="/admin" element={<AdminScreen />} />
           </Route>
-        </Route>
-        <Route element={<TabLayout />}>
-          <Route path="/dex" element={<DexScreen />} />
-        </Route>
+        )}
         <Route path="/" element={fullScreen(<TitleScreen />)} />
         <Route path="/field" element={fullScreen(<FieldScreen />)} />
         <Route path="/field/starter" element={fullScreen(<StarterScreen />)} />
         <Route path="/field/dex" element={fullScreen(<FieldDexScreen />)} />
         <Route path="/field/battle" element={fullScreen(<WildBattleScreen />)} />
         <Route path="/field/training/:dan" element={fullScreen(<TrainingScreen />)} />
-        <Route path="/welcome" element={fullScreen(<OnboardingScreen />)} />
-        <Route path="/hatch" element={fullScreen(<HatchScreen />)} />
+        <Route path="/field/records" element={fullScreen(<FieldRecordsScreen />)} />
+        {QUIZ_ADVENTURE_ENABLED && <Route path="/welcome" element={fullScreen(<OnboardingScreen />)} />}
+        {QUIZ_ADVENTURE_ENABLED && <Route path="/hatch" element={fullScreen(<HatchScreen />)} />}
         {/* 전투는 탭 없이 화면 전체를 쓴다 */}
-        <Route path="/battle" element={fullScreen(<BattleScreen />)} />
-        <Route path="/practice" element={fullScreen(<PracticeScreen />)} />
+        {QUIZ_ADVENTURE_ENABLED && <Route path="/battle" element={fullScreen(<BattleScreen />)} />}
+        {QUIZ_ADVENTURE_ENABLED && <Route path="/practice" element={fullScreen(<PracticeScreen />)} />}
         <Route path="/stairs" element={fullScreen(<StairsScreen />)} />
         {import.meta.env.DEV && <Route path="/dev/gallery" element={<DevGallery />} />}
         {import.meta.env.DEV && <Route path="/dev/field" element={<DevFieldGallery />} />}
