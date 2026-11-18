@@ -5,6 +5,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { returnPathAfterStairs } from '../field/training/routes';
 import { hatArtOf } from '../art/HatSprite';
 import { EggSprite, type PetExpression, PetSprite } from '../art/PetSprite';
 import { playSfx } from '../audio/sfx';
@@ -216,7 +217,7 @@ export function StairsScreen() {
   return (
     <div className={`stairs stairs--${STAIRS_SKIES[skyIndex].id}`}>
       <header className="stairs__top">
-        <button type="button" className="icon-button" aria-label="무한의 계단 그만하기" onClick={() => navigate('/explore', { replace: true })}>
+        <button type="button" className="icon-button" aria-label="무한의 계단 그만하기" onClick={() => navigate(returnPathAfterStairs(), { replace: true })}>
           ✕
         </button>
         <div className="stairs__count" aria-label={`오른 계단 ${steps}칸`}>
@@ -358,7 +359,7 @@ export function StairsScreen() {
           )}
           {challengeToggle}
           <div className="result__actions">
-            <button type="button" className="btn btn--ghost" onClick={() => navigate('/explore', { replace: true })}>
+            <button type="button" className="btn btn--ghost" onClick={() => navigate(returnPathAfterStairs(), { replace: true })}>
               탐험으로
             </button>
             <button type="button" className="btn btn--primary" onClick={start}>
