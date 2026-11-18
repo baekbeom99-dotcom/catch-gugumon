@@ -10,6 +10,7 @@ import { FieldScreen } from './field/world/FieldScreen';
 import { FieldDexScreen } from './field/FieldDexScreen';
 import { StarterScreen } from './field/StarterScreen';
 import { WildBattleScreen } from './field/battle/WildBattleScreen';
+import { TrainingScreen } from './field/training/TrainingScreen';
 import { TitleScreen } from './screens/TitleScreen';
 import { ExploreScreen } from './screens/ExploreScreen';
 import { HatchScreen } from './screens/HatchScreen';
@@ -75,6 +76,7 @@ export function App() {
         <Route path="/field/starter" element={fullScreen(<StarterScreen />)} />
         <Route path="/field/dex" element={fullScreen(<FieldDexScreen />)} />
         <Route path="/field/battle" element={fullScreen(<WildBattleScreen />)} />
+        <Route path="/field/training/:dan" element={fullScreen(<TrainingScreen />)} />
         <Route path="/welcome" element={fullScreen(<OnboardingScreen />)} />
         <Route path="/hatch" element={fullScreen(<HatchScreen />)} />
         {/* 전투는 탭 없이 화면 전체를 쓴다 */}

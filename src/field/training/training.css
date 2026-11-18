@@ -1,0 +1,473 @@
+/* 트레이닝센터 화면 (휴대폰 375px 세로 기준) — 필드 전투와 같은 하늘·잔디 톤 */
+.training {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: calc(10px + env(safe-area-inset-top)) 12px calc(12px + env(safe-area-inset-bottom));
+  background:
+    repeating-linear-gradient(180deg, transparent 0 22px, rgba(255, 255, 255, 0.14) 22px 44px) 0 100% / 100% 72% no-repeat,
+    linear-gradient(#cdefff 0, #e6f7ff 28%, #9fdc7a 28%, #8ccf68 100%);
+  user-select: none;
+  -webkit-user-select: none;
+  overflow-x: hidden;
+}
+
+.training__btn {
+  min-height: 48px;
+  font-size: 18px;
+}
+
+/* ── 입구 ── */
+.training--entry {
+  align-items: stretch;
+  justify-content: center;
+  gap: 14px;
+}
+
+.training__sign {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.training__sign-board {
+  display: block;
+  max-width: 100%;
+  padding: 12px 18px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: #e9b86a;
+  box-shadow: var(--shadow);
+  font-family: var(--font-display);
+  font-size: 28px;
+  text-align: center;
+}
+
+.training__sign-post {
+  width: 18px;
+  height: 26px;
+  border: var(--border);
+  border-top: 0;
+  background: #b9833d;
+}
+
+.training__entry-status {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+  min-height: 30px;
+}
+
+.training__tag {
+  padding: 2px 10px;
+  border: 3px solid var(--ink);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 15px;
+}
+
+.training__tag--gold {
+  background: var(--yellow);
+}
+
+.training__menu {
+  display: grid;
+  gap: 12px;
+}
+
+.training__mode {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-height: 84px;
+  padding: 10px 12px;
+}
+
+.training__mode strong {
+  font-family: var(--font-display);
+  font-size: 24px;
+  font-weight: 400;
+}
+
+.training__mode small {
+  font-size: 15px;
+  color: var(--ink-soft);
+}
+
+.training__mode--locked {
+  background: var(--grey);
+  opacity: 0.8;
+}
+
+.training__mode--locked:active:not(:disabled) {
+  transform: none;
+  box-shadow: var(--shadow-sm);
+}
+
+.training__mode--locked small {
+  color: #b0101e;
+  animation: training-nudge 0.3s steps(3) 1;
+}
+
+@keyframes training-nudge {
+  33% {
+    transform: translateX(-5px);
+  }
+  66% {
+    transform: translateX(5px);
+  }
+}
+
+.training__entry-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+/* ── 문제 풀기 ── */
+.training__top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.training__quit {
+  flex: none;
+  min-height: 44px;
+  padding: 6px 12px;
+  font-size: 16px;
+}
+
+.training__dan {
+  flex: 1;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+  text-align: center;
+}
+
+.training__badge {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-width: 64px;
+  justify-content: center;
+  padding: 4px 12px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--sky);
+  box-shadow: var(--shadow-sm);
+  font-family: var(--font-display);
+  font-size: 20px;
+  font-variant-numeric: tabular-nums;
+}
+
+.training__badge small {
+  font-size: 14px;
+}
+
+.training__clock--warn {
+  background: var(--red);
+}
+
+.training__question {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: var(--border);
+  border-radius: 14px;
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  font-family: var(--font-display);
+  font-size: 44px;
+  line-height: 1.1;
+  white-space: nowrap;
+}
+
+.training__op {
+  color: var(--ink-soft);
+}
+
+.training__blank {
+  min-width: 1.3em;
+  padding: 0 4px;
+  border: 3px dashed var(--ink);
+  border-radius: 10px;
+  background: var(--yellow);
+  text-align: center;
+}
+
+.training__pips {
+  display: flex;
+  justify-content: center;
+  gap: 6px;
+}
+
+.training__pip {
+  width: 14px;
+  height: 14px;
+  border: 3px solid var(--ink);
+  border-radius: 50%;
+  background: var(--paper);
+}
+
+.training__pip--done {
+  background: var(--lime);
+}
+
+.training__pip--now {
+  background: var(--yellow);
+}
+
+/* 무대: 내 구구몬은 왼쪽 아래(뒷모습), 표적은 오른쪽 위 */
+.training__stage {
+  position: relative;
+  flex: 1;
+  min-height: 130px;
+}
+
+.training__base {
+  position: absolute;
+  left: 3%;
+  bottom: -2px;
+  width: calc(var(--ally, 140px) * 1.1);
+  height: calc(var(--ally, 140px) * 0.26);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, #7bc35a 0 55%, #5fae45 56% 100%);
+  box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.12);
+  pointer-events: none;
+}
+
+.training__ally-wrap {
+  position: absolute;
+  z-index: 1;
+  left: 3%;
+  bottom: calc(var(--ally, 140px) * 0.04);
+  width: calc(var(--ally, 140px) * 1.1);
+  display: flex;
+  justify-content: center;
+}
+
+.training__ally--shake {
+  animation: training-shake 0.4s steps(4) 1;
+}
+
+@keyframes training-shake {
+  25% {
+    transform: translateX(-8px);
+  }
+  50% {
+    transform: translateX(8px);
+  }
+  75% {
+    transform: translateX(-5px);
+  }
+}
+
+.training__target-wrap {
+  position: absolute;
+  z-index: 1;
+  right: 8%;
+  top: 4%;
+  width: var(--target, 90px);
+  height: var(--target, 90px);
+}
+
+.training__target {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.training__target--hit {
+  animation: training-hit 0.36s steps(3) 1;
+}
+
+@keyframes training-hit {
+  33% {
+    transform: translateX(-6px) rotate(-5deg);
+  }
+  66% {
+    transform: translateX(6px) rotate(5deg);
+  }
+}
+
+/* 표적: 빨강·흰 동심원 판 + 나무 기둥 */
+.training__board {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  top: 0;
+  aspect-ratio: 1;
+  border: var(--border);
+  border-radius: 50%;
+  background: radial-gradient(circle, #ff4d4d 0 14%, #fffdf5 15% 34%, #ff4d4d 35% 54%, #fffdf5 55% 74%, #ff4d4d 75% 100%);
+  box-shadow: var(--shadow-sm);
+}
+
+.training__post {
+  position: absolute;
+  left: calc(50% - 7px);
+  top: 78%;
+  bottom: -14px;
+  width: 14px;
+  border: 3px solid var(--ink);
+  background: #b9833d;
+  z-index: -1;
+}
+
+.training__fx {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+  pointer-events: none;
+}
+
+.training__message {
+  margin: 0;
+  min-height: 48px;
+  padding: 8px 12px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+  font-size: 17px;
+  text-align: center;
+  white-space: pre-line;
+}
+
+.training__choices {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.training-choice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 68px;
+  padding: 6px 8px;
+  border: var(--border);
+  border-radius: var(--radius);
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+  font-family: var(--font-display);
+  font-size: 32px;
+  color: var(--ink);
+  cursor: pointer;
+}
+
+.training-choice:active:not(:disabled) {
+  transform: translate(2px, 2px);
+  box-shadow: none;
+}
+
+.training-choice:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.training-choice--wrong,
+.training-choice--wrong:disabled {
+  opacity: 0.4;
+  background: var(--grey);
+  box-shadow: none;
+}
+
+.training-choice__x {
+  font-size: 28px;
+  color: var(--ink-soft);
+}
+
+.training-choice--glow,
+.training-choice--glow:disabled {
+  opacity: 1;
+  background: var(--yellow);
+  outline: 4px dashed var(--ink);
+  outline-offset: 3px;
+}
+
+/* ── 결과 ── */
+.training--result {
+  justify-content: center;
+  gap: 14px;
+}
+
+.training__result-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 12px;
+  border: var(--border);
+  border-radius: 14px;
+  background: var(--paper);
+  box-shadow: var(--shadow);
+  text-align: center;
+}
+
+.training__result-card--pass {
+  background: #fff6c2;
+}
+
+.training__result-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 400;
+}
+
+.training__result-lines p {
+  margin: 2px 0;
+  font-size: 18px;
+}
+
+.training__new-best {
+  color: #b0101e;
+  font-family: var(--font-display);
+  font-size: 22px;
+}
+
+.training__capsules {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.training__capsule-count {
+  font-family: var(--font-display);
+  font-size: 32px;
+}
+
+.training__legend {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.training__legend p {
+  margin: 0;
+  font-size: 18px;
+}
+
+.training__result-actions {
+  display: grid;
+  gap: 10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .training__ally--shake,
+  .training__target--hit,
+  .training__mode--locked small {
+    animation: none;
+  }
+}
