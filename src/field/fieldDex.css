@@ -173,3 +173,18 @@
   opacity: 0.4;
   cursor: not-allowed;
 }
+
+/* 속성 아이콘: 칸 안 이름 위, 정보 창 이름 아래 (주속성 크게, 부속성 작게) */
+.fdex__elements,
+.fdex__sheet-elements {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+.fdex__elements {
+  margin-top: 2px;
+}
+.fdex__sheet-elements {
+  margin: 4px 0 8px;
+}

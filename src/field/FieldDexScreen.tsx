@@ -9,6 +9,8 @@ import { useGameStore } from '../store/useGameStore';
 import { HpBar } from './HpBar';
 import { SkillManager } from './SkillManager';
 import { creatureSprite, speciesColor } from './art/creatureSprite';
+import { elementOf, subElementOf } from '../domain/field/elements';
+import { ElementIcon } from './ElementIcon';
 import { SpriteCredit } from './art/SpriteCredit';
 import './fieldDex.css';
 
@@ -59,6 +61,10 @@ export function FieldDexScreen() {
                     {field.companion === id && <span className="fdex__tag">함께 다니는 중</span>}
                     {isFainted(entry) && <span className="fdex__tag fdex__tag--down">쓰러짐</span>}
                     {creatureSprite(id, { view: 'front', stage: entry.stage, color: speciesColor(id), size: 64 })}
+                    <span className="fdex__elements">
+                      <ElementIcon element={elementOf(id)} size={20} />
+                      <ElementIcon element={subElementOf(id)} size={14} sub />
+                    </span>
                     <span className="fdex__name">{displayName(id, entry.stage)}</span>
                     <span className="fdex__meta">
                       Lv{entry.level} · {entry.caught}번 잡음
@@ -76,6 +82,9 @@ export function FieldDexScreen() {
                   {seen ? (
                     <>
                       <span className="fdex__grey">{creatureSprite(id, { view: 'front', color: speciesColor(id), size: 64 })}</span>
+                      <span className="fdex__elements">
+                        <ElementIcon element={elementOf(id)} size={20} />
+                      </span>
                       <span className="fdex__name">{def.name}</span>
                       <span className="fdex__meta">만났어요</span>
                     </>
@@ -95,6 +104,10 @@ export function FieldDexScreen() {
       {picked && field.species[picked] && (
         <div className="fdex__sheet" role="dialog" aria-label={`${speciesDef(picked).name} 정보`}>
           <div className="fdex__sheet-name">{displayName(picked, field.species[picked]!.stage)}</div>
+          <div className="fdex__sheet-elements">
+            <ElementIcon element={elementOf(picked)} size={28} />
+            <ElementIcon element={subElementOf(picked)} size={20} sub />
+          </div>
           {field.companion === picked ? (
             <p className="fdex__sheet-note">지금 함께 다니고 있어요!</p>
           ) : (

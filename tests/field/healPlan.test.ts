@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getFact } from '../../src/domain/facts';
+import { getFact, type FactId } from '../../src/domain/facts';
 import { FIELDS, LEGEND_DAN } from '../../src/domain/field/fields';
 import { FIELD_TYPES } from '../../src/domain/field/fieldQuestions';
 import { HEAL_QUESTIONS } from '../../src/domain/field/tuning';
@@ -38,7 +38,7 @@ describe('회복약 연습 문제: 틀린 문제 중심', () => {
   });
   it('틀린 기록이 많으면 최근 것 HEAL_QUESTIONS개만', () => {
     const facts = initialFactStats();
-    ['2x2', '2x3', '2x4', '2x5', '2x6', '2x7', '2x8'].forEach((id, i) => (facts[id].lastWrongAt = 100 + i));
+    ['2x2', '2x3', '2x4', '2x5', '2x6', '2x7', '2x8'].forEach((id, i) => (facts[id as FactId].lastWrongAt = 100 + i));
     const plan = planHealQuestions(facts, 'meadow', false, seededRng(1));
     expect(plan.map((w) => w.factId)).toEqual(['2x8', '2x7', '2x6', '2x5', '2x4']);
   });
