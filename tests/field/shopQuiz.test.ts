@@ -25,49 +25,44 @@ function learner(challengeUnlocked: boolean): LearnerSnapshot {
   return { facts, danRecent: {}, challengeUnlocked, boosted: {} };
 }
 
-describe('상점 캡슐 랜덤 출제', () => {
-  it('캡슐 지역의 단에서만 나온다 (다른 단은 안 나옴)', () => {
-    for (const type of ['meadow', 'waterside'] as const) {
+describe('상점 캡슐 출제: 지역 단 중 하나를 무작위로, 그 단을 순서대로', () => {
+  const danOf = (plan: ReturnType<typeof planShopQuestions>) => new Set(plan.map((it) => getFact(it.factId).a));
+  it('한 단만, ×1부터 ×9까지 순서대로 나온다', () => {
+    for (const type of ['meadow', 'waterside', 'desert'] as const) {
       for (let seed = 1; seed <= 20; seed++) {
         const plan = planShopQuestions(learner(true), type, NOW, seededRng(seed));
         expect(plan).toHaveLength(EXPLORATION_SIZE);
-        for (const it of plan) expect(FIELDS[type].dans).toContain(getFact(it.factId).a);
+        const dans = danOf(plan);
+        expect(dans.size).toBe(1);
+        expect(FIELDS[type].dans).toContain([...dans][0]);
+        expect(plan.map((it) => getFact(it.factId).b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
       }
     }
   });
-  it('사막은 12단이 잠겨 있으면 5·7단만, 열리면 12단도', () => {
+  it('사막은 12단이 잠겨 있으면 5·7단만, 열리면 12단도 나올 수 있다', () => {
     const locked = new Set<number>();
     const open = new Set<number>();
-    for (let seed = 1; seed <= 40; seed++) {
-      planShopQuestions(learner(false), 'desert', NOW, seededRng(seed)).forEach((it) => locked.add(getFact(it.factId).a));
-      planShopQuestions(learner(true), 'desert', NOW, seededRng(seed)).forEach((it) => open.add(getFact(it.factId).a));
+    for (let seed = 1; seed <= 60; seed++) {
+      danOf(planShopQuestions(learner(false), 'desert', NOW, seededRng(seed))).forEach((d) => locked.add(d));
+      danOf(planShopQuestions(learner(true), 'desert', NOW, seededRng(seed))).forEach((d) => open.add(d));
     }
     expect([...locked].sort()).toEqual([5, 7]);
     expect(open.has(12)).toBe(true);
   });
-  it('황금 캡슐은 13단만 (그대로)', () => {
+  it('지역의 단이 골고루 뽑힌다 (무작위)', () => {
+    const seen = new Set<number>();
+    for (let seed = 1; seed <= 60; seed++) danOf(planShopQuestions(learner(true), 'meadow', NOW, seededRng(seed))).forEach((d) => seen.add(d));
+    expect([...seen].sort((x, y) => x - y)).toEqual([...FIELDS.meadow.dans].sort((x, y) => x - y));
+  });
+  it('황금 캡슐은 13단만, 순서대로', () => {
     const plan = planShopQuestions(learner(true), 'legend', NOW, seededRng(3));
     expect(plan.every((it) => getFact(it.factId).a === (LEGEND_DAN as Dan))).toBe(true);
+    expect(plan.map((it) => getFact(it.factId).b)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
   });
-  it('같은 rng면 같은 문제 목록이고, 다른 rng면 달라진다 (무작위)', () => {
-    const a = planShopQuestions(learner(true), 'meadow', NOW, seededRng(5)).map((i) => i.factId);
-    const b = planShopQuestions(learner(true), 'meadow', NOW, seededRng(5)).map((i) => i.factId);
-    const c = planShopQuestions(learner(true), 'meadow', NOW, seededRng(6)).map((i) => i.factId);
+  it('같은 rng면 같은 목록', () => {
+    const a = planShopQuestions(learner(true), 'meadow', NOW, seededRng(5)).map((i) => `${i.factId}:${i.type}`);
+    const b = planShopQuestions(learner(true), 'meadow', NOW, seededRng(5)).map((i) => `${i.factId}:${i.type}`);
     expect(a).toEqual(b);
-    expect(a).not.toEqual(c);
-    // 차례대로 ×1~×9가 아니다
-    expect(a).not.toEqual(['2x1', '2x2', '2x3', '2x4', '2x5', '2x6', '2x7', '2x8', '2x9']);
-  });
-  it('자주 틀린 문제(틀려서 복습할 때가 된 것)는 반드시 목록에 들어온다 (오답 복습 슬롯)', () => {
-    const l = learner(true);
-    const s = l.facts['4x7'];
-    s.box = 1;
-    s.lastWrongAt = NOW - 1000;
-    s.dueAt = NOW - 1000;
-    for (let seed = 1; seed <= 10; seed++) {
-      const plan = planShopQuestions(l, 'meadow', NOW, seededRng(seed));
-      expect(plan.map((i) => i.factId)).toContain('4x7');
-    }
   });
   it('문제 모양은 필드 모양(답 구하기·앞 수·뒤 수)만', () => {
     const plan = planShopQuestions(learner(true), 'waterside', NOW, seededRng(9));

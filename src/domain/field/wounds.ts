@@ -1,8 +1,11 @@
 /** 구구몬 체력·상처 목록 — 설계서 6-4·6-5. 순수 계산(React 없음) */
-import type { FactId } from '../facts';
+import { FACTS, getFact, type FactId } from '../facts';
+import type { FactStat } from '../mastery';
 import type { QuestionType } from '../questionGen';
 import { randomInt, shuffle, type Rng } from '../random';
-import { COMPANION_MAX_HP, HEAL_ROUNDS, WOUNDS_MAX } from './tuning';
+import { restrictToFieldType } from './fieldQuestions';
+import { fieldDans, LEGEND_DAN, type FieldId } from './fields';
+import { COMPANION_MAX_HP, HEAL_QUESTIONS, HEAL_ROUNDS, WOUNDS_MAX } from './tuning';
 
 /** 상처: 우리 구구몬이 맞게 한 문제 (같은 사실·같은 모양이면 한 개) */
 export interface Wound {
@@ -78,4 +81,37 @@ export function leaveHealHint(run: HealRun, rng: Rng): HealRun {
   const rest = run.order.filter((_, i) => i !== run.index);
   const at = Math.min(run.index + randomInt(rng, 2, 3), rest.length);
   return { ...run, order: [...rest.slice(0, at), wrong, ...rest.slice(at)], hint: false };
+}
+
+/**
+ * 회복약 연습 문제 목록 — 지금까지 틀린 문제 중심.
+ * 학습 기록에서 틀린 적 있는 구구단 문제를 가장 최근에 틀린 순으로 HEAL_QUESTIONS개까지 고르고,
+ * 틀린 기록이 모자라면 그 구구몬이 사는 필드(황금 구구몬은 13단)의 단에서 무작위 문제로 채운다.
+ * 틀린 기록이 하나도 없으면 전부 필드 문제다. 문제 모양은 필드 모양(답 구하기·앞 수·뒤 수).
+ */
+export function planHealQuestions(
+  facts: Readonly<Record<string, FactStat>>,
+  field: FieldId | 'legend',
+  challengeUnlocked: boolean,
+  rng: Rng,
+  count: number = HEAL_QUESTIONS,
+): Wound[] {
+  const inRange = (id: FactId) => {
+    const b = getFact(id).b;
+    return b >= 1 && b <= 9;
+  };
+  const wrong = FACTS.filter((f) => inRange(f.id) && facts[f.id]?.lastWrongAt != null)
+    .sort((x, y) => (facts[y.id].lastWrongAt as number) - (facts[x.id].lastWrongAt as number))
+    .slice(0, count)
+    .map((f) => f.id);
+  const chosen = [...wrong];
+  if (chosen.length < count) {
+    const dans = field === 'legend' ? [LEGEND_DAN] : fieldDans(field, challengeUnlocked);
+    const pool = shuffle(
+      rng,
+      FACTS.filter((f) => dans.includes(f.a) && inRange(f.id) && !chosen.includes(f.id)).map((f) => f.id),
+    );
+    chosen.push(...pool.slice(0, count - chosen.length));
+  }
+  return chosen.map((id) => ({ factId: id, type: restrictToFieldType(rng, getFact(id), facts[id]?.box ?? 1, 'product') }));
 }

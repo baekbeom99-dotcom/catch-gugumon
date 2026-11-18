@@ -8,7 +8,7 @@ import type { Rng } from '../../src/domain/random';
 import { skillButtons, skillDef, type SkillButton } from '../../src/domain/field/skills';
 import type { SpeciesId } from '../../src/domain/field/creatures';
 import type { Element } from '../../src/domain/field/elements';
-import { CALM_BONUS_MS, CHARGE_BONUS_CELLS, SPECIAL_SUCCESS, TIER_RULES } from '../../src/domain/field/tuning';
+import { CALM_BONUS_MS, CHARGE_BONUS_CELLS, M2_HEAL_SUCCESS, SPECIAL_SUCCESS, TIER_RULES } from '../../src/domain/field/tuning';
 import { throwOdds } from '../../src/domain/field/strength';
 
 const r0 = () => 0;
@@ -672,7 +672,8 @@ describe('wildBattle: 특수효과 성공률 (SPECIAL_SUCCESS)', () => {
     [['c003-1', 'c003-3'], 'special', 'clue', { hideChoice: true }],
   ] as const;
   it.each(CASES)('%s %s(%s): 경계 바로 아래면 성공, 경계 값이면 실패 — 실패해도 칸은 그대로 깎인다', (held, kind, effect, success) => {
-    const p = SPECIAL_SUCCESS[effect];
+    // 주②에 붙은 회복은 M2_HEAL_SUCCESS(50%), 나머지는 표 값
+    const p = kind === 'main' && effect === 'heal' ? M2_HEAL_SUCCESS : SPECIAL_SUCCESS[effect];
     const s = at(1000, { allyHp: 40 });
     const good = answer(s, [...held], kind, 'light', NORMAL_MS, seq(0.5, 0.5, p - 0.0001));
     expect(good.effect).toEqual({ kind: effect, ok: true });
@@ -685,6 +686,15 @@ describe('wildBattle: 특수효과 성공률 (SPECIAL_SUCCESS)', () => {
     expect(bad.state).toMatchObject({ stun: false, guard: false, charge: 0, calmMs: 0, hideChoice: false, allyHp: 40 });
     // 칸은 성공·실패와 상관없이 같다
     expect(bad.state.cells).toBe(good.state.cells);
+  });
+  it('주②에 붙은 회복은 50%, 특수 버튼의 회복은 90%', () => {
+    expect(M2_HEAL_SUCCESS).toBe(0.5);
+    const s = at(1000, { allyHp: 40 });
+    const m2 = (r: number) => answer(s, ['c002-1', 'c002-2'], 'main', 'light', NORMAL_MS, seq(0.5, 0.5, r)).effect;
+    expect(m2(0.49)).toEqual({ kind: 'heal', ok: true });
+    expect(m2(0.5)).toEqual({ kind: 'heal', ok: false });
+    const sp = (r: number) => answer(s, ['c022-1', 'c022-3'], 'special', 'light', NORMAL_MS, seq(0.5, 0.5, r)).effect;
+    expect(sp(0.89)).toEqual({ kind: 'heal', ok: true });
   });
   it('효과가 없는 기술(주①·주③·부속성·늦어서 대신 나감)은 효과를 굴리지 않는다 (난수 두 번)', () => {
     expect(answer(at(6000), ['c023-1', 'c023-2'], 'main', 'light', NORMAL_MS, seq(0.5, 0.5)).effect).toBeNull();

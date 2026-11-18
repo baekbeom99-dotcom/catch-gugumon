@@ -23,6 +23,7 @@ import {
   ENEMY_ATTACK_EVERY,
   MAX_CHIP_CELLS,
   MAX_CHIP_CRIT_CELLS,
+  M2_HEAL_SUCCESS,
   SPECIAL_SUCCESS,
   TIER_RULES,
 } from './tuning';
@@ -276,8 +277,9 @@ export function resolveAnswer(
     return { ...base, dodged: true, crit: false, effect: null, state: landHit(s, 0) };
   }
   const chipOf = (chip: number) => (roll.crit ? critCells(chip) : chip);
-  // 효과 성공 굴림 (특수 버튼 성공·주②일 때만 한 번)
-  const effect = p.special ? { kind: p.special, ok: rng() < SPECIAL_SUCCESS[p.special] } : null;
+  // 효과 성공 굴림 (특수 버튼 성공·주②일 때만 한 번). 주②(tier 2)에 붙은 회복은 M2_HEAL_SUCCESS
+  const successOf = (kind: SpecialKind) => (kind === 'heal' && p.tier === 2 ? M2_HEAL_SUCCESS : SPECIAL_SUCCESS[kind]);
+  const effect = p.special ? { kind: p.special, ok: rng() < successOf(p.special) } : null;
   const effectState = effect?.ok ? specialEffect(effect.kind) : {};
   const done = (state: WildState): AnswerResult => {
     const r: AnswerResult = { ...base, dodged: false, crit: roll.crit, effect, state };

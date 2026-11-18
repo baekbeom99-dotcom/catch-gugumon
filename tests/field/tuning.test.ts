@@ -63,6 +63,7 @@ describe('필드 모험 운영 수치', () => {
       CAPSULE_REWARD: 5,
       CAPSULE_MAX: 999,
       HEAL_ROUNDS: 3,
+      HEAL_QUESTIONS: 5,
       SHOP_ANSWER_GUARD_MS: 300,
       MAX_SKILLS: 5,
       COPY_CHANCE: 0.02,
@@ -83,6 +84,7 @@ describe('필드 모험 운영 수치', () => {
       CATCH_STATUS_BONUS: 0.1,
       CATCH_LOW_HP_BONUS: 0.1,
       CATCH_CAP: 0.7,
+      M2_HEAL_SUCCESS: 0.5,
       SPECIAL_SUCCESS: { heal: 0.9, guard: 0.9, stun: 0.5, clue: 0.8, calm: 0.8, charge: 0.7 },
     });
   });

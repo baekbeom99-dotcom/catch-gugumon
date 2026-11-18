@@ -1,8 +1,8 @@
-/** 회복약: 그 구구몬의 상처 문제를 HEAL_ROUNDS바퀴 풀면 다 낫는다. 시간 제한 없음, 틀리면 힌트를 보고 다음 상처로(그 문제는 잠시 뒤 다시). 중간에 나가면 그대로 */
+/** 회복약: 지금까지 틀린 문제(없으면 그 구구몬 필드 문제)를 HEAL_ROUNDS바퀴 풀면 다 낫는다. 시간 제한 없음, 틀리면 힌트를 보고 다음 상처로(그 문제는 잠시 뒤 다시). 중간에 나가면 그대로 */
 import { useRef, useState } from 'react';
 import { displayName } from '../../domain/field/growth';
-import type { SpeciesId } from '../../domain/field/creatures';
-import { answerHeal, createHealRun, healRunWound, leaveHealHint } from '../../domain/field/wounds';
+import { speciesDef, type SpeciesId } from '../../domain/field/creatures';
+import { answerHeal, createHealRun, healRunWound, leaveHealHint, planHealQuestions } from '../../domain/field/wounds';
 import { HEAL_ROUNDS } from '../../domain/field/tuning';
 import { useGameStore } from '../../store/useGameStore';
 import { PracticeCard } from './PracticeCard';
@@ -17,7 +17,10 @@ interface Props {
 }
 
 export function HealPractice({ species, onDone, onQuit }: Props) {
-  const [run, setRun] = useState(() => createHealRun(useGameStore.getState().field.species[species]?.wounds ?? [], Math.random));
+  const [run, setRun] = useState(() => {
+    const { learning } = useGameStore.getState();
+    return createHealRun(planHealQuestions(learning.facts, speciesDef(species).field, learning.challengeUnlocked, Math.random), Math.random);
+  });
   /** 회복은 끝나는 순간 한 번만 */
   const healed = useRef(false);
   const stage = useGameStore((s) => s.field.species[species]?.stage ?? 1);

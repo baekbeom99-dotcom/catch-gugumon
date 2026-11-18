@@ -1,13 +1,14 @@
 /**
- * 상점 [캡슐] 탭의 연습 — 설계서 0-2절. 단을 고르지 않고, 그 캡슐 지역의 단에서 문제가 무작위로 나온다.
+ * 상점 [캡슐] 탭의 연습 — 설계서 0-2절. 단을 고르지 않는다: 그 캡슐 지역의 단 중 하나가 무작위로 정해지고,
+ * 그 단의 구구단이 ×1부터 ×9까지 순서대로 나온다.
  * 틀리면 힌트를 보여 주고 다음 카드로 넘어가며, 틀린 문제는 2~3장 뒤에 다시 나온다.
  */
-import { getFact } from '../facts';
+import { factsOfDan, getFact } from '../facts';
 import type { CapsuleType } from './capsules';
 import { restrictToFieldType } from './fieldQuestions';
 import { fieldDans, LEGEND_DAN } from './fields';
-import type { Rng } from '../random';
-import { insertRetry, type LearnerSnapshot, type PlannedItem, planExploration } from '../scheduler';
+import { pickOne, type Rng } from '../random';
+import { insertRetry, type LearnerSnapshot, type PlannedItem } from '../scheduler';
 
 /** 이 캡슐을 얻는 연습이 열려 있나: 황금 캡슐(13단)은 도전 단이 열려야 한다 */
 export function capsulePracticeOpen(t: CapsuleType, challengeUnlocked: boolean): boolean {
@@ -15,17 +16,23 @@ export function capsulePracticeOpen(t: CapsuleType, challengeUnlocked: boolean):
 }
 
 /**
- * 캡슐 연습 문제 목록(EXPLORATION_SIZE개). 그 캡슐 지역의 단에서만 고르고(오답 복습도 그 단 안에서),
- * 자주 틀린 문제를 앞에 두는 기존 추천 탐험 가중을 그대로 쓴다. 황금 캡슐은 13단 고정.
+ * 캡슐 연습 문제 목록. 그 캡슐 지역의 단(도전 단이 닫혀 있으면 12단 제외, 황금 캡슐은 13단 고정) 중
+ * 하나를 무작위로 골라, 그 단을 ×1~×9 순서대로 낸다. 문제 모양만 필드 모양(답 구하기·앞 수·뒤 수)으로 섞는다.
+ * 틀린 문제는 leaveShopHint가 2~3장 뒤에 다시 끼워 넣는다.
  */
-export function planShopQuestions(learner: LearnerSnapshot, t: CapsuleType, now: number, rng: Rng): PlannedItem[] {
+export function planShopQuestions(learner: LearnerSnapshot, t: CapsuleType, _now: number, rng: Rng): PlannedItem[] {
   if (!capsulePracticeOpen(t, learner.challengeUnlocked)) throw new Error('13단은 아직 열리지 않았다');
   const dans = t === 'legend' ? [LEGEND_DAN] : fieldDans(t, learner.challengeUnlocked);
-  const plan = planExploration(learner, { kind: 'recommended' }, now, rng, { dans });
-  return plan.map((item) => ({
-    ...item,
-    type: restrictToFieldType(rng, getFact(item.factId), learner.facts[item.factId].box, item.type),
-  }));
+  const dan = pickOne(rng, dans);
+  return factsOfDan(dan)
+    .filter((f) => f.b >= 1 && f.b <= 9)
+    .sort((x, y) => x.b - y.b)
+    .map((f) => ({
+      factId: f.id,
+      type: restrictToFieldType(rng, f, learner.facts[f.id].box, 'product'),
+      isRetry: false,
+      isConfidence: false,
+    }));
 }
 
 export interface ShopQuiz {

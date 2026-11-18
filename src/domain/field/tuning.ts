@@ -128,6 +128,8 @@ export const CAPSULE_MAX = 999;
 // ── 상점 연습 (설계서 5절·7절) ──
 /** 회복약: 상처 문제를 하나하나 이만큼 바퀴 동안 맞혀야 낫는다 */
 export const HEAL_ROUNDS = 3;
+/** 회복약 연습 한 바퀴에 나오는 문제 수 (지금까지 틀린 문제 중 최근 것부터, 모자라면 그 구구몬 필드 문제로 채움) */
+export const HEAL_QUESTIONS = 5;
 /** 새 문제가 뜬 뒤 이 시간 동안은 보기가 눌리지 않는다 (연타로 다음 문제까지 답해 버리는 것을 막는다) */
 export const SHOP_ANSWER_GUARD_MS = 300;
 
@@ -186,3 +188,5 @@ export const SPECIAL_SUCCESS: Record<SpecialKind, number> = {
   calm: 0.8,
   charge: 0.7,
 };
+/** 주②(두 번째 속성 기술)에 붙은 회복 효과의 성공 확률 — 특수 버튼의 회복(SPECIAL_SUCCESS.heal)보다 낮다. 실패해도 공격 칸은 그대로 들어간다 */
+export const M2_HEAL_SUCCESS = 0.5;

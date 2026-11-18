@@ -932,7 +932,7 @@ test('연습 도중에 나가면 캡슐은 그대로 (그만하기·Escape)', as
   expect((await savedField(page)).capsules.meadow).toBe(3);
 });
 
-test('회복약: 쓰러진 구구몬을 상처 문제 3바퀴로 회복한다', async ({ page }) => {
+test('회복약: 쓰러진 구구몬을 틀린 문제(없으면 필드 문제) 5개씩 3바퀴로 회복한다', async ({ page }) => {
   await standAtShopDoor(page, {
     species: { c034: { ...STARTER_FIELD.species.c034, hp: 0, wounds: [{ factId: '7x8', type: 'product' }] } },
   });
@@ -941,8 +941,9 @@ test('회복약: 쓰러진 구구몬을 상처 문제 3바퀴로 회복한다', 
   await shop.getByRole('tab', { name: '회복약' }).click();
   await expect(shop.getByText('쓰러짐')).toBeVisible();
   await shop.getByRole('button', { name: /고치기/ }).click();
-  for (let i = 0; i < 3; i++) {
-    expect(await practiceAnswer(page)).toBe(56);
+  // 틀린 기록이 없으니 초원 단에서 5문제 × 3바퀴 = 15번 맞힌다
+  for (let i = 0; i < 15; i++) {
+    await expect(shop.locator('.practice-head__title')).toContainText(`${Math.floor(i / 5) + 1}`);
     await solveShop(page);
   }
   await expect(shop.getByText(/다 나았어요/)).toBeVisible();
@@ -964,16 +965,12 @@ test('회복약: 틀리면 힌트를 보고 넘어가고 그 문제를 다시, �
   await shop.getByRole('tab', { name: '회복약' }).click();
   await shop.getByRole('button', { name: /고치기/ }).click();
   const before = await totalAttempts(page);
-  await choice(page, await wrongChoice(page, 56)).click();
+  await choice(page, await wrongChoice(page, await practiceAnswer(page))).click();
   await expect(shop.locator('.fshop-choice--glow')).toHaveCount(1);
   await shop.locator('.fshop-choice--glow').click();
   await solveShop(page);
   expect(await totalAttempts(page)).toBe(before + 2);
-  // 틀린 뒤 힌트로 맞혀도 오답 복습에 남는다: 상자 1, 지금 바로 복습 대상 (재출제 답으로 기록)
-  const f = await savedFact(page, '7x8');
-  expect(f.box).toBe(1);
-  expect(f.dueAt!).toBeLessThanOrEqual(Date.now());
-  expect((await savedCloud(page)).hp).toBe(40); // 아직 안 나음 (3번 맞혀야)
+  expect((await savedCloud(page)).hp).toBe(40); // 아직 안 나음 (다 맞혀야)
 });
 
 test('회복약: 쓰러진 마을 구구몬은 회복하고 상점을 닫으면 일어난다', async ({ page }) => {
@@ -996,8 +993,10 @@ test('회복약: 쓰러진 마을 구구몬은 회복하고 상점을 닫으면 
   await openShop(page);
   const shop = page.getByRole('dialog', { name: '상점' });
   await shop.getByRole('tab', { name: '회복약' }).click();
-  await shop.getByRole('button', { name: /고치기/ }).click(); // 상처가 없으면 바로 회복
+  await shop.getByRole('button', { name: /고치기/ }).click(); // 상처가 없어도 물가 단 문제를 풀어서 낫는다
+  for (let i = 0; i < 15; i++) await solveShop(page);
   await expect(shop.getByText(/다 나았어요/)).toBeVisible();
+  await shop.getByRole('button', { name: '확인' }).click();
   await shop.getByRole('button', { name: '닫기' }).click();
   await expect(canvas).toHaveAttribute('data-sleeping', '');
 });
