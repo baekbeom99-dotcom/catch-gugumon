@@ -2,10 +2,11 @@ import type { Dan } from '../facts';
 import type { SpeciesId } from './speciesIds';
 
 export type FieldId = 'meadow' | 'waterside' | 'desert';
-/** 지도 이름: 세 필드와 태초마을 */
-export type MapId = FieldId | 'town';
-export const MAP_IDS: readonly MapId[] = ['town', 'meadow', 'waterside', 'desert'];
+/** 지도 이름: 세 필드, 태초마을, 마을 안 체육관(실내) */
+export type MapId = FieldId | 'town' | 'gym';
+export const MAP_IDS: readonly MapId[] = ['town', 'meadow', 'waterside', 'desert', 'gym'];
 export const TOWN_NAME = '태초마을';
+export const GYM_NAME = '체육관';
 
 export const CHALLENGE_DAN: Dan = 12;
 /** 레전드 단 */

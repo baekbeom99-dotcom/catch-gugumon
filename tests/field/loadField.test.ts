@@ -45,6 +45,7 @@ describe('필드 불러오기', () => {
       waterside: () => Promise.reject(new Error('offline')),
       desert: () => Promise.reject(new Error('offline')),
       town: () => Promise.reject(new Error('offline')),
+      gym: () => Promise.reject(new Error('offline')),
     };
     const r = await travelTo(meadow, 'waterside', 0, failing);
     expect(r.ok).toBe(false);
@@ -61,6 +62,7 @@ describe('필드 불러오기', () => {
       meadow: () => Promise.resolve(field),
       waterside: () => Promise.reject(new Error('x')),
       desert: () => Promise.reject(new Error('x')),
+      gym: () => Promise.reject(new Error('x')),
     };
     expect(arrivalPosition(town, 'meadow')).toEqual({ map: 'town', x: 2, y: 1, facing: 'down' });
     expect(arrivalPosition(town, 'desert')).toEqual({ map: 'town', x: 2, y: 3, facing: 'up' });
@@ -69,6 +71,18 @@ describe('필드 불러오기', () => {
     const back = await travelTo(town, 'meadow', 0, fake);
     expect(back).toMatchObject({ ok: true, position: { map: 'meadow', x: 2, y: 1, facing: 'up' } });
     clearFieldCache();
+  });
+
+  it('체육관: 마을에서 들어가면 체육관 입구(안쪽=위를 봄), 나오면 마을 체육관 문 앞(아래를 봄)', async () => {
+    clearFieldCache();
+    const town = await loadField('town');
+    const gym = await loadField('gym');
+    expect(gym.entrances.town).toBeDefined();
+    expect(town.entrances.gym).toBeDefined();
+    const inn = await travelTo(town, 'gym', 0);
+    expect(inn).toEqual({ ok: true, map: gym, position: { map: 'gym', ...gym.entrances.town!, facing: 'up' } });
+    const out = await travelTo(gym, 'town', 0);
+    expect(out).toEqual({ ok: true, map: town, position: { map: 'town', ...town.entrances.gym!, facing: 'down' } });
   });
 
   it('태초마을로 가기: 마을 시작 칸(@), 아래를 본다', async () => {

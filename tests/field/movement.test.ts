@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FIELDS, fieldDans } from '../../src/domain/field/fields';
-import { companionStart, parseMap, safeStartPosition, tryStep } from '../../src/domain/field/movement';
+import { companionStart, npcAt, parseMap, safeStartPosition, tryStep } from '../../src/domain/field/movement';
 
 const map = parseMap('meadow', ['#####', '<.,.>', '#.S.#', '#@..#', '#####'], {
   exits: { '<': 'waterside', '>': 'desert' },
@@ -95,18 +95,33 @@ describe('마을 글자 (위아래 출구·문·서식지)', () => {
     expect(m.zones).toEqual({ meadow: [{ x: 1, y: 2 }], desert: [{ x: 3, y: 2 }], waterside: [{ x: 1, y: 3 }] });
     expect(m.raw).toBe(rows);
   });
-  it('문 글자 표를 받으면 종류와 단을 채운다', () => {
-    const t = parseMap('town', ['#####', '#A.T#', '#.@.#', '##v##'], {
+  it('문 글자 표를 받으면 종류를 채우고, 체육관 문은 그 앞 칸이 entrances.gym이 된다', () => {
+    const t = parseMap('town', ['#####', '#G.T#', '#.@.#', '##v##'], {
       exits: { v: 'meadow' },
       signTexts: [],
-      doorChars: { A: { kind: 'training', dan: 7 }, T: { kind: 'stairs' } },
+      doorChars: { G: { kind: 'gym' }, T: { kind: 'stairs' } },
     });
     expect(t.doors).toEqual([
-      { pos: { x: 1, y: 1 }, kind: 'training', dan: 7 },
+      { pos: { x: 1, y: 1 }, kind: 'gym' },
       { pos: { x: 3, y: 1 }, kind: 'stairs' },
     ]);
     expect(t.tiles[1][1]).toBe('door');
     expect(t.tiles[1][3]).toBe('door');
+    expect(t.entrances.gym).toEqual({ x: 1, y: 2 });
+  });
+  it('NPC·동상 자리를 받으면 막힌다 (NPC는 부딪힘, 동상은 막힘)', () => {
+    const m = parseMap('gym', ['#####', '#...#', '#.@.#', '##v##'], {
+      exits: { v: 'town' },
+      signTexts: [],
+      npcs: [{ id: 'n1', pos: { x: 1, y: 1 } }],
+      statues: [{ x: 3, y: 1 }],
+    });
+    expect(npcAt(m, { x: 1, y: 1 })?.id).toBe('n1');
+    expect(npcAt(m, { x: 2, y: 1 })).toBeUndefined();
+    expect(tryStep(m, { x: 2, y: 1 }, 'left')).toMatchObject({ moved: false, bump: { x: 1, y: 1 } });
+    expect(tryStep(m, { x: 2, y: 1 }, 'right')).toMatchObject({ moved: false, bump: null });
+    expect(m.tiles[1][3]).toBe('block');
+    expect(() => parseMap('gym', ['###', '#.#', '###'], { exits: {}, signTexts: [], npcs: [{ id: 'x', pos: { x: 0, y: 0 } }] })).toThrow();
   });
   it('문에 부딪히면 bump = 문 칸', () => {
     expect(tryStep(m, { x: 2, y: 1 }, 'down')).toMatchObject({ moved: false, bump: { x: 2, y: 2 } });

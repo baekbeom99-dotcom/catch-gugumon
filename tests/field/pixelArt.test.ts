@@ -11,7 +11,9 @@ import type { FieldId } from '../../src/domain/field/fields';
 import { TOWN_TILES } from '../../src/field/world/maps/townTiles';
 import { FX_NAMES } from '../../src/field/fx/playFx';
 
-const TILE_SETS = { meadow: MEADOW_TILES, waterside: WATERSIDE_TILES, desert: DESERT_TILES, town: TOWN_TILES };
+import { GYM_TILES } from '../../src/field/world/maps/gymTiles';
+
+const TILE_SETS = { meadow: MEADOW_TILES, waterside: WATERSIDE_TILES, desert: DESERT_TILES, town: TOWN_TILES, gym: GYM_TILES };
 
 function tileArts(): [string, PixelArt][] {
   const out: [string, PixelArt][] = Object.entries(SHARED_ARTS).map(([k, a]) => [`공용/${k}`, a]);
@@ -97,8 +99,34 @@ describe('픽셀 그림', () => {
 });
 
 describe('마을 건물 타일', () => {
-  it('훈련·계단 건물 그림이 등록표에 있다', () => {
-    for (const k of ['trainWall', 'trainDoor', 'stairsWall', 'stairsDoor']) expect(Object.keys(TOWN_TILES.arts)).toContain(k);
+  it('체육관·계단 건물 그림이 등록표에 있고, 훈련 건물 그림은 없다', () => {
+    for (const k of ['gymWall', 'gymDoor', 'gymSign', 'gymRoofL', 'gymRoofR', 'stairsWall', 'stairsDoor']) expect(Object.keys(TOWN_TILES.arts)).toContain(k);
+    for (const k of ['trainWall', 'trainDoor']) expect(Object.keys(TOWN_TILES.arts)).not.toContain(k);
+  });
+
+  it('마을의 모든 칸에 그릴 그림이 있다 (체육관 건물 포함)', async () => {
+    const map = await loadField('town');
+    for (let y = 0; y < map.height; y++)
+      for (let x = 0; x < map.width; x++) expect(TOWN_TILES.pick(map, x, y, 0).length, `${x},${y}`).toBeGreaterThan(0);
+  });
+});
+
+describe('체육관 타일', () => {
+  it('등록표에 바닥·벽·단상·매트·동상·NPC 자리 표시가 있다', () => {
+    for (const k of ['floorA', 'floorB', 'wallTop', 'wallFace', 'wallSide', 'platform', 'mat', 'statue']) expect(Object.keys(GYM_TILES.arts)).toContain(k);
+    expect(Object.keys(GYM_TILES.arts).filter((k) => k.startsWith('npc_'))).toHaveLength(13);
+  });
+
+  it('지도의 모든 칸에 그릴 그림이 있고, NPC·동상 칸은 바닥 위에 얹는다', async () => {
+    const map = await loadField('gym');
+    for (let y = 0; y < map.height; y++)
+      for (let x = 0; x < map.width; x++) {
+        const layers = GYM_TILES.pick(map, x, y, 0);
+        expect(layers.length, `${x},${y}`).toBeGreaterThan(0);
+        for (const a of layers) expect(a.rows.length).toBe(16);
+      }
+    for (const n of map.npcs) expect(GYM_TILES.pick(map, n.pos.x, n.pos.y, 0)).toContain(GYM_TILES.arts[`npc_${n.id}`]);
+    for (const s of map.statues) expect(GYM_TILES.pick(map, s.x, s.y, 0)).toContain(GYM_TILES.arts.statue);
   });
 });
 

@@ -1,5 +1,4 @@
 import type { FieldId, MapId } from './fields';
-import type { TrainingDan } from './tuning';
 
 export type Dir = 'up' | 'down' | 'left' | 'right';
 export interface Pos {
@@ -10,9 +9,7 @@ export type Tile = 'path' | 'grass' | 'block' | 'sign' | 'deco' | 'exit' | 'door
 
 export interface FieldDoor {
   pos: Pos;
-  kind: 'shop' | 'training' | 'stairs';
-  /** 훈련 건물일 때 그 단 */
-  dan?: TrainingDan;
+  kind: 'shop' | 'gym' | 'stairs';
 }
 
 export interface FieldMap {
@@ -25,8 +22,12 @@ export interface FieldMap {
   /** inward: 출구에서 지도 안쪽을 보는 방향 (입구 = 출구 + inward 한 칸) */
   exits: { pos: Pos; to: MapId; inward: Dir }[];
   signs: { pos: Pos; text: string }[];
-  /** 문 칸: 상점(`D`)·훈련 건물·무한의 계단 (글자 → 종류는 ParseOpts.doorChars) */
+  /** 문 칸: 상점(`D`)·체육관(`G`)·무한의 계단(`T`) (글자 → 종류는 ParseOpts.doorChars) */
   doors: FieldDoor[];
+  /** 체육관 NPC 자리: 서 있는 칸이 막힌다 (말 걸기는 부딪힘 `bump`로) */
+  npcs: { id: string; pos: Pos }[];
+  /** 장식 동상 칸: 막히고 말을 걸 수 없다 */
+  statues: Pos[];
   /** 마을 서식지 칸: `g` 초원, `p` 물가, `a` 사막 (그 필드 구구몬이 노는 곳) */
   zones: Partial<Record<FieldId, Pos[]>>;
   /** 원래 글자 줄 (그림이 `g`·`a`·`p`·`~`를 구분할 때 쓴다) */
@@ -63,19 +64,11 @@ const CHAR_TILE: Record<string, Tile> = {
   v: 'exit',
   '@': 'path',
   D: 'door',
-  // 마을 훈련 거리 건물 문과 무한의 계단 문 (종류 표는 town.ts의 TOWN_DOORS)
-  A: 'door',
-  B: 'door',
-  C: 'door',
-  E: 'door',
-  F: 'door',
-  H: 'door',
-  I: 'door',
-  J: 'door',
-  K: 'door',
-  L: 'door',
-  M: 'door',
+  // 마을 건물 문(체육관 G·무한의 계단 T). 종류 표는 town.ts의 TOWN_DOORS
+  G: 'door',
   T: 'door',
+  // 체육관 안 단상(막힘)
+  P: 'block',
   '~': 'block',
   g: 'path',
   a: 'path',
@@ -92,13 +85,18 @@ const ZONE_CHAR: Record<string, FieldId> = { g: 'meadow', p: 'waterside', a: 'de
 export interface ParseOpts {
   exits: Partial<Record<ExitChar, MapId>>;
   signTexts: string[];
-  /** 문 글자 → 종류(·단). 없으면 `D` = 상점 하나 */
-  doorChars?: Record<string, { kind: FieldDoor['kind']; dan?: TrainingDan }>;
+  /** 문 글자 → 종류. 없으면 `D` = 상점 하나 */
+  doorChars?: Record<string, { kind: FieldDoor['kind'] }>;
+  /** 체육관 NPC 자리 (그 칸은 바닥 `.`이어야 한다) */
+  npcs?: { id: string; pos: Pos }[];
+  /** 장식 동상 자리 (그 칸은 바닥 `.`이어야 하고 막힌 칸이 된다) */
+  statues?: Pos[];
 }
 
 /**
  * 글자 지도를 칸 지도로 바꾼다. `.` 길, `,` 풀숲, `#` 막힘, `*` 꾸밈, `S` 표지판, `<` `>` `^` `v` 출구, `@` 시작,
- * `D` 상점 문(문 글자 표를 주면 그 글자들), `~` 물(막힘), `g` `p` `a` 서식지(길처럼 걷는다)
+ * `D` 상점 문(문 글자 표를 주면 그 글자들), `P` 단상(막힘), `~` 물(막힘), `g` `p` `a` 서식지(길처럼 걷는다).
+ * NPC·동상 칸은 글자가 아니라 옵션(`npcs`·`statues`)으로 받는다. 체육관 문(`gym`)은 그 앞 칸이 `entrances.gym`
  */
 export function parseMap(id: MapId, rows: string[], opts: ParseOpts): FieldMap {
   const height = rows.length;
@@ -134,17 +132,29 @@ export function parseMap(id: MapId, rows: string[], opts: ParseOpts): FieldMap {
         const d = DIR_DELTA[inward];
         entrances[to] = { x: x + d.x, y: y + d.y };
       } else if (doorChars[ch]) {
-        const { kind, dan } = doorChars[ch];
-        doors.push(dan === undefined ? { pos: { x, y }, kind } : { pos: { x, y }, kind, dan });
+        const { kind } = doorChars[ch];
+        doors.push({ pos: { x, y }, kind });
+        // 체육관에서 나오면 문 바로 앞(아래) 칸에 선다
+        if (kind === 'gym') entrances.gym = { x, y: y + 1 };
       } else if (ZONE_CHAR[ch]) (zones[ZONE_CHAR[ch]] ??= []).push({ x, y });
     }
     tiles.push(line);
   });
   if (signIdx !== opts.signTexts.length) throw new Error(`지도 ${id}: 표지판 글 개수가 다릅니다`);
-  return { id, width, height, tiles, entrances, exits, signs, doors, zones, raw: rows };
+  const npcs = (opts.npcs ?? []).map((n) => ({ id: n.id, pos: { ...n.pos } }));
+  const statues = (opts.statues ?? []).map((p) => ({ ...p }));
+  for (const [what, p] of [...npcs.map((n) => [`NPC ${n.id}`, n.pos] as const), ...statues.map((p) => ['동상', p] as const)])
+    if (rows[p.y]?.[p.x] !== '.') throw new Error(`지도 ${id}: ${what} 자리 (${p.x},${p.y})가 바닥이 아닙니다`);
+  for (const p of statues) tiles[p.y][p.x] = 'block';
+  return { id, width, height, tiles, entrances, exits, signs, doors, npcs, statues, zones, raw: rows };
 }
 
-/** 한 칸 걷기. 막힘·표지판·문·꾸밈·지도 밖은 못 간다. 표지판·문과 `occupied`가 true인 칸은 부딪힌 칸(bump)이 된다. */
+/** 이 칸에 서 있는 NPC (없으면 undefined) */
+export function npcAt(map: FieldMap, p: Pos): { id: string; pos: Pos } | undefined {
+  return map.npcs.find((n) => n.pos.x === p.x && n.pos.y === p.y);
+}
+
+/** 한 칸 걷기. 막힘·표지판·문·꾸밈·지도 밖은 못 간다. 표지판·문·NPC와 `occupied`가 true인 칸은 부딪힌 칸(bump)이 된다. */
 export function tryStep(map: FieldMap, pos: Pos, dir: Dir, occupied?: (p: Pos) => boolean): StepResult {
   const d = DIR_DELTA[dir];
   const nx = pos.x + d.x;
@@ -153,7 +163,7 @@ export function tryStep(map: FieldMap, pos: Pos, dir: Dir, occupied?: (p: Pos) =
   if (nx < 0 || ny < 0 || nx >= map.width || ny >= map.height) return stay;
   const tile = map.tiles[ny][nx];
   const next = { x: nx, y: ny };
-  if (tile === 'sign' || tile === 'door' || occupied?.(next)) return { ...stay, bump: next };
+  if (tile === 'sign' || tile === 'door' || npcAt(map, next) || occupied?.(next)) return { ...stay, bump: next };
   if (tile === 'block' || tile === 'deco') return stay;
   if (tile === 'exit') {
     const exit = map.exits.find((e) => e.pos.x === nx && e.pos.y === ny);
@@ -178,7 +188,8 @@ export function safeStartPosition(
     y >= 0 &&
     x < map.width &&
     y < map.height &&
-    WALKABLE.includes(map.tiles[y][x]);
+    WALKABLE.includes(map.tiles[y][x]) &&
+    !npcAt(map, saved);
   if (ok) return { x, y, facing: saved.facing };
   const start = map.entrances.start ?? { x: 1, y: 1 };
   return { ...start, facing: 'down' };
@@ -191,5 +202,5 @@ export function companionStart(map: FieldMap, hero: Pos, facing: Dir): Pos {
   const y = hero.y - d.y;
   if (x < 0 || y < 0 || x >= map.width || y >= map.height) return { x: hero.x, y: hero.y };
   const tile = map.tiles[y][x];
-  return tile === 'path' || tile === 'grass' ? { x, y } : { x: hero.x, y: hero.y };
+  return (tile === 'path' || tile === 'grass') && !npcAt(map, { x, y }) ? { x, y } : { x: hero.x, y: hero.y };
 }

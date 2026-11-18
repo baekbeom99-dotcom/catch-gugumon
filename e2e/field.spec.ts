@@ -704,7 +704,7 @@ test('처음 필드는 첫 구구몬 고르기로 가고, 물거북몬을 골라
   await expect(page.getByLabel(`${wildName} 잡음`)).toContainText('Lv1');
   await expect(page.getByLabel('물거북몬 잡음')).toBeVisible();
   await expect(page.locator('.fdex__cell--caught')).toHaveCount(2);
-  await expect(page.locator('.fdex__cell--unknown')).toHaveCount(47);
+  await expect(page.locator('.fdex__cell--unknown')).toHaveCount(46);
 
   // 잡은 구구몬을 동행으로
   await page.getByLabel(`${wildName} 잡음`).click();

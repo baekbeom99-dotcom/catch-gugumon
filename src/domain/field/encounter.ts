@@ -38,9 +38,9 @@ export interface EncounterContext {
   force?: { grass?: boolean; path?: boolean; legend?: boolean; noWild?: boolean };
 }
 
-/** 칸 종류별 만남 확률: 풀숲 0.3, 길 0.04, 나머지 0. 태초마을은 늘 0 */
+/** 칸 종류별 만남 확률: 풀숲 0.3, 길 0.04, 나머지 0. 태초마을·체육관은 늘 0 */
 export function encounterChance(map: MapId, tile: Tile | null): number {
-  if (map === 'town') return 0;
+  if (map === 'town' || map === 'gym') return 0;
   if (tile === 'grass') return ENCOUNTER_CHANCE_GRASS;
   if (tile === 'path') return ENCOUNTER_CHANCE_PATH;
   return 0;
@@ -53,8 +53,8 @@ export function encounterChance(map: MapId, tile: Tile | null): number {
  */
 export function rollEncounter(rng: Rng, ctx: EncounterContext & { tile: Tile | null }): Encounter | null {
   const field = ctx.map;
-  // 마을에서는 강제 스위치여도 만나지 않는다 (rng도 안 씀)
-  if (field === 'town') return null;
+  // 마을·체육관에서는 강제 스위치여도 만나지 않는다 (rng도 안 씀)
+  if (field === 'town' || field === 'gym') return null;
   // 쓰러진 구구몬은 싸울 수 없으니 만남도 없다 (rng도 안 씀)
   if (ctx.companion.hp <= 0) return null;
   if (ctx.stepsSinceBattle < ENCOUNTER_GRACE_STEPS) return null;

@@ -1,6 +1,6 @@
 import type { MapId } from '../../domain/field/fields';
 import type { Dir, FieldMap, Tile } from '../../domain/field/movement';
-import { TRAINING_DANS, WATER_FRAME_MS, type TrainingDan } from '../../domain/field/tuning';
+import { WATER_FRAME_MS } from '../../domain/field/tuning';
 import { TILE_PX, VIEW_TILES_W } from './padDirection';
 import type { SheetFrame } from '../art/companionImage';
 import { HERO_SPRITES, heroFrame } from '../art/hero';
@@ -98,41 +98,6 @@ export function companionRect(left: number, top: number, tile: number, c: { scal
   return { x: Math.round(left + tile / 2 - w / 2), y: Math.round(top + tile - h * c.foot), w, h };
 }
 
-/** 마스터한 훈련 건물의 지붕 숫자 자리: 문 바로 위 타일. 목록 밖 단은 무시 */
-export function roofNumberRects(map: FieldMap, mastered: Partial<Record<TrainingDan, unknown>>): { dan: TrainingDan; x: number; y: number }[] {
-  const out: { dan: TrainingDan; x: number; y: number }[] = [];
-  for (const d of map.doors) {
-    if (d.kind !== 'training' || d.dan === undefined) continue;
-    if (!(TRAINING_DANS as readonly number[]).includes(d.dan) || mastered[d.dan] === undefined) continue;
-    out.push({ dan: d.dan, x: d.pos.x, y: d.pos.y - 1 });
-  }
-  return out;
-}
-
-/** 지붕 숫자: 따뜻한 노랑 글자에 천천히 숨 쉬듯 번지는 빛 */
-function drawRoofNumbers(ctx: CanvasRenderingContext2D, rects: { dan: number; x: number; y: number }[], tile: number, cx: number, cy: number, now: number) {
-  if (rects.length === 0) return;
-  const glow = 0.5 + 0.5 * Math.sin(now / 700);
-  ctx.save();
-  ctx.font = `bold ${Math.round(tile * 0.78)}px sans-serif`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.lineJoin = 'round';
-  for (const r of rects) {
-    const px = r.x * tile - cx + tile / 2;
-    const py = r.y * tile - cy + tile / 2 + 1;
-    ctx.shadowColor = '#ffd23a';
-    ctx.shadowBlur = tile * (0.3 + 0.7 * glow);
-    ctx.lineWidth = Math.max(2, tile * 0.16);
-    ctx.strokeStyle = '#6b3b00';
-    ctx.strokeText(String(r.dan), px, py);
-    ctx.shadowBlur = 0; // 빛 번짐은 테두리 한 번만
-    ctx.fillStyle = '#ffe14d';
-    ctx.fillText(String(r.dan), px, py);
-  }
-  ctx.restore();
-}
-
 /** hx, hy: 주인공의 칸 좌표(소수 가능, 걷는 중 보간) */
 export function drawField(
   ctx: CanvasRenderingContext2D,
@@ -142,7 +107,6 @@ export function drawField(
   companion?: Companion,
   anim: Anim = { now: 0, step: null },
   roamers: RoamerSprite[] = [],
-  mastered: Partial<Record<TrainingDan, unknown>> = {},
 ): { cx: number; cy: number } {
   const { tile, w, h } = view;
   const hx = hero.x;
@@ -170,7 +134,6 @@ export function drawField(
       }
     }
   }
-  drawRoofNumbers(ctx, roofNumberRects(map, mastered), tile, cx, cy, anim.now);
   // 마을에서 돌아다니는 구구몬: 동행·주인공 아래에 그린다
   if (roamers.length > 0) drawRoamers(ctx, roamers, tile, cx, cy, anim.now, companionRect);
   // 동행: 주인공 뒤 칸. 화면에서 더 아래(앞)에 있는 쪽을 나중에 그려 겹칠 때 자연스럽게

@@ -1,16 +1,17 @@
 import type { FieldDoor } from '../../../domain/field/movement';
 
-// 태초마을: 맨 위 9줄은 훈련 거리(건물 두 줄 + 무한의 계단), 그 아래 22줄은 구구몬 서식지(초원 땅 g · 연못 p~ · 모래 a), 아래 18줄은 광장(상점 문 D, 집 둘, 울타리, 꽃밭).
+// 태초마을: 맨 위 10줄은 체육관 구역(큰 체육관 건물 · 문 앞 넓은 모래길 · 간판 · 무한의 계단), 그 아래 22줄은 구구몬 서식지(초원 땅 g · 연못 p~ · 모래 a), 아래 18줄은 광장(상점 문 D, 집 둘, 울타리, 꽃밭).
 // 풀숲(,)이 없어서 마을에서는 구구몬이 불쑥 나오지 않는다. 지도 글자·표지판 글·출구 표만 여기에 둔다(타일 그림은 townTiles.ts).
+// 위쪽 구역이 10줄이라 옛 지도(맨 윗벽 1줄 + 서식지부터)보다 9줄 길다 — tuning.ts의 TOWN_ROWS_ADDED = 9 (옛 저장 자리를 그만큼 아래로 민다)
 export const TOWN_ROWS: string[] = [
-  // 훈련 거리: 첫 줄 6채(2~7단) · 둘째 줄 8·9·12·13단(가운데는 11단이 없어져 문 없는 집) · 계단 한 채. 문 앞(아랫줄)은 모두 걷는 길
+  // 체육관: 지붕 3줄(x4~14, 11칸) · 벽 줄 가운데 문 G(x9) · 문 앞 두 줄은 넓은 길 · 간판 S(문 왼쪽 앞, 길 밖) · 계단 한 채(T)
   '####################',
-  '####################',
-  '##A##B##C##E##F##H##',
+  '#...###########....#',
+  '#...###########....#',
+  '#...###########....#',
+  '#...#####G#####....#',
+  '#....S.............#',
   '#..................#',
-  '################...#',
-  '##I##J#####L##M#...#',
-  '#........S.........#',
   '#.......###........#',
   '#.......#T#........#',
   '#..................#',
@@ -55,23 +56,14 @@ export const TOWN_ROWS: string[] = [
   '#########v##########',
 ];
 
-/** 문 글자 → 종류. `D`는 상점, A~M은 훈련 건물(단), T는 무한의 계단 */
-export const TOWN_DOORS: Record<string, Pick<FieldDoor, 'kind' | 'dan'>> = {
+/** 문 글자 → 종류. `D`는 상점, `G`는 체육관, `T`는 무한의 계단 */
+export const TOWN_DOORS: Record<string, Pick<FieldDoor, 'kind'>> = {
   D: { kind: 'shop' },
-  A: { kind: 'training', dan: 2 },
-  B: { kind: 'training', dan: 3 },
-  C: { kind: 'training', dan: 4 },
-  E: { kind: 'training', dan: 5 },
-  F: { kind: 'training', dan: 6 },
-  H: { kind: 'training', dan: 7 },
-  I: { kind: 'training', dan: 8 },
-  J: { kind: 'training', dan: 9 },
-  L: { kind: 'training', dan: 12 },
-  M: { kind: 'training', dan: 13 },
+  G: { kind: 'gym' },
   T: { kind: 'stairs' },
 };
 
-/** 읽는 순서(위→아래, 왼→오른): 훈련 거리, 상점, ← 물가, 사막 →, ↓ 초원 */
-export const TOWN_SIGNS: string[] = ['훈련 거리 · 구구단 연습', '상점 · 캡슐과 회복약', '← 물가', '사막 →', '↓ 초원'];
+/** 읽는 순서(위→아래, 왼→오른): 체육관, 상점, ← 물가, 사막 →, ↓ 초원 */
+export const TOWN_SIGNS: string[] = ['체육관 · 구구단 도전', '상점 · 캡슐과 회복약', '← 물가', '사막 →', '↓ 초원'];
 
 export const TOWN_EXITS = { '<': 'waterside', '>': 'desert', v: 'meadow' } as const;

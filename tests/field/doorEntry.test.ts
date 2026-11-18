@@ -1,26 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { doorAction, doorFront, lockedText } from '../../src/domain/field/doorEntry';
+import { doorAction, doorFront } from '../../src/domain/field/doorEntry';
 import { emptyTraining } from '../../src/domain/field/training';
 import { STAIRS_OPEN_AFTER_DAN } from '../../src/domain/field/tuning';
 import type { FieldDoor, FieldMap } from '../../src/domain/field/movement';
 
-const door = (kind: FieldDoor['kind'], dan?: FieldDoor['dan']): FieldDoor => ({ pos: { x: 4, y: 2 }, kind, ...(dan ? { dan } : {}) });
+const door = (kind: FieldDoor['kind']): FieldDoor => ({ pos: { x: 4, y: 2 }, kind });
 
 describe('doorAction', () => {
   it('상점 문은 팝업', () => {
     expect(doorAction(door('shop'), emptyTraining())).toEqual({ type: 'shop' });
   });
-  it('열린 단은 들어간다', () => {
-    expect(doorAction(door('training', 2), emptyTraining())).toEqual({ type: 'enter', to: '/field/training/2' });
-  });
-  it('잠긴 단은 앞 단 마스터 안내', () => {
-    expect(doorAction(door('training', 3), emptyTraining())).toEqual({ type: 'locked', text: '2단을 먼저 마스터해요' });
-    expect(lockedText(12)).toBe('9단을 먼저 마스터해요');
-    expect(lockedText(13)).toBe('12단을 먼저 마스터해요');
-  });
-  it('앞 단을 마스터하면 열린다', () => {
-    const t = { ...emptyTraining(), mastered: { 2: { bestMs: 1, at: 1 } } as never };
-    expect(doorAction(door('training', 3), t)).toEqual({ type: 'enter', to: '/field/training/3' });
+  it('체육관 문은 늘 열려서 체육관 지도로 간다', () => {
+    expect(doorAction(door('gym'), emptyTraining())).toEqual({ type: 'gym' });
   });
   it('계단 문', () => {
     const a = doorAction(door('stairs'), emptyTraining());

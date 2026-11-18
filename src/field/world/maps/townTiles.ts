@@ -1,5 +1,5 @@
 // 태초마을 타일 그림 — 초원·물가·사막 그림을 빌려 와 한 마을로 어울리게 놓는다 (마을 지도 묶음에서만 내려받는다)
-import type { FieldMap } from '../../../domain/field/movement';
+import type { FieldDoor, FieldMap } from '../../../domain/field/movement';
 import { SHARED_ARTS, exitArrow, onBorder, type PixelArt, recolor, type TileSet } from '../../art/pixelArt';
 import { MEADOW_TILES } from './meadowTiles';
 import { WATERSIDE_TILES } from './watersideTiles';
@@ -36,32 +36,95 @@ const shopDoor = overlay(blank, WALL, (x, y) => {
   }
   return null;
 });
-// 훈련 건물: 초록 지붕 · 벽 윗단에 초록 띠 · 청록 문 위에 노란 팻말. 계단 건물: 보랏빛 지붕 · 돌벽 · 계단 문
-const TRAIN_PAL = { g: '#3fae5a', G: '#277a3e', t: '#3f8f9a', T: '#2b6670', y: '#ffd23a', s: '#b8b8c4', S: '#7f7f92' };
-const trainWall = overlay(blank, { ...WALL, ...TRAIN_PAL }, (x, y) => {
+// 체육관: 큰 파란 지붕 · 흰 벽에 파란 띠와 창문 · 가운데 큰 문 위에 금빛 마크 · 문 옆 GYM 간판. 계단 건물: 보랏빛 지붕 · 돌벽 · 계단 문
+const GYM_PAL = { ...WALL, c: '#4f7fd6', C: '#2f56a8', t: '#3f6fc4', T: '#274f94', g: '#f2b632', G: '#c98a14' };
+const gymWall = overlay(blank, GYM_PAL, (_x, y) => {
   if (y === 15) return 'o';
-  if (y === 14) return 'W';
-  if (y <= 1) return y === 0 ? 'G' : 'g';
-  if (y >= 4 && y <= 9 && x >= 5 && x <= 10) return x === 5 || x === 10 || y === 4 || y === 9 ? 'k' : 'b';
+  if (y === 14) return 'C';
+  if (y === 13 || y === 12) return y === 13 ? 'c' : 'W';
   return null;
 });
-const trainDoor = overlay(blank, { ...WALL, ...TRAIN_PAL }, (x, y) => {
+// 창문이 있는 벽 칸
+const gymWallWin = overlay(blank, GYM_PAL, (x, y) => {
   if (y === 15) return 'o';
-  if (y <= 1) return y === 0 ? 'G' : 'g';
-  if (y >= 2 && y <= 4 && x >= 3 && x <= 12) return y === 2 || y === 4 || x === 3 || x === 12 ? 'k' : 'y'; // 팻말
-  if (x >= 4 && x <= 11 && y >= 6) {
-    if (x === 4 || x === 11 || y === 6) return 'k';
-    if (x === 9 && y === 11) return 'y';
-    return y % 5 === 2 || x === 7 || x === 8 ? 'T' : 't';
+  if (y === 14) return 'C';
+  if (y === 13 || y === 12) return y === 13 ? 'c' : 'W';
+  if (y >= 3 && y <= 9 && x >= 3 && x <= 12) return x === 3 || x === 12 || y === 3 || y === 9 || x === 7 || x === 8 ? 'k' : 'b';
+  return null;
+});
+// 큰 문: 위에 금빛 둥근 마크, 아래 파란 두 짝 문 (가운데 틈)
+const gymDoor = overlay(blank, GYM_PAL, (x, y) => {
+  if (y === 15) return 'o';
+  const d2 = (x - 7.5) ** 2 + (y - 2.4) ** 2;
+  if (y <= 4) return d2 <= 3.6 ? 'g' : d2 <= 7 ? 'G' : null; // 마크
+  if (x >= 2 && x <= 13 && y >= 5) {
+    if (x === 2 || x === 13 || y === 5) return 'k';
+    if (x === 7 || x === 8) return 'o';
+    if (x === 6 && y === 10) return 'y';
+    if (x === 9 && y === 10) return 'y';
+    return y % 5 === 0 ? 'T' : 't';
   }
   return null;
 });
-const stairsWall = overlay(blank, { ...WALL, ...TRAIN_PAL }, (x, y) => {
+/** 체육관 지붕: 3줄(맨 위·가운데·아래 처마) × 가장자리(왼·가운데·오른) × 기와 줄 엇갈림 */
+const gymRoofCache = new Map<string, PixelArt>();
+function gymRoof(row: 'top' | 'mid' | 'bot', edge: 'L' | 'M' | 'R', alt: 0 | 1): PixelArt {
+  const k = `${row}${edge}${alt}`;
+  let a = gymRoofCache.get(k);
+  if (!a) {
+    a = overlay(blank, { o: '#2a2540', R: '#4f7fd6', Q: '#2f56a8', H: '#7fa6ee', y: '#f2b632', w: '#4f7fd6' }, (x, y) => {
+      if (edge === 'L' && x === 0) return 'o';
+      if (edge === 'R' && x === 15) return 'o';
+      if (row === 'top') {
+        if (y === 0) return 'o';
+        if (y === 1) return 'y'; // 금빛 마루
+      }
+      if (row === 'bot') {
+        if (y === 15) return 'o';
+        if (y === 14) return 'y';
+        if (y === 13) return 'Q';
+      }
+      if (y % 4 === 3) return 'Q';
+      if ((x + 8 * ((y >> 2) % 2) + 8 * alt) % 16 === 0) return 'Q';
+      return y % 4 === 0 ? 'H' : 'R';
+    });
+    gymRoofCache.set(k, a);
+  }
+  return a;
+}
+const gymRoofL = gymRoof('mid', 'L', 0);
+const gymRoofR = gymRoof('mid', 'R', 0);
+// GYM 간판: 갈색 판에 흰 글자 (표지판 칸 위에 덧그린다). 글자 한 칸 3×5, 사이 1칸
+const GYM_LETTERS = {
+  G: ['www', 'w..', 'w.w', 'w.w', 'www'],
+  Y: ['w.w', 'w.w', '.w.', '.w.', '.w.'],
+  M: ['w.w', 'www', 'www', 'w.w', 'w.w'],
+};
+function gymSignChar(x: number, y: number): string {
+  if (y === 2 || y === 9) return x >= 1 && x <= 14 ? 'o' : '.';
+  if (y >= 3 && y <= 8) {
+    if (x === 1 || x === 14) return 'o';
+    if (x < 1 || x > 14) return '.';
+    if (y === 8) return 'N'; // 판 아랫단 그늘
+    const slot = Math.floor((x - 2) / 4);
+    const col = (x - 2) % 4;
+    if (slot <= 2 && col < 3) return GYM_LETTERS[(['G', 'Y', 'M'] as const)[slot]][y - 3][col] === 'w' ? 'w' : 'n';
+    return 'n';
+  }
+  if (y >= 10 && y <= 13) return x >= 6 && x <= 9 ? (x === 6 || x === 9 ? 'o' : 'N') : '.'; // 기둥
+  return '.';
+}
+const gymSign: PixelArt = {
+  palette: { o: '#3a2614', n: '#a8703e', N: '#7d5028', w: '#fff4dc' },
+  rows: Array.from({ length: 16 }, (_, y) => Array.from({ length: 16 }, (_, x) => gymSignChar(x, y)).join('')),
+};
+const STAIRS_PAL = { s: '#b8b8c4', S: '#7f7f92', y: '#ffd23a' };
+const stairsWall = overlay(blank, { ...WALL, ...STAIRS_PAL }, (x, y) => {
   if (y === 15) return 'o';
   return (x + (y >> 2)) % 5 === 0 ? 'S' : 's';
 });
 // 계단 문: 어두운 입구 안에 올라가는 계단 디딤판
-const stairsDoor = overlay(blank, { ...WALL, ...TRAIN_PAL, d: '#2a2336' }, (x, y) => {
+const stairsDoor = overlay(blank, { ...WALL, ...STAIRS_PAL, d: '#2a2336' }, (x, y) => {
   if (y === 15) return 'o';
   if (x < 3 || x > 12) return (x + (y >> 2)) % 5 === 0 ? 'S' : 's';
   if (y >= 3 && y <= 14) {
@@ -71,7 +134,6 @@ const stairsDoor = overlay(blank, { ...WALL, ...TRAIN_PAL, d: '#2a2336' }, (x, y
   }
   return 'S';
 });
-const TRAIN_ROOF = { R: '#3fae5a', Q: '#277a3e' };
 const STAIRS_ROOF = { R: '#8a78c8', Q: '#5f4f9a' };
 const GOLD = { R: '#f2b632', Q: '#c98a14' };
 // 울타리: 풀 바탕에 말뚝과 가로대
@@ -81,11 +143,9 @@ const fence = overlay(M.ground, { n: '#c9985a', N: '#8d5a2b' }, (x, y) => {
   return null;
 });
 
-const arts = { shopWall, shopDoor, trainWall, trainDoor, stairsWall, stairsDoor, fence, ...M, bankSand, waterA, waterB, bank, desertSand };
+const arts = { shopWall, shopDoor, gymWall, gymWallWin, gymDoor, gymSign, gymRoofL, gymRoofR, stairsWall, stairsDoor, fence, ...M, bankSand, waterA, waterB, bank, desertSand };
 
-/** 건물 칸에서 이 건물 문까지 최대 거리(5칸 폭 건물의 가운데 문 + 끝에 남는 칸) */
-const NEAR_DOOR_MAX = 3;
-const DOOR_ART = { shop: shopDoor, training: trainDoor, stairs: stairsDoor };
+const DOOR_ART = { shop: shopDoor, gym: gymDoor, stairs: stairsDoor };
 const isHash = (map: FieldMap, x: number, y: number) => map.raw[y]?.[x] === '#' && !onBorder(map, x, y);
 const isWaterRaw = (map: FieldMap, x: number, y: number) => map.raw[y]?.[x] === '~';
 
@@ -101,34 +161,50 @@ function run(map: FieldMap, x: number, y: number): { left: number; width: number
   return { left, width: right - left + 1 };
 }
 
+/** 체육관 벽 줄에서 창문이 있는 칸(건물 왼쪽 끝에서 센 번호): 문(5번) 양옆 두 칸씩 */
+const GYM_WINDOWS = [1, 3, 7, 9];
+
 function building(map: FieldMap, x: number, y: number): PixelArt[] {
   const { left, width } = run(map, x, y);
   const roofRow = isBld(map, x, y + 1);
-  // 지붕 줄이면 바로 아랫줄, 벽 줄이면 이 줄에 문이 있는 건물의 종류(상점·훈련·계단)
-  const doorRow = roofRow ? y + 1 : y;
-  // 훈련 건물은 문 글자 하나가 5칸 폭 건물의 가운데: 이 칸에서 가장 가까운 문(3칸 안)이 이 건물 것
-  let kind: 'shop' | 'training' | 'stairs' | null = null;
-  let best = NEAR_DOOR_MAX + 1;
+  // 이 칸에서 아래로 이어진 건물 줄의 맨 아래가 문이 있는 벽 줄 (지붕은 그 위로 한 줄 이상)
+  let doorRow = y;
+  while (isBld(map, x, doorRow + 1)) doorRow++;
+  // 한 건물 덩어리에는 문이 하나: 그 문 종류가 건물 종류 (문 없는 집은 null)
+  let kind: FieldDoor['kind'] | null = null;
   for (let i = left; i < left + width; i++) {
     const door = TOWN_DOORS[map.raw[doorRow][i]];
-    if (!door) continue;
-    if (door.kind === 'shop') kind = 'shop';
-    else if (kind !== 'shop' && Math.abs(i - x) < best) {
-      best = Math.abs(i - x);
-      kind = door.kind;
-    }
+    if (door) kind = door.kind;
   }
   const right = (x - left) % 2 === 1;
+  if (kind === 'gym') {
+    const edge = x === left ? 'L' : x === left + width - 1 ? 'R' : 'M';
+    if (roofRow) return [gymRoof(!isBld(map, x, y - 1) ? 'top' : y === doorRow - 1 ? 'bot' : 'mid', edge, (x - left) % 2 === 1 ? 1 : 0)];
+    return [GYM_WINDOWS.includes(x - left) ? gymWallWin : gymWall]; // 문 양옆에 창문 둘씩
+  }
   if (roofRow) {
     if (kind === 'shop') return [recolor(right ? M.roofRedR : M.roofRedL, GOLD)];
-    if (kind === 'training') return [recolor(right ? M.roofRedR : M.roofRedL, TRAIN_ROOF)];
     if (kind === 'stairs') return [recolor(right ? M.roofRedR : M.roofRedL, STAIRS_ROOF)];
     return [left > 8 ? (right ? M.roofBlueR : M.roofBlueL) : right ? M.roofRedR : M.roofRedL];
   }
   if (kind === 'shop') return [shopWall];
-  if (kind === 'training') return [trainWall];
   if (kind === 'stairs') return [stairsWall];
   return [x === left ? M.wallL : M.wallR];
+}
+
+/** 체육관 문 앞의 넓은 모래길: 문 양옆 3칸, 문 앞 두 줄 */
+const FRONT_HALF_W = 3;
+const FRONT_ROWS = 2;
+function frontGround(map: FieldMap, x: number, y: number): PixelArt {
+  const gym = map.doors.find((d) => d.kind === 'gym');
+  const sandy = !!gym && Math.abs(x - gym.pos.x) <= FRONT_HALF_W && y > gym.pos.y && y <= gym.pos.y + FRONT_ROWS;
+  return sandy ? desertSand : M.dirt;
+}
+
+/** 체육관 문 바로 앞 줄에서 문 옆(5칸 안, 길 가장자리 밖)에 세운 간판 칸인가 */
+const SIGN_NEAR = 5;
+function nearGymDoor(map: FieldMap, x: number, y: number): boolean {
+  return map.doors.some((d) => d.kind === 'gym' && d.pos.y + 1 === y && Math.abs(d.pos.x - x) <= SIGN_NEAR);
 }
 
 export const TOWN_TILES: TileSet = {
@@ -147,7 +223,7 @@ export const TOWN_TILES: TileSet = {
       case '*':
         return [M.flowers];
       case 'S':
-        return [M.dirt, SHARED_ARTS.sign];
+        return nearGymDoor(map, x, y) ? [frontGround(map, x, y), gymSign] : [M.dirt, SHARED_ARTS.sign];
       case '<':
       case '>':
       case '^':
@@ -160,7 +236,8 @@ export const TOWN_TILES: TileSet = {
         return isHash(map, x - 1, y) || isHash(map, x + 1, y) ? [fence] : [M.tree];
       }
       default:
-        return isDoorChar(ch) ? [DOOR_ART[TOWN_DOORS[ch].kind]] : [M.dirt]; // 문 글자 / '.' '@'
+        if (isDoorChar(ch)) return [DOOR_ART[TOWN_DOORS[ch].kind]];
+        return [frontGround(map, x, y)]; // '.' '@'
     }
   },
 };

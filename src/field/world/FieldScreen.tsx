@@ -505,6 +505,11 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
                 } else if (act.type === 'locked') {
                   s.signOpen = true;
                   setSignText(act.text);
+                } else if (act.type === 'gym') {
+                  // 체육관 문: 출구를 지날 때처럼 더 걷지 않고 체육관 지도로 (도착은 체육관 입구, 나올 때는 이 문 앞 칸)
+                  leaveBattleReturn();
+                  s.frozen = true;
+                  onExitRef.current('gym');
                 } else {
                   // 건물 안으로: 돌아오면 문 앞 칸에 서도록 자리를 정해 두고 (내려갈 때 저장됨) 이동
                   const f = doorFront(map, door);
@@ -562,7 +567,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
         ...(compSheet ? { lift: 0 } : {}),
       };
       const sprites = s.roamers.length > 0 ? buildSprites(s.roamers, (r) => useGameStore.getState().field.species[r.species]?.stage ?? 1, now) : undefined;
-      const cam = drawField(ctx, map, view, hero, comp, { now, step: stepT }, sprites, useGameStore.getState().field.training.mastered);
+      const cam = drawField(ctx, map, view, hero, comp, { now, step: stepT }, sprites);
       s.camX = cam.cx;
       s.camY = cam.cy;
       s.tile = view.tile;

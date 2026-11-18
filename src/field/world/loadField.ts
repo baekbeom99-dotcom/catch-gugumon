@@ -17,6 +17,16 @@ export const DEFAULT_LOADERS: FieldLoaders = {
       registerTileSet('town', t.TOWN_TILES);
       return parseMap('town', m.TOWN_ROWS, { exits: m.TOWN_EXITS, signTexts: m.TOWN_SIGNS, doorChars: m.TOWN_DOORS });
     }),
+  gym: () =>
+    Promise.all([import('./maps/gym'), import('./maps/gymTiles')]).then(([m, t]) => {
+      registerTileSet('gym', t.GYM_TILES);
+      return parseMap('gym', m.GYM_ROWS, {
+        exits: m.GYM_EXITS,
+        signTexts: m.GYM_SIGNS,
+        npcs: m.GYM_NPCS.map((n) => ({ id: n.id, pos: n.pos })),
+        statues: m.GYM_STATUES,
+      });
+    }),
   meadow: () =>
     import('./maps/meadow').then((m) => {
       registerTileSet('meadow', m.MEADOW_TILES);

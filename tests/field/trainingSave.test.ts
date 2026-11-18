@@ -111,6 +111,13 @@ describe('트레이닝 저장 데이터', () => {
     expect(mergeField(initialField(), meadow, 4).position).toEqual({ map: 'meadow', x: 5, y: 7, facing: 'down' });
   });
 
+  it('체육관 안에서 저장한 자리(map: gym)도 읽히고, 옛 저장 이동 대상이 아니다', () => {
+    const inGym = { ...initialField(), position: { map: 'gym', x: 7, y: 18, facing: 'up' } };
+    expect(mergeField(initialField(), inGym, 4).position).toEqual({ map: 'gym', x: 7, y: 18, facing: 'up' });
+    // training 칸이 없는 옛 저장 모양이어도 마을이 아니면 밀지 않는다
+    expect(mergeField(initialField(), oldField({ map: 'gym', x: 7, y: 18, facing: 'up' }), 4).position).toEqual({ map: 'gym', x: 7, y: 18, facing: 'up' });
+  });
+
   it('(b) 이미 옮긴 저장(training 있음)은 다시 합쳐도 두 번 옮기지 않는다', () => {
     const once = mergeField(initialField(), oldField({ map: 'town', x: 5, y: 7, facing: 'down' }), 4);
     expect(once.position.y).toBe(11);
