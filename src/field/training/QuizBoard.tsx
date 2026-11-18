@@ -6,7 +6,7 @@ import { useEffect, useState, type CSSProperties, type ReactNode } from 'react';
 import { creatureSprite, speciesColor } from '../art/creatureSprite';
 import type { SpeciesId } from '../../domain/field/creatures';
 import { useGameStore } from '../../store/useGameStore';
-import type { BoardQuestion } from './boardQuestion';
+import { spokenLabel, type BoardQuestion } from './boardQuestion';
 import { trainingText } from './trainingText';
 import type { TrainingFx } from './useTrainingFx';
 
@@ -70,7 +70,7 @@ export function QuizBoard({ title, species, question, total, solved, fx, badge, 
         className={`training__question ${question.label.length > 8 ? 'training__question--long' : ''}`}
         data-key={question.key}
         data-multiplier={question.multiplier}
-        aria-label={`${question.label}${question.label.includes('?') ? '' : ' = ?'}`}
+        aria-label={spokenLabel(question)}
       >
         <span>{question.label}</span>
         {!question.label.includes('?') && (

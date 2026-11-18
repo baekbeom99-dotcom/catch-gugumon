@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { companionStart, type Dir, type FieldMap, type StepResult, safeStartPosition, tryStep } from '../../domain/field/movement';
 import { doorAction, doorFront } from '../../domain/field/doorEntry';
+import { isNpcMastered, npcKey, talkAction } from '../../domain/field/gymTalk';
+import { isStarPointsEnabled } from '../../config/featureFlags';
 import { displayName } from '../../domain/field/growth';
 import { useSessionStore } from '../../store/useSessionStore';
 import type { FieldNotice } from '../../store/fieldData';
@@ -10,6 +12,7 @@ import { companionImage, companionSheet, sheetFrame } from '../art/companionImag
 import { artBox, creatureArt } from '../art/creatureArt';
 import { bodyRatio } from '../art/shadow';
 import { HERO_ART } from '../art/localSprites';
+import { type NpcSprite, npcPicture } from '../art/npcSprite';
 import { type SheetDir, cellBox, dirFromDelta } from '../art/spriteSheet';
 import { STAGE_SCALE } from '../art/creatureSprite';
 import { playFx, preloadFx, prefersReducedMotion } from '../fx/playFx';
@@ -32,6 +35,7 @@ import { FieldLoading } from './FieldLoading';
 import type { SavedPosition } from './loadField';
 import { OFFLINE_MESSAGE, getLoadedField, loadField, travelTo, warpTo } from './loadField';
 import { FieldHud } from './FieldHud';
+import { GYM_NPCS } from './maps/gym';
 import { TILE_PX } from './padDirection';
 import { bubblePosition, buildSprites, playerPose, roamerAt, tileAtScreen } from './roamerLayer';
 import { enterField, leaveBattleReturn, useFieldSession } from '../useFieldSession';
@@ -495,7 +499,22 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
               s.lastBump = { key, dir: h };
               const sign = map.signs.find((g) => g.pos.x === b.x && g.pos.y === b.y);
               const door = map.doors.find((d) => d.pos.x === b.x && d.pos.y === b.y);
-              if (!sign && !door) pokeRef.current(b);
+              // 체육관: NPC·동상에 부딪힘 = 말 걸기
+              const gymNpc = map.id === 'gym' ? GYM_NPCS.find((n) => n.pos.x === b.x && n.pos.y === b.y) : undefined;
+              const statue = map.id === 'gym' && map.statues.some((p) => p.x === b.x && p.y === b.y);
+              if (gymNpc || statue) {
+                const act = talkAction(gymNpc ?? 'statue', useGameStore.getState().field.training, isStarPointsEnabled());
+                if (act.type === 'locked') {
+                  s.signOpen = true;
+                  setSignText(act.text);
+                } else if (act.type === 'enter') {
+                  // 이 자리(NPC 앞 칸, 그쪽을 바라봄)를 저장해 두고 이동 — 돌아오면 그 자리에 선다
+                  s.facing = h;
+                  s.frozen = true;
+                  save();
+                  navigateRef.current(act.to);
+                }
+              } else if (!sign && !door) pokeRef.current(b);
               else if (!sign && door) {
                 const act = doorAction(door, useGameStore.getState().field.training);
                 if (act.type === 'shop') {
@@ -566,8 +585,10 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
         // 시트 그림은 걷기 동작에 이미 통통함이 있으니 위로 뜨는 높이는 정지 그림에만 준다
         ...(compSheet ? { lift: 0 } : {}),
       };
+      const npcSprites: NpcSprite[] =
+        map.id === 'gym' ? GYM_NPCS.map((n) => ({ id: n.id, x: n.pos.x, y: n.pos.y, pic: npcPicture(n.id, n.tint, isNpcMastered(n, game.field.training), now) })) : [];
       const sprites = s.roamers.length > 0 ? buildSprites(s.roamers, (r) => useGameStore.getState().field.species[r.species]?.stage ?? 1, now) : undefined;
-      const cam = drawField(ctx, map, view, hero, comp, { now, step: stepT }, sprites);
+      const cam = drawField(ctx, map, view, hero, comp, { now, step: stepT }, sprites, npcSprites);
       s.camX = cam.cx;
       s.camY = cam.cy;
       s.tile = view.tile;
@@ -584,6 +605,8 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
           el.style.top = `${pos.top}px`;
         }
       }
+      canvas.dataset.map = map.id; // 지금 있는 지도 (E2E용)
+      if (map.id === 'gym') canvas.dataset.npcs = GYM_NPCS.map((n) => `${npcKey(n)}:${isNpcMastered(n, game.field.training) ? 1 : 0}`).join(','); // NPC마다 마스터 여부 1·0 (E2E용)
       canvas.dataset.pos = `${s.x},${s.y}`;
       canvas.dataset.companionPos = `${s.cx},${s.cy}`;
       canvas.dataset.companion = compId; // 지금 함께 다니는 구구몬 (E2E용)
@@ -663,7 +686,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
             {notice}
           </div>
         )}
-        {!notice && companionDown && map.id !== 'town' && (
+        {!notice && companionDown && map.id !== 'town' && map.id !== 'gym' && (
           <div className="fieldmode__notice fieldmode__notice--down" role="status">
             {battleText.faintedField}
           </div>

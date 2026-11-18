@@ -49,3 +49,13 @@ describe('BoardQuestion 글자 모양', () => {
     expect(b.dan).toBeUndefined();
   });
 });
+
+describe('spokenLabel (읽는 글)', () => {
+  it('구구단·덧셈·뺄셈·보수를 우리말로 읽는다', async () => {
+    const { spokenLabel } = await import('../../src/field/training/boardQuestion');
+    expect(spokenLabel({ label: '7 × 8', dan: 7, multiplier: 8 })).toBe('7 곱하기 8은?');
+    expect(spokenLabel({ label: '7 + 8' })).toBe('7 더하기 8은?');
+    expect(spokenLabel({ label: '53 − 8' })).toBe('53 빼기 8은?');
+    expect(spokenLabel({ label: '7 + ? = 10' })).toBe('7 더하기 몇은 10?');
+  });
+});

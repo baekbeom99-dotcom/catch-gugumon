@@ -5,8 +5,8 @@
  */
 import { useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { ARITH_LEVEL_LABELS, type ArithLevel } from '../../domain/arith';
-import { ARITH_TRAINER_LEVELS, ARITH_TRAINER_MASTER_MS } from '../../domain/field/tuning';
+import type { ArithLevel } from '../../domain/arith';
+import { ARITH_TRAINER_LEVELS, ARITH_TRAINER_MASTER_MS, ARITH_TRAINER_QUESTIONS } from '../../domain/field/tuning';
 import { planArithTrainer } from '../../domain/field/arithTrainer';
 import { useGameStore } from '../../store/useGameStore';
 import { pickCompanion } from '../companion';
@@ -82,7 +82,7 @@ function ArithTrainer({ level }: { level: ArithLevel }) {
       <div className="training__menu">
         <button type="button" className="btn btn--primary training__mode" data-testid="arith-challenge-btn" onClick={start}>
           <strong>{trainingText.challengeButton}</strong>
-          <small>{`${ARITH_LEVEL_LABELS[level]} 문제 9개를 모두 맞혀요`}</small>
+          <small>{trainingText.arithHint(level, ARITH_TRAINER_QUESTIONS)}</small>
         </button>
       </div>
       <div className="training__entry-actions">

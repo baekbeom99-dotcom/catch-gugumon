@@ -774,7 +774,7 @@ test('처음 필드는 첫 구구몬 고르기로 가고, 고르면 태초마을
 
 // ── 상점 팝업 ──
 
-// 저장본 자리는 옛 마을(상점 문 8,24 · 앞 8,25)로 적고, 훈련 거리 줄(TOWN_ROWS_ADDED=9)만큼 저절로 밀린다
+// 저장본 자리는 옛 마을(상점 문 8,24 · 앞 8,25)로 적고, 마을 위쪽 구역(체육관 건물) 줄(TOWN_ROWS_ADDED=9)만큼 저절로 밀린다
 /** 마을 상점 문(8,33) 바로 아래 (8,34)에서 위를 보고 선 저장본. extra로 필드 저장을 덧붙인다 */
 async function standAtShopDoor(page: Page, extra: { species?: Record<string, unknown>; field?: Record<string, unknown> } = {}) {
   await seedStarter(page);
@@ -1395,7 +1395,7 @@ async function seedTownRoam(page: Page, at: { x: number; y: number }, facing: st
     [{ map: 'town', ...at, facing }, extra.c034 ?? {}] as const,
   );
   await page.goto('/#/field');
-  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', `${at.x},${at.y + R}`); // 옛 저장 자리는 훈련 거리 줄(R)만큼 밀려 읽힌다
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', `${at.x},${at.y + R}`); // 옛 저장 자리는 마을 위쪽 구역(체육관 건물) 줄(R)만큼 밀려 읽힌다
 }
 
 test('마을에서는 잡은 구구몬(동행 빼고)이 자기 서식지에서 돌아다닌다', async ({ page }) => {

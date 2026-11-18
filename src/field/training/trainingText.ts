@@ -42,7 +42,9 @@ export const trainingText = {
 
   /** 셈연습 트레이너 (입구 간판·위쪽 글) */
   arithName: (level: ArithLevel) => `${ARITH_LEVEL_LABELS[level]} 트레이너`,
-  arithHint: '9문제를 모두 맞혀요',
+  arithHint: (level: ArithLevel, count: number) => `${ARITH_LEVEL_LABELS[level]} 문제 ${count}개를 모두 맞혀요`,
+  /** 걸린 시간 글 */
+  elapsed: (ms: number) => `걸린 시간 ${(Math.max(0, ms) / 1000).toFixed(1)}초`,
   /** 동상 */
   statueTitle: '동상의 문제',
   statueDone: '동상의 문제를 모두 풀었어요!',
@@ -58,7 +60,7 @@ export const trainingText = {
     let newBestIndex: number | null = null;
     if (result === 'pass') {
       title = `${name} 마스터!`;
-      if (timeMs !== undefined) lines.push(`걸린 시간 ${trainingText.seconds(timeMs)}`);
+      if (timeMs !== undefined) lines.push(trainingText.elapsed(timeMs));
       if (outcome.newBest) {
         newBestIndex = lines.length;
         lines.push('새 기록!');
@@ -86,7 +88,7 @@ export const trainingText = {
     } else if (result === 'pass') {
       title = `${dan}단 마스터!`;
       lines.push('지붕에 숫자가 켜졌어요');
-      if (timeMs !== undefined) lines.push(`걸린 시간 ${trainingText.seconds(timeMs)}`);
+      if (timeMs !== undefined) lines.push(trainingText.elapsed(timeMs));
       if (outcome.newBest) {
         newBestIndex = lines.length;
         lines.push('새 기록!');

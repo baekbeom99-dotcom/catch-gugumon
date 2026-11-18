@@ -1,4 +1,4 @@
-/** 트레이닝센터: 마을 훈련 거리 → 건물 문 → 학습 → 마스터 도전 → 결과·보상·저장, 12·13단 레전드, 계단 건물, 퀴즈 모험 끄기 */
+/** 트레이닝센터: 체육관 트레이너 말 걸기 → 학습 → 마스터 도전 → 결과·보상·저장, 12·13단 레전드, 계단 건물, 퀴즈 모험 끄기 */
 import type { Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { collectErrors } from './helpers';
@@ -26,14 +26,14 @@ function trainingOf(masteredDans: number[], studiedDans: number[] = masteredDans
 }
 
 /** 페이지가 열리기 전에 저장본을 넣는다 (이미 저장이 있으면 그대로 — 새로고침해도 진행이 남는다) */
-async function seed(page: Page, opts: { training?: Training; pos?: { x: number; y: number; facing: string }; noTimer?: boolean } = {}) {
+async function seed(page: Page, opts: { training?: Training; map?: 'town' | 'gym'; pos?: { x: number; y: number; facing: string }; noTimer?: boolean } = {}) {
   const field = {
     starterChosen: true,
     companion: 'c034',
     species: { c034: { level: 5, exp: 0, stage: 1, caught: 1, firstCaughtAt: 1, skills: ['c034-1'] } },
     seen: ['c034'],
     training: opts.training ?? { studied: {}, mastered: {}, legendGranted: {} },
-    position: { map: 'town', ...(opts.pos ?? { x: 2, y: 3, facing: 'up' }) },
+    position: { map: opts.map ?? 'town', ...(opts.pos ?? { x: 9, y: 5, facing: 'up' }) },
   };
   await page.addInitScript(
     ({ f, noTimer }) => {
@@ -83,11 +83,23 @@ async function openTraining(page: Page, dan: number) {
   await expect(page.getByTestId('training-entry')).toBeVisible();
 }
 
-test('마을에 훈련 거리가 있고 2단 건물 문에 부딪히면 2단 트레이닝센터로 들어간다', async ({ page }) => {
+test('마을 체육관 문으로 들어가 2단 트레이너에게 말을 걸면 2단 트레이닝센터로 들어간다', async ({ page }) => {
   const errors = collectErrors(page);
-  await seed(page);
+  await seed(page, { map: 'town', pos: { x: 9, y: 5, facing: 'up' } });
   await page.goto('/#/field');
-  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '2,3'); // 훈련 거리(맨 위쪽)의 2단 문 앞
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '9,5'); // 체육관 문 앞
+  await page.keyboard.down('ArrowUp');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-map', 'gym');
+  await page.keyboard.up('ArrowUp');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '7,18'); // 체육관 입구
+  // 2단 트레이너(11,15) 앞 칸으로 저장 자리를 옮겨 둔 것처럼 다시 연다
+  await page.evaluate(() => {
+    const raw = JSON.parse(localStorage.getItem('gugu-monster:save')!);
+    raw.state.field.position = { map: 'gym', x: 11, y: 16, facing: 'up' };
+    localStorage.setItem('gugu-monster:save', JSON.stringify(raw));
+  });
+  await page.reload();
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '11,16');
   await page.keyboard.down('ArrowUp');
   await expect(page).toHaveURL(/#\/field\/training\/2$/);
   await page.keyboard.up('ArrowUp');
@@ -96,12 +108,12 @@ test('마을에 훈련 거리가 있고 2단 건물 문에 부딪히면 2단 트
   expect(errors).toEqual([]);
 });
 
-test('잠긴 3단 문에 부딪히면 "2단을 먼저 마스터해요"가 뜨고 들어가지 않는다', async ({ page }) => {
-  await seed(page, { pos: { x: 5, y: 3, facing: 'up' } });
+test('잠긴 3단 트레이너에게 말을 걸면 "2단 트레이너를 먼저 이겨요"가 뜨고 들어가지 않는다', async ({ page }) => {
+  await seed(page, { map: 'gym', pos: { x: 3, y: 15, facing: 'up' } });
   await page.goto('/#/field');
-  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '5,3');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '3,15');
   await page.keyboard.down('ArrowUp');
-  await expect(page.getByRole('dialog', { name: '표지판' })).toContainText('2단을 먼저 마스터해요');
+  await expect(page.getByRole('dialog', { name: '표지판' })).toContainText('2단 트레이너를 먼저 이겨요');
   await page.keyboard.up('ArrowUp');
   await expect(page).toHaveURL(/#\/field$/);
   // 주소로 직접 가도 닫힌 단은 마을로 돌려보낸다

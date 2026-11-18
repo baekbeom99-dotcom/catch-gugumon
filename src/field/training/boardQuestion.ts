@@ -29,6 +29,18 @@ export function arithLabel(q: Pick<ArithQuestion, 'display'>): string {
   return `${n(d.a)} ${d.op} ${n(d.b)} = ${d.result}`;
 }
 
+/** 화면 읽기 프로그램용 읽는 글: 구구단 "7 곱하기 8은?", 덧셈 "7 더하기 8은?", 뺄셈 "53 빼기 8은?", 보수 "7 더하기 몇은 10?" */
+export function spokenLabel(q: Pick<BoardQuestion, 'label' | 'dan' | 'multiplier'>): string {
+  if (q.dan !== undefined && q.multiplier !== undefined) return `${q.dan} 곱하기 ${q.multiplier}은?`;
+  const m = /^(.+?) ([+−-]) (.+?)(?: = (\d+))?$/.exec(q.label);
+  if (!m) return q.label;
+  const [, a, op, b, result] = m;
+  const word = op === '+' ? '더하기' : '빼기';
+  if (a === '?') return `몇 ${word} ${b}은 ${result}?`;
+  if (b === '?') return `${a} ${word} 몇은 ${result}?`;
+  return `${a} ${word} ${b}은?`;
+}
+
 export function fromArith(q: ArithQuestion & { choices: number[] }): BoardQuestion {
   return { key: `a${q.a}${q.op}${q.b}`, label: arithLabel(q), answer: q.answer, choices: q.choices };
 }

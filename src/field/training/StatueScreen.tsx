@@ -76,7 +76,7 @@ function Statue() {
         <div className={`training__result-card ${allRight ? 'training__result-card--pass' : ''}`}>
           <h1 className="training__result-title">{trainingText.statueDone}</h1>
           <div className="training__result-lines">
-            <p>걸린 시간 {trainingText.seconds(done.timeMs)}</p>
+            <p>{trainingText.elapsed(done.timeMs)}</p>
             <p>{allRight ? trainingText.statueAllRight : trainingText.statueSomeWrong(done.outcome.mistakes)}</p>
             {done.outcome.stars > 0 && <p className="training__new-best">⭐ {trainingText.statueStars(done.outcome.stars)}</p>}
           </div>
