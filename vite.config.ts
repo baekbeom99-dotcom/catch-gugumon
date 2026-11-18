@@ -52,5 +52,7 @@ export default defineConfig({
   test: {
     include: ['tests/**/*.test.ts'],
     environment: 'node',
+    // 효과 재생 테스트(fxPlay)가 다른 파일과 동시에 돌면 효과 코드 받기가 늦어져 시간 초과가 나므로 파일을 하나씩 돌린다
+    fileParallelism: false,
   },
 });
