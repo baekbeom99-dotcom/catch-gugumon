@@ -4,6 +4,8 @@
  * 값을 바꾸면 tests/field/tuning.test.ts의 고정값도 함께 고치고, MVP_DESIGN.md 변경 이력에 한 줄 남긴다.
  */
 import type { SpecialKind } from './skills';
+import type { CapsuleType } from './capsules';
+import type { Dan } from '../facts';
 
 // ── 만남 ──
 /** 풀숲 한 걸음에 만날 확률 */
@@ -190,3 +192,28 @@ export const SPECIAL_SUCCESS: Record<SpecialKind, number> = {
 };
 /** 주②(두 번째 속성 기술)에 붙은 회복 효과의 성공 확률 — 특수 버튼의 회복(SPECIAL_SUCCESS.heal)보다 낮다. 실패해도 공격 칸은 그대로 들어간다 */
 export const M2_HEAL_SUCCESS = 0.5;
+
+// ── 트레이닝센터 ──
+/** 훈련할 수 있는 단 (10단은 없고 11·12·13단이 뒤에 이어진다) */
+export const TRAINING_DANS = [2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13] as const;
+export type TrainingDan = (typeof TRAINING_DANS)[number];
+/** 마스터 도전: 9문제를 모두 맞히고 이 시간(밀리초) 안에 끝내야 한다 */
+export const TRAINING_MASTER_MS = 27_000;
+/** 단을 마스터하면 받는 캡슐 개수 */
+export const TRAINING_CAPSULES = 5;
+/** 단을 마스터하면 받는 캡슐 종류 */
+export const TRAINING_CAPSULE_OF_DAN: Record<TrainingDan, CapsuleType> = {
+  2: 'meadow',
+  3: 'waterside',
+  4: 'meadow',
+  5: 'desert',
+  6: 'waterside',
+  7: 'desert',
+  8: 'meadow',
+  9: 'waterside',
+  11: 'legend',
+  12: 'legend',
+  13: 'legend',
+};
+/** 무한의 계단이 열리는 조건: 이 단을 마스터한 뒤 (null이면 항상 열림) */
+export const STAIRS_OPEN_AFTER_DAN: Dan | null = null;

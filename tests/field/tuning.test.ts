@@ -86,6 +86,23 @@ describe('필드 모험 운영 수치', () => {
       CATCH_CAP: 0.7,
       M2_HEAL_SUCCESS: 0.5,
       SPECIAL_SUCCESS: { heal: 0.9, guard: 0.9, stun: 0.5, clue: 0.8, calm: 0.8, charge: 0.7 },
+      TRAINING_DANS: [2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13],
+      TRAINING_MASTER_MS: 27_000,
+      TRAINING_CAPSULES: 5,
+      TRAINING_CAPSULE_OF_DAN: {
+        2: 'meadow',
+        3: 'waterside',
+        4: 'meadow',
+        5: 'desert',
+        6: 'waterside',
+        7: 'desert',
+        8: 'meadow',
+        9: 'waterside',
+        11: 'legend',
+        12: 'legend',
+        13: 'legend',
+      },
+      STAIRS_OPEN_AFTER_DAN: null,
     });
   });
 });
