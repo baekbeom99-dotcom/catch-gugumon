@@ -33,12 +33,13 @@ describe('지붕의 빛나는 숫자 자리', () => {
     expect(map.raw[q.y][q.x]).toBe('#');
   });
 
-  it('훈련 문 11개 모두: 위 타일이 지붕(#)이고 두 자리 단도 나온다', async () => {
+  it('훈련 문 10개 모두: 위 타일이 지붕(#)이고 두 자리 단도 나온다', async () => {
     const map = await loadField('town');
     const all = Object.fromEntries([2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13].map((d) => [d, 1]));
     const r = roofNumberRects(map, all);
-    expect(r).toHaveLength(11);
+    expect(r).toHaveLength(10);
     for (const q of r) expect(map.raw[q.y][q.x], `${q.dan}단`).toBe('#');
-    expect(r.map((q) => q.dan)).toEqual(expect.arrayContaining([11, 12, 13]));
+    expect(r.map((q) => q.dan)).toEqual(expect.arrayContaining([12, 13]));
+    expect(r.map((q) => q.dan)).not.toContain(11);
   });
 });

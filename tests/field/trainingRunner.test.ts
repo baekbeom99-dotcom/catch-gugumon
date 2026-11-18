@@ -88,4 +88,16 @@ describe('트레이닝 진행기', () => {
     expect(runner.getFlow().result).toBe('wrong');
     expect(runner.answer(1, true, 500)).toBe(false);
   });
+
+  it('학습한 단의 도전에서 틀리면 캡슐을 받지 않는다 (결과 capsules 0)', () => {
+    const s = useGameStore.getState();
+    useGameStore.setState({ field: { ...s.field, training: { ...s.field.training, studied: { 2: true } } } });
+    const { runner, done } = setup('challenge');
+    const c0 = capsules();
+    runner.answer(1, false, 500);
+    vi.advanceTimersByTime(TRAINING_RESULT_DELAY_MS);
+    expect(done).toHaveLength(1);
+    expect(done[0].outcome).toMatchObject({ ok: true, capsules: 0, mastered: false });
+    expect(capsules()).toBe(c0);
+  });
 });

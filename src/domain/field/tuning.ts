@@ -5,6 +5,8 @@
  */
 import type { SpecialKind } from './skills';
 import type { CapsuleType } from './capsules';
+import type { ArithLevel } from '../arith';
+import { PRACTICE_MASTER_SEC_PER_Q } from '../arithPractice';
 
 // ── 만남 ──
 /** 풀숲 한 걸음에 만날 확률 */
@@ -193,8 +195,8 @@ export const SPECIAL_SUCCESS: Record<SpecialKind, number> = {
 export const M2_HEAL_SUCCESS = 0.5;
 
 // ── 트레이닝센터 ──
-/** 훈련할 수 있는 단 (10단은 없고 11·12·13단이 뒤에 이어진다) */
-export const TRAINING_DANS = [2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13] as const;
+/** 훈련할 수 있는 단 (10·11단은 없고 9단 다음은 12·13단) */
+export const TRAINING_DANS = [2, 3, 4, 5, 6, 7, 8, 9, 12, 13] as const;
 export type TrainingDan = (typeof TRAINING_DANS)[number];
 /** 마스터 도전: 9문제를 모두 맞히고 이 시간(밀리초) 안에 끝내야 한다 */
 export const TRAINING_MASTER_MS = 27_000;
@@ -204,9 +206,11 @@ export const TRAINING_RESULT_DELAY_MS = 700;
 export const TRAINING_WARN_MS = 5000;
 /** 트레이닝 시계가 한 프레임에 셀 수 있는 최대 시간 (밀리초, 탭에 돌아온 직후 긴 틈을 한꺼번에 세지 않게) */
 export const TRAINING_MAX_FRAME_MS = 100;
-/** 단을 마스터하면 받는 캡슐 개수 */
+/** 성공(학습을 끝까지 마침·도전 합격)하면 받는 캡슐 개수. 도전에 실패하면 없다 */
 export const TRAINING_CAPSULES = 5;
-/** 단을 마스터하면 받는 캡슐 종류 */
+/** 그 단(셈연습은 그 단계)을 처음 마스터한 도전에서 받는 캡슐 개수 (5개를 더하지 않고 이것만) */
+export const TRAINING_FIRST_MASTER_CAPSULES = 20;
+/** 훈련 보상 캡슐 종류 (2~9단은 그 단이 나오는 필드, 12·13단은 황금) */
 export const TRAINING_CAPSULE_OF_DAN: Record<TrainingDan, CapsuleType> = {
   2: 'meadow',
   3: 'waterside',
@@ -216,12 +220,25 @@ export const TRAINING_CAPSULE_OF_DAN: Record<TrainingDan, CapsuleType> = {
   7: 'desert',
   8: 'meadow',
   9: 'waterside',
-  11: 'legend',
   12: 'legend',
   13: 'legend',
 };
 /** 무한의 계단이 열리는 조건: 이 단을 마스터한 뒤 (null이면 항상 열림) */
 export const STAIRS_OPEN_AFTER_DAN: TrainingDan | null = null;
+
+// ── 셈연습 트레이너 (마스터 도전만) ──
+/** 셈연습 트레이너 단계: 기본·고수·보수 (처음부터 모두 열림) */
+export const ARITH_TRAINER_LEVELS = ['basic', 'hard', 'comp'] as const satisfies readonly ArithLevel[];
+/** 셈연습 도전 문제 수 */
+export const ARITH_TRAINER_QUESTIONS = 9;
+/** 셈연습 마스터: 하나도 안 틀리고 이 시간(밀리초) 안에 (셈 연습 MASTER 기준과 같다 — 문제당 기본·보수 3초, 고수 5초) */
+export const ARITH_TRAINER_MASTER_MS: Record<ArithLevel, number> = {
+  basic: PRACTICE_MASTER_SEC_PER_Q.basic * ARITH_TRAINER_QUESTIONS * 1000,
+  hard: PRACTICE_MASTER_SEC_PER_Q.hard * ARITH_TRAINER_QUESTIONS * 1000,
+  comp: PRACTICE_MASTER_SEC_PER_Q.comp * ARITH_TRAINER_QUESTIONS * 1000,
+};
+/** 셈연습 보상 캡슐은 이 중에서 무작위 (황금은 없음) */
+export const ARITH_CAPSULE_CHOICES = ['meadow', 'waterside', 'desert'] as const satisfies readonly CapsuleType[];
 /**
  * 마을 지도 맨 위에 새로 넣은 줄 수 (트레이닝센터 거리: 새 줄 10 − 옛 맨 윗벽 1). 예전 저장의 마을 자리를 이만큼 아래로 옮긴다.
  */

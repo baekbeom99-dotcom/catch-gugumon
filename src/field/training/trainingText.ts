@@ -32,6 +32,8 @@ export const trainingText = {
   challengeRule: (seconds: number) => `틀리면 끝! ${seconds}초 안에 9문제`,
   seconds: (ms: number) => `${(Math.max(0, ms) / 1000).toFixed(1)}초`,
   capsuleGain: (n: number) => `캡슐 ${n}개 얻었어요`,
+  /** 처음 마스터했을 때의 캡슐 글 */
+  firstMasterGain: (n: number) => `처음 마스터 선물! 캡슐 ${n}개 얻었어요`,
   legendLine: (name: string, duplicate: boolean) =>
     duplicate ? `또 만났어요, ${name}! 더 튼튼해졌어요` : `새 친구 ${name}! 함께하게 됐어요`,
 
@@ -58,7 +60,9 @@ export const trainingText = {
       title = `${dan}단 시간이 다 됐어요`;
       lines.push('조금만 더 빨리! 다시 도전해 봐요!');
     }
-    if (outcome.ok && outcome.capsules > 0) lines.push(trainingText.capsuleGain(outcome.capsules));
+    // 캡슐은 성공했을 때만 (도전 실패는 capsules 0이라 글이 없다)
+    if (outcome.ok && outcome.capsules > 0)
+      lines.push(outcome.firstMaster ? trainingText.firstMasterGain(outcome.capsules) : trainingText.capsuleGain(outcome.capsules));
     return { title, lines, newBestIndex };
   },
 } as const;

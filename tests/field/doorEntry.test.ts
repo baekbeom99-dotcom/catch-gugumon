@@ -15,7 +15,8 @@ describe('doorAction', () => {
   });
   it('잠긴 단은 앞 단 마스터 안내', () => {
     expect(doorAction(door('training', 3), emptyTraining())).toEqual({ type: 'locked', text: '2단을 먼저 마스터해요' });
-    expect(lockedText(11)).toBe('9단을 먼저 마스터해요');
+    expect(lockedText(12)).toBe('9단을 먼저 마스터해요');
+    expect(lockedText(13)).toBe('12단을 먼저 마스터해요');
   });
   it('앞 단을 마스터하면 열린다', () => {
     const t = { ...emptyTraining(), mastered: { 2: { bestMs: 1, at: 1 } } as never };

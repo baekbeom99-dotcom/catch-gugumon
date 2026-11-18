@@ -1,6 +1,7 @@
 /**
  * 트레이닝센터 규칙 — 단 열림·학습/도전 문제·합격 판정·레전드 보상. React·저장소 없이 순수 계산만.
  */
+import type { ArithLevel } from '../arith';
 import { pickOne, seededRng, shuffle, type Rng } from '../random';
 import { LEGEND_SPECIES, type SpeciesId } from './speciesIds';
 import { STAIRS_OPEN_AFTER_DAN, TRAINING_DANS, TRAINING_MASTER_MS, type TrainingDan } from './tuning';
@@ -18,12 +19,17 @@ export type TrainingData = {
   studied: Partial<Record<TrainingDan, true>>;
   /** 마스터한 단과 최고 기록 */
   mastered: Partial<Record<TrainingDan, { bestMs: number; at: number }>>;
-  /** 12·13단 레전드 보상을 이미 받은 단 */
-  legendGranted: Partial<Record<12 | 13, SpeciesId>>;
+  /** 레전드 보상을 이미 받은 곳 (12·13단, 셈연습 고수) */
+  legendGranted: Partial<Record<LegendRewardKey, SpeciesId>>;
+  /** 셈연습 트레이너: 마스터한 단계와 최고 기록 */
+  arith: Partial<Record<ArithLevel, { bestMs: number; at: number }>>;
 };
 
+/** 레전드 구구몬을 한 번씩 주는 곳: 12단·13단 첫 마스터, 셈연습 고수 첫 마스터 */
+export type LegendRewardKey = 12 | 13 | 'arithHard';
+
 export function emptyTraining(): TrainingData {
-  return { studied: {}, mastered: {}, legendGranted: {} };
+  return { studied: {}, mastered: {}, legendGranted: {}, arith: {} };
 }
 
 function asTrainingDan(dan: number): TrainingDan | null {
@@ -43,6 +49,12 @@ export function isTrainingOpen(t: TrainingData, dan: number): boolean {
 export function isChallengeOpen(t: TrainingData, dan: number): boolean {
   const d = asTrainingDan(dan);
   return d !== null && isTrainingOpen(t, d) && t.studied[d] === true;
+}
+
+/** 아직 이 단을 마스터한 적이 없는가 (이번 합격이 첫 마스터면 캡슐 20개) */
+export function isFirstMaster(t: TrainingData, dan: number): boolean {
+  const d = asTrainingDan(dan);
+  return d !== null && t.mastered[d] === undefined;
 }
 
 /** 무한의 계단이 열렸는가 (STAIRS_OPEN_AFTER_DAN이 null이면 항상) */
@@ -90,14 +102,14 @@ export function judgeChallenge(a: { mistakes: number; timeMs: number }): 'pass' 
   return a.timeMs <= TRAINING_MASTER_MS ? 'pass' : 'slow';
 }
 
-/** 12·13단 마스터 보상 레전드. 이미 받은 단이면 null, 다 가졌으면 중복(duplicate)으로 아무 레전드 */
+/** 마스터 보상 레전드 (12·13단, 셈연습 고수). 이미 받은 곳이면 null, 다 가졌으면 중복(duplicate)으로 아무 레전드 */
 export function pickLegendReward(
   rng: Rng,
   owned: readonly SpeciesId[],
-  dan: 12 | 13,
+  key: LegendRewardKey,
   granted: TrainingData['legendGranted'],
 ): { species: SpeciesId; duplicate: boolean } | null {
-  if (granted[dan] !== undefined) return null;
+  if (granted[key] !== undefined) return null;
   const fresh = LEGEND_SPECIES.filter((s) => !owned.includes(s));
   if (fresh.length > 0) return { species: pickOne(rng, fresh), duplicate: false };
   return { species: pickOne(rng, LEGEND_SPECIES), duplicate: true };

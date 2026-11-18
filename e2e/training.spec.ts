@@ -14,7 +14,7 @@ type Training = {
   legendGranted: Record<number, string>;
 };
 
-const DANS = [2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13];
+const DANS = [2, 3, 4, 5, 6, 7, 8, 9, 12, 13];
 
 /** 마스터한 단과 학습을 마친 단을 정해 저장 모양으로 만든다 */
 function trainingOf(masteredDans: number[], studiedDans: number[] = masteredDans): Training {
@@ -142,7 +142,7 @@ test('학습 전에는 마스터 도전이 잠겨 있고, 학습을 끝내면 �
   expect(errors).toEqual([]);
 });
 
-test('마스터 도전 성공: 마스터 저장·캡슐 5개·다음 3단이 열린다', async ({ page }) => {
+test('마스터 도전 첫 성공: 마스터 저장·캡슐 20개·다음 3단이 열린다', async ({ page }) => {
   const errors = collectErrors(page);
   await seed(page, { training: trainingOf([], [2]), noTimer: true });
   await openTraining(page, 2);
@@ -155,11 +155,12 @@ test('마스터 도전 성공: 마스터 저장·캡슐 5개·다음 3단이 열
   await expect(result).toBeVisible();
   await expect(result).toHaveAttribute('data-result', 'pass');
   await expect(result).toContainText('2단 마스터!');
-  await expect(page.getByTestId('training-capsules')).toHaveAttribute('data-capsules', '5');
+  await expect(result).toContainText('처음 마스터');
+  await expect(page.getByTestId('training-capsules')).toHaveAttribute('data-capsules', '20');
 
   const f = await saved(page);
   expect(f.training.mastered[2]).toBeTruthy();
-  expect(count(f, 'meadow')).toBe(before + 5); // 중복 지급 없음
+  expect(count(f, 'meadow')).toBe(before + 20); // 중복 지급 없음 (5개를 더하지 않는다)
   // 3단 건물이 열렸다
   await page.getByRole('button', { name: '마을로' }).click();
   await openTraining(page, 3);
@@ -193,7 +194,7 @@ test('학습에서 틀린 뒤 정답을 눌러도 그 문제는 처음 맞힘으
   expect(facts.attempts).toBe(2);
 });
 
-test('마스터 도전 실패(틀림): 마스터는 안 되지만 캡슐 5개는 받는다', async ({ page }) => {
+test('마스터 도전 실패(틀림): 마스터도 캡슐도 없다', async ({ page }) => {
   await seed(page, { training: trainingOf([], [2]), noTimer: true });
   await openTraining(page, 2);
   const before = count(await saved(page), 'meadow');
@@ -202,29 +203,15 @@ test('마스터 도전 실패(틀림): 마스터는 안 되지만 캡슐 5개는
   const result = page.getByTestId('training-result');
   await expect(result).toBeVisible();
   await expect(result).toHaveAttribute('data-result', 'wrong');
-  await expect(page.getByTestId('training-capsules')).toHaveAttribute('data-capsules', '5');
+  await expect(page.getByTestId('training-capsules')).toHaveCount(0);
   const f = await saved(page);
   expect(f.training.mastered[2]).toBeUndefined();
-  expect(count(f, 'meadow')).toBe(before + 5);
-});
-
-test('11단 마스터: 레전드 캡슐 5개를 받지만 레전드 구구몬은 오지 않는다', async ({ page }) => {
-  await seed(page, { training: trainingOf([2, 3, 4, 5, 6, 7, 8, 9], [2, 3, 4, 5, 6, 7, 8, 9, 11]), noTimer: true });
-  await openTraining(page, 11);
-  const before = await saved(page);
-  await page.getByTestId('training-challenge-btn').click();
-  await solveNine(page, 11);
-  await expect(page.getByTestId('training-result')).toHaveAttribute('data-result', 'pass');
-  await expect(page.getByTestId('training-legend')).toHaveCount(0);
-  const f = await saved(page);
-  expect(count(f, 'legend')).toBe(count(before, 'legend') + 5);
-  expect(Object.keys(f.species).length).toBe(Object.keys(before.species).length);
-  expect(f.training.mastered[11]).toBeTruthy();
+  expect(count(f, 'meadow')).toBe(before);
 });
 
 test('12단 첫 마스터는 레전드 구구몬 한 마리, 두 번째 마스터에는 또 주지 않는다', async ({ page }) => {
   const errors = collectErrors(page);
-  await seed(page, { training: trainingOf([2, 3, 4, 5, 6, 7, 8, 9, 11], DANS.filter((d) => d !== 13)), noTimer: true });
+  await seed(page, { training: trainingOf([2, 3, 4, 5, 6, 7, 8, 9], DANS.filter((d) => d !== 13)), noTimer: true });
   await openTraining(page, 12);
   const before = await saved(page);
   await page.getByTestId('training-challenge-btn').click();
@@ -239,9 +226,9 @@ test('12단 첫 마스터는 레전드 구구몬 한 마리, 두 번째 마스�
   expect(Object.keys(first.species).length).toBe(Object.keys(before.species).length + 1);
   expect(first.species[id!]).toBeTruthy();
   expect(first.training.legendGranted[12]).toBe(id);
-  expect(count(first, 'legend')).toBe(count(before, 'legend') + 5);
+  expect(count(first, 'legend')).toBe(count(before, 'legend') + 20);
 
-  // 같은 단을 다시 마스터: 캡슐은 받지만 레전드는 더 오지 않는다
+  // 같은 단을 다시 마스터: 캡슐 5개는 받지만 레전드는 더 오지 않는다
   await page.getByRole('button', { name: '다시 하기' }).click();
   await expect(page.getByTestId('training-challenge')).toBeVisible();
   await solveNine(page, 12);

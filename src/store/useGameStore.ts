@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { defaultCatalog } from '../data/defaultCatalog';
-import type { ArithKind } from '../domain/arith';
+import type { ArithKind, ArithLevel } from '../domain/arith';
 import { finishPractice, type PracticeRecord, recordPracticeAnswer } from '../domain/arithPractice';
 import { ALL_DANS, type Dan, factId, MULTIPLIERS, type Multiplier, getFact } from '../domain/facts';
 import { applyAnswer, FIELD_MAX_BOX } from '../domain/mastery';
@@ -49,15 +49,19 @@ import { applyItem, buy, type CatalogData, canWearHat, findItem, grantMasterHats
 import { addExp, CORRECT_EXP, DUPLICATE_EXP, PARTICIPATION_EXP } from '../domain/field/growth';
 import { type Tier, tierExp } from '../domain/field/strength';
 import {
+  ARITH_CAPSULE_CHOICES,
+  ARITH_TRAINER_LEVELS,
   COMPANION_MAX_HP,
   LEGEND_LEVEL,
   MAX_SKILLS,
   TRAINING_CAPSULE_OF_DAN,
   TRAINING_CAPSULES,
   TRAINING_DANS,
+  TRAINING_FIRST_MASTER_CAPSULES,
   type TrainingDan,
 } from '../domain/field/tuning';
-import { isChallengeOpen, isTrainingOpen, judgeChallenge, pickLegendReward } from '../domain/field/training';
+import { isChallengeOpen, isFirstMaster, isTrainingOpen, judgeChallenge, pickLegendReward } from '../domain/field/training';
+import { judgeArithTrainer } from '../domain/field/arithTrainer';
 import { addCapsules, type CapsuleType, takeCapsule } from '../domain/field/capsules';
 import { addWound, applyDamage, isFainted, type Wound } from '../domain/field/wounds';
 import { pickReplacement } from '../domain/field/companion';
@@ -77,7 +81,7 @@ import {
   townStart,
 } from './fieldData';
 import { learnedAt, newlyLearned, rollCopy, type SkillId } from '../domain/field/skills';
-import type { Rng } from '../domain/random';
+import { pickOne, type Rng } from '../domain/random';
 import { createInitialSave, mergeSave, migrateSave, SAVE_KEY, type SaveData, SCHEMA_VERSION, type Settings } from './saveData';
 
 export interface PetChange {
@@ -129,21 +133,75 @@ export interface TrainingInput {
 
 /**
  * 훈련을 마친 뒤 생긴 일. ok가 false면 규칙에 맞지 않아 거부한 것 (열리지 않은 단·학습 전 도전):
- * 저장은 그대로이고 capsules 0, mastered·newBest false, legend null, bestMs는 지금 기록
+ * 저장은 그대로이고 capsules 0, mastered·firstMaster·newBest false, legend null, bestMs는 지금 기록
  */
 export interface TrainingOutcome {
   ok: boolean;
   capsuleType: CapsuleType;
-  /** 받은 캡슐 수 (마치면 TRAINING_CAPSULES, 거부하면 0) */
+  /** 받은 캡슐 수: 처음 마스터 TRAINING_FIRST_MASTER_CAPSULES, 그 밖의 성공 TRAINING_CAPSULES, 도전 실패·거부 0 */
   capsules: number;
   /** 이번 도전으로 합격했는가 */
   mastered: boolean;
+  /** 이번 합격이 이 단의 첫 마스터인가 (캡슐 20개) */
+  firstMaster: boolean;
   /** 최고 기록을 새로 세웠는가 */
   newBest: boolean;
   /** 이 단의 최고 기록 (아직 마스터 못 했으면 null) */
   bestMs: number | null;
   /** 12·13단 첫 마스터 때 받은 레전드 */
   legend: { species: SpeciesId; duplicate: boolean } | null;
+  /** 받은 별점수 (별점수는 아직 연결 전이라 늘 0) */
+  stars: number;
+}
+
+export interface ArithTrainingInput {
+  level: ArithLevel;
+  mistakes: number;
+  timeMs: number;
+  now: number;
+  /** 캡슐 종류·레전드 고르기 난수. 없으면 Math.random */
+  rng?: Rng;
+}
+
+/**
+ * 셈연습 트레이너 도전을 마친 뒤 생긴 일. 실패면 capsules 0·capsuleType null(저장 그대로).
+ * ok가 false면 모르는 단계라 거부한 것 (저장 그대로)
+ */
+export interface ArithOutcome {
+  ok: boolean;
+  /** 받은 캡슐 종류 (초원·물가·사막 중 무작위, 받지 않았으면 null) */
+  capsuleType: CapsuleType | null;
+  capsules: number;
+  mastered: boolean;
+  firstMaster: boolean;
+  newBest: boolean;
+  bestMs: number | null;
+  /** 고수 첫 마스터 때 받은 레전드 */
+  legend: { species: SpeciesId; duplicate: boolean } | null;
+  /** 받은 별점수 (아직 연결 전이라 늘 0) */
+  stars: number;
+}
+
+/** 레전드 한 마리를 도감에 넣는다: 새 종이면 LEGEND_LEVEL로, 이미 있으면 또 잡은 것처럼 잡은 수 +1·중복 경험치 */
+function grantLegendSpecies(
+  species: FieldData['species'],
+  seen: FieldData['seen'],
+  id: SpeciesId,
+  now: number,
+): { species: FieldData['species']; seen: FieldData['seen'] } {
+  const known = SPECIES_IDS.includes(id) ? species[id] : undefined;
+  let next = species;
+  if (!known) {
+    // 새 종: 야생 레전드가 나오는 레벨(LEGEND_LEVEL)로 도감에
+    next = { ...species, [id]: newSpeciesEntry(id, LEGEND_LEVEL, now) };
+  } else {
+    // 이미 있는 종: 또 잡았을 때처럼 잡은 수 +1, 중복 경험치 (레벨이 오르면 기술도 배운다)
+    const grown = addExp({ ...known, caught: known.caught + 1 }, DUPLICATE_EXP);
+    let entry = grown.entry;
+    if (grown.levelsGained > 0) entry = { ...entry, skills: learnOnLevelUp(id, entry, known.level).skills };
+    next = { ...species, [id]: entry };
+  }
+  return { species: next, seen: seen.includes(id) ? seen : [...seen, id] };
 }
 
 /** 저장된 종 기록 (모르는 종 id면 없음 — `constructor` 같은 이름이 끼어들지 않게) */
@@ -282,10 +340,16 @@ interface GameActions {
   /** 필드 모험: 캡슐 1개 쓰기 — 던지는 순간 바로 저장. 없으면 false, 아무것도 안 바꾼다 */
   spendCapsule: (t: CapsuleType) => boolean;
   /**
-   * 트레이닝센터: 학습·도전을 끝까지 마쳤을 때. 캡슐 5개(성공·실패 모두), 학습 표시, 합격이면 마스터·최고 기록,
-   * 12·13단 첫 마스터면 레전드. 열리지 않은 단이거나 학습 전 도전이면 아무것도 바꾸지 않고 ok:false
+   * 트레이닝센터: 학습·도전을 끝까지 마쳤을 때. 학습 끝 → 캡슐 5개·학습 표시, 도전 합격 → 마스터·최고 기록과
+   * 캡슐(처음 마스터면 20개, 아니면 5개), 도전 실패 → 아무것도 없음. 12·13단 첫 마스터면 레전드.
+   * 열리지 않은 단이거나 학습 전 도전이면 아무것도 바꾸지 않고 ok:false
    */
   finishTraining: (input: TrainingInput) => TrainingOutcome;
+  /**
+   * 셈연습 트레이너 도전을 마쳤을 때. 합격 → 마스터·최고 기록과 무작위 필드 캡슐(처음 마스터면 20개, 아니면 5개),
+   * 고수 첫 마스터면 레전드. 실패는 아무것도 없음. 모르는 단계면 ok:false
+   */
+  finishArithTraining: (input: ArithTrainingInput) => ArithOutcome;
   /** 트레이닝센터 답 하나: 그 곱셈 문제 기록(learning.facts)만 바꾼다. 별·펫은 그대로, 11단은 기록이 없어 아무것도 안 한다 */
   /** isRetry: 이 문제에서 이미 틀린 뒤의 답이면 true (맞혀도 상자가 오르지 않는다) */
   recordTrainingAnswer: (dan: number, multiplier: number, correct: boolean, speedMs: number, now: number, isRetry?: boolean) => void;
@@ -625,12 +689,20 @@ export const useGameStore = create<GameStore>()(
           capsuleType,
           capsules: 0,
           mastered: false,
+          firstMaster: false,
           newBest: false,
           bestMs: t0.mastered[dan]?.bestMs ?? null,
           legend: null,
+          stars: 0,
         };
         // 규칙 검사: 열린 단만, 도전은 학습을 마친 뒤에만 (거부하면 set을 부르지 않는다)
         if (!isTrainingOpen(t0, dan) || (mode === 'challenge' && !isChallengeOpen(t0, dan))) return rejected;
+        const timeMs = Number.isFinite(input.timeMs) && input.timeMs >= 0 ? input.timeMs : Infinity;
+        if (mode === 'challenge') {
+          const mistakes = Number.isFinite(input.mistakes) ? input.mistakes : 1;
+          // 도전 실패: 캡슐도 마스터도 없다 (저장 그대로 — set을 부르지 않는다)
+          if (judgeChallenge({ mistakes, timeMs }) !== 'pass') return { ...rejected, ok: true };
+        }
         let result!: TrainingOutcome;
         set((s) => {
           const f = s.field;
@@ -638,43 +710,83 @@ export const useGameStore = create<GameStore>()(
           let species = f.species;
           let seen = f.seen;
           let mastered = false;
+          let firstMaster = false;
           let newBest = false;
           let legend: TrainingOutcome['legend'] = null;
+          let gained: number = TRAINING_CAPSULES;
           if (mode === 'study') {
             if (!training.studied[dan]) training = { ...training, studied: { ...training.studied, [dan]: true } };
           } else {
-            const mistakes = Number.isFinite(input.mistakes) ? input.mistakes : 1;
-            const timeMs = Number.isFinite(input.timeMs) && input.timeMs >= 0 ? input.timeMs : Infinity;
-            mastered = judgeChallenge({ mistakes, timeMs }) === 'pass';
-            if (mastered) {
-              const prev = training.mastered[dan];
-              newBest = !prev || timeMs < prev.bestMs;
-              if (newBest) training = { ...training, mastered: { ...training.mastered, [dan]: { bestMs: timeMs, at: now } } };
-              if (dan === 12 || dan === 13) {
-                const owned = SPECIES_IDS.filter((id) => species[id]);
-                legend = pickLegendReward(input.rng ?? Math.random, owned, dan, training.legendGranted);
-                if (legend) {
-                  training = { ...training, legendGranted: { ...training.legendGranted, [dan]: legend.species } };
-                  const id = legend.species;
-                  const known = speciesEntry(f, id);
-                  if (!known) {
-                    // 새 종: 야생 레전드가 나오는 레벨(LEGEND_LEVEL)로 도감에
-                    species = { ...species, [id]: newSpeciesEntry(id, LEGEND_LEVEL, now) };
-                  } else {
-                    // 이미 있는 종: 또 잡았을 때처럼 잡은 수 +1, 중복 경험치 (레벨이 오르면 기술도 배운다)
-                    const grown = addExp({ ...known, caught: known.caught + 1 }, DUPLICATE_EXP);
-                    let entry = grown.entry;
-                    if (grown.levelsGained > 0) entry = { ...entry, skills: learnOnLevelUp(id, entry, known.level).skills };
-                    species = { ...species, [id]: entry };
-                  }
-                  if (!seen.includes(id)) seen = [...seen, id];
-                }
+            // 합격은 위에서 확인했다
+            mastered = true;
+            // 첫 마스터는 기록을 바꾸기 전에 본다 (20개만, 5개를 더하지 않는다)
+            firstMaster = isFirstMaster(training, dan);
+            if (firstMaster) gained = TRAINING_FIRST_MASTER_CAPSULES;
+            const prev = training.mastered[dan];
+            newBest = !prev || timeMs < prev.bestMs;
+            if (newBest) training = { ...training, mastered: { ...training.mastered, [dan]: { bestMs: timeMs, at: now } } };
+            if (dan === 12 || dan === 13) {
+              const owned = SPECIES_IDS.filter((id) => species[id]);
+              legend = pickLegendReward(input.rng ?? Math.random, owned, dan, training.legendGranted);
+              if (legend) {
+                training = { ...training, legendGranted: { ...training.legendGranted, [dan]: legend.species } };
+                ({ species, seen } = grantLegendSpecies(species, seen, legend.species, now));
               }
             }
           }
           const bestMs = training.mastered[dan]?.bestMs ?? null;
-          result = { ok: true, capsuleType, capsules: TRAINING_CAPSULES, mastered, newBest, bestMs, legend };
-          const capsules = addCapsules(f.capsules, capsuleType, TRAINING_CAPSULES);
+          result = { ok: true, capsuleType, capsules: gained, mastered, firstMaster, newBest, bestMs, legend, stars: 0 };
+          const capsules = addCapsules(f.capsules, capsuleType, gained);
+          return { field: { ...f, training, species, seen, capsules } };
+        });
+        return result;
+      },
+      finishArithTraining: (input) => {
+        const { level, now } = input;
+        const fail: ArithOutcome = {
+          ok: true,
+          capsuleType: null,
+          capsules: 0,
+          mastered: false,
+          firstMaster: false,
+          newBest: false,
+          bestMs: null,
+          legend: null,
+          stars: 0,
+        };
+        // 모르는 단계는 거부 (set을 부르지 않는다)
+        if (!(ARITH_TRAINER_LEVELS as readonly unknown[]).includes(level)) return { ...fail, ok: false };
+        const t0 = get().field.training;
+        const mistakes = Number.isFinite(input.mistakes) ? input.mistakes : 1;
+        const timeMs = Number.isFinite(input.timeMs) && input.timeMs >= 0 ? input.timeMs : Infinity;
+        // 실패: 캡슐도 마스터도 없다 (저장 그대로 — set을 부르지 않는다)
+        if (judgeArithTrainer({ mistakes, timeMs }, level) !== 'pass') return { ...fail, bestMs: t0.arith[level]?.bestMs ?? null };
+        const rng = input.rng ?? Math.random;
+        let result!: ArithOutcome;
+        set((s) => {
+          const f = s.field;
+          let training = f.training;
+          let species = f.species;
+          let seen = f.seen;
+          // 캡슐 종류를 먼저 고르고(같은 rng면 같은 종류), 그다음 레전드
+          const capsuleType: CapsuleType = pickOne(rng, ARITH_CAPSULE_CHOICES);
+          const prev = training.arith[level];
+          const firstMaster = prev === undefined;
+          const gained = firstMaster ? TRAINING_FIRST_MASTER_CAPSULES : TRAINING_CAPSULES;
+          const newBest = !prev || timeMs < prev.bestMs;
+          if (newBest) training = { ...training, arith: { ...training.arith, [level]: { bestMs: timeMs, at: now } } };
+          let legend: ArithOutcome['legend'] = null;
+          if (level === 'hard') {
+            const owned = SPECIES_IDS.filter((id) => species[id]);
+            legend = pickLegendReward(rng, owned, 'arithHard', training.legendGranted);
+            if (legend) {
+              training = { ...training, legendGranted: { ...training.legendGranted, arithHard: legend.species } };
+              ({ species, seen } = grantLegendSpecies(species, seen, legend.species, now));
+            }
+          }
+          const bestMs = training.arith[level]?.bestMs ?? null;
+          result = { ok: true, capsuleType, capsules: gained, mastered: true, firstMaster, newBest, bestMs, legend, stars: 0 };
+          const capsules = addCapsules(f.capsules, capsuleType, gained);
           return { field: { ...f, training, species, seen, capsules } };
         });
         return result;

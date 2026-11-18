@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   emptyTraining,
   isChallengeOpen,
+  isFirstMaster,
   isStairsOpen,
   isTrainingOpen,
   judgeChallenge,
@@ -25,18 +26,36 @@ describe('단 열림', () => {
     t.mastered[2] = mastered;
     expect(isTrainingOpen(t, 3)).toBe(true);
   });
-  it('11단은 9단 마스터 뒤에만 열림', () => {
+  it('단은 10개이고 11단은 없다', () => {
+    expect(TRAINING_DANS).toHaveLength(10);
+    expect(TRAINING_DANS as readonly number[]).not.toContain(11);
+  });
+  it('12단은 9단 마스터 뒤에만 열림, 13단은 12단 뒤', () => {
     const t = emptyTraining();
     t.mastered[8] = mastered;
-    expect(isTrainingOpen(t, 11)).toBe(false);
+    expect(isTrainingOpen(t, 12)).toBe(false);
     t.mastered[9] = mastered;
-    expect(isTrainingOpen(t, 11)).toBe(true);
+    expect(isTrainingOpen(t, 12)).toBe(true);
+    expect(isTrainingOpen(t, 13)).toBe(false);
+    t.mastered[12] = mastered;
+    expect(isTrainingOpen(t, 13)).toBe(true);
   });
-  it('목록에 없는 단은 닫힘', () => {
+  it('목록에 없는 단은 닫힘 (11단 포함)', () => {
     const t = emptyTraining();
     for (const d of TRAINING_DANS) t.mastered[d] = mastered;
     expect(isTrainingOpen(t, 10)).toBe(false);
+    expect(isTrainingOpen(t, 11)).toBe(false);
     expect(isTrainingOpen(t, 14)).toBe(false);
+  });
+  it('isFirstMaster: 아직 마스터하지 않은 단만 true', () => {
+    const t = emptyTraining();
+    expect(isFirstMaster(t, 2)).toBe(true);
+    t.mastered[2] = mastered;
+    expect(isFirstMaster(t, 2)).toBe(false);
+    expect(isFirstMaster(t, 3)).toBe(true);
+  });
+  it('빈 훈련 기록에는 셈연습 칸도 비어 있다', () => {
+    expect(emptyTraining()).toEqual({ studied: {}, mastered: {}, legendGranted: {}, arith: {} });
   });
   it('도전은 학습한 단만', () => {
     const t = emptyTraining();
@@ -53,7 +72,7 @@ describe('단 열림', () => {
 
 describe('문제 만들기', () => {
   it('planStudy는 ×1~×9 순서', () => {
-    for (const dan of [7, 11] as const) {
+    for (const dan of [7, 12] as const) {
       const qs = planStudy(dan);
       expect(qs.map((q) => q.multiplier)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
       for (const q of qs) {
@@ -109,5 +128,11 @@ describe('pickLegendReward', () => {
   });
   it('시드가 같으면 같은 결과', () => {
     expect(pickLegendReward(seededRng(9), [], 12, {})).toEqual(pickLegendReward(seededRng(9), [], 12, {}));
+  });
+  it('셈연습 고수(arithHard)도 따로 한 번만', () => {
+    expect(pickLegendReward(seededRng(1), [], 'arithHard', { arithHard: 'c014' })).toBeNull();
+    // 12단을 받았어도 셈연습 고수 몫은 따로
+    const r = pickLegendReward(() => 0, [], 'arithHard', { 12: 'c014' });
+    expect(r).toEqual({ species: LEGEND_SPECIES[0], duplicate: false });
   });
 });

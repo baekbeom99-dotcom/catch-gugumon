@@ -1,7 +1,15 @@
 /** 필드 모험 저장 데이터 — 구구몬 도감·동료·마지막 자리 */
 import { FACTS } from '../domain/facts';
 import { FIELD_TYPES } from '../domain/field/fieldQuestions';
-import { CAPSULE_MAX, CAPSULE_START, COMPANION_MAX_HP, TOWN_ROWS_ADDED, TRAINING_DANS, type TrainingDan } from '../domain/field/tuning';
+import {
+  ARITH_TRAINER_LEVELS,
+  CAPSULE_MAX,
+  CAPSULE_START,
+  COMPANION_MAX_HP,
+  TOWN_ROWS_ADDED,
+  TRAINING_DANS,
+  type TrainingDan,
+} from '../domain/field/tuning';
 import { emptyTraining, type TrainingData } from '../domain/field/training';
 import { CAPSULE_TYPES, type Capsules, isCapsuleCount } from '../domain/field/capsules';
 import { addWound, type Wound } from '../domain/field/wounds';
@@ -253,7 +261,7 @@ const asObj = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 const has = (o: Record<string, unknown>, k: string | number) => Object.prototype.hasOwnProperty.call(o, String(k));
 
-/** 훈련 기록 읽기: 아는 단(TRAINING_DANS)의 맞는 값만 남기고, 나머지는 버린다 */
+/** 훈련 기록 읽기: 아는 단(TRAINING_DANS)·아는 셈연습 단계의 맞는 값만 남기고, 나머지(없어진 11단 등)는 버린다 */
 export function mergeTraining(raw: unknown): TrainingData {
   const t = emptyTraining();
   const r = asObj(raw);
@@ -268,6 +276,15 @@ export function mergeTraining(raw: unknown): TrainingData {
   for (const d of [12, 13] as const) {
     const sp = has(legend, d) ? migrateSpeciesId(legend[d]) : undefined;
     if (isSpecies(sp)) t.legendGranted[d] = sp;
+  }
+  // 셈연습 고수 레전드: 아는 레전드 종만
+  const arithLegend = has(legend, 'arithHard') ? migrateSpeciesId(legend.arithHard) : undefined;
+  if (isSpecies(arithLegend) && (LEGEND_SPECIES as readonly SpeciesId[]).includes(arithLegend)) t.legendGranted.arithHard = arithLegend;
+  // 셈연습 마스터 기록: 기본·고수·보수만, 최고 기록은 0 이상의 수
+  const arith = asObj(r.arith);
+  for (const l of ARITH_TRAINER_LEVELS) {
+    const m = has(arith, l) ? asObj(arith[l]) : {};
+    if (isCount(m.bestMs) && isNum(m.at)) t.arith[l] = { bestMs: m.bestMs, at: m.at };
   }
   return t;
 }

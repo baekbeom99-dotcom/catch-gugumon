@@ -1,9 +1,19 @@
 import { describe, expect, it } from 'vitest';
-import { TRAINING_CAPSULES } from '../../src/domain/field/tuning';
+import { TRAINING_CAPSULES, TRAINING_FIRST_MASTER_CAPSULES } from '../../src/domain/field/tuning';
 import type { TrainingOutcome } from '../../src/store/useGameStore';
 import { trainingText } from '../../src/field/training/trainingText';
 
-const base: TrainingOutcome = { ok: true, capsuleType: 'meadow', capsules: TRAINING_CAPSULES, mastered: false, newBest: false, bestMs: null, legend: null };
+const base: TrainingOutcome = {
+  ok: true,
+  capsuleType: 'meadow',
+  capsules: TRAINING_CAPSULES,
+  mastered: false,
+  firstMaster: false,
+  newBest: false,
+  bestMs: null,
+  legend: null,
+  stars: 0,
+};
 
 describe('trainingText', () => {
   it('간판은 단 번호를 담는다', () => {
@@ -37,6 +47,14 @@ describe('trainingText', () => {
     expect(all).toContain('캡슐 5개');
   });
 
+  it('처음 마스터면 "처음 마스터"와 캡슐 20개, 5개 글은 없다', () => {
+    const first = { ...base, mastered: true, firstMaster: true, newBest: true, bestMs: 20400, capsules: TRAINING_FIRST_MASTER_CAPSULES };
+    const all = trainingText.result(3, 'challenge', 'pass', first, 20400).lines.join(' ');
+    expect(all).toContain('처음 마스터');
+    expect(all).toContain('캡슐 20개');
+    expect(all).not.toContain('캡슐 5개');
+  });
+
   it('도전 합격이지만 새 기록이 아니면 새 기록 글 없음', () => {
     const r = trainingText.result(3, 'challenge', 'pass', { ...base, mastered: true, newBest: false, bestMs: 15000 }, 20400);
     expect(r.lines.join(' ')).not.toContain('새 기록');
@@ -45,10 +63,12 @@ describe('trainingText', () => {
 
   it('도전 실패: 틀림·느림 모두 다시 도전하자는 말', () => {
     for (const res of ['wrong', 'slow'] as const) {
-      const r = trainingText.result(4, 'challenge', res, base);
+      // 실패는 캡슐이 없다 (finishTraining이 capsules 0을 준다)
+      const r = trainingText.result(4, 'challenge', res, { ...base, capsules: 0 });
       expect(r.title).not.toContain('마스터!');
       expect(r.lines.join(' ')).toContain('다시');
       expect(r.lines.join(' ')).not.toContain('지붕');
+      expect(r.lines.join(' ')).not.toContain('캡슐');
     }
   });
 

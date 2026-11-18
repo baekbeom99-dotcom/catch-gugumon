@@ -76,10 +76,10 @@ describe('필드의 마을 길(^)', () => {
 
 describe('태초마을', () => {
   const Y0 = TOWN_ROWS_ADDED; // 옛 지도 줄이 밀린 만큼
-  it('만남 칸(풀숲) 없음, 문: 상점 1·훈련 11·계단 1, 서식지 셋 다 6칸 이상, 표지판 5개', async () => {
+  it('만남 칸(풀숲) 없음, 문: 상점 1·훈련 10·계단 1, 서식지 셋 다 6칸 이상, 표지판 5개', async () => {
     const t = await loadField('town');
     expect(t.tiles.flat()).not.toContain('grass');
-    expect(t.doors).toHaveLength(13);
+    expect(t.doors).toHaveLength(12);
     expect(t.doors.filter((d) => d.kind === 'shop')).toHaveLength(1);
     expect(t.doors.filter((d) => d.kind === 'stairs')).toHaveLength(1);
     const training = t.doors.filter((d) => d.kind === 'training');
@@ -90,14 +90,14 @@ describe('태초마을', () => {
     expect(t.signs.map((s) => s.text).sort()).toEqual(['← 물가', '↓ 초원', '사막 →', '상점 · 캡슐과 회복약', '훈련 거리 · 구구단 연습'].sort());
   });
 
-  it('훈련 건물은 두 줄: 2~7단 6채, 8·9·11·12·13단 5채, 계단은 따로', async () => {
+  it('훈련 건물은 두 줄: 2~7단 6채, 8·9·12·13단 4채(11단 자리는 문 없음), 계단은 따로', async () => {
     const t = await loadField('town');
     const training = t.doors.filter((d) => d.kind === 'training');
     const rowA = training.filter((d) => d.pos.y < t.doors.find((x) => x.kind === 'stairs')!.pos.y && d.dan! <= 7);
     const rowB = training.filter((d) => d.dan! > 7);
     expect(rowA.map((d) => d.dan)).toEqual([2, 3, 4, 5, 6, 7]);
     expect(new Set(rowA.map((d) => d.pos.y)).size).toBe(1);
-    expect(rowB.map((d) => d.dan)).toEqual([8, 9, 11, 12, 13]);
+    expect(rowB.map((d) => d.dan)).toEqual([8, 9, 12, 13]);
     expect(new Set(rowB.map((d) => d.pos.y)).size).toBe(1);
     expect(rowB[0].pos.y).toBeGreaterThan(rowA[0].pos.y);
   });

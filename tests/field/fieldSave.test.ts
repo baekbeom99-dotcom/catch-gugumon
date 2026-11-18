@@ -90,7 +90,7 @@ describe('저장 데이터 field', () => {
       ...v135,
       species: { c031: { ...entry, stage: 1, hp: 100, wounds: [], skills: ['c031-1', 'c031-2'] } },
       capsules: { meadow: 3, waterside: 3, desert: 3, legend: 0 },
-      training: { studied: {}, mastered: {}, legendGranted: {} },
+      training: { studied: {}, mastered: {}, legendGranted: {}, arith: {} },
     });
   });
 
@@ -204,7 +204,7 @@ describe('저장 데이터 field', () => {
       ...field,
       species: { c031: { ...entry, stage: 1, hp: 100, wounds: [], skills: ['c031-1', 'c031-2'] } },
       capsules: { meadow: 3, waterside: 3, desert: 3, legend: 0 },
-      training: { studied: {}, mastered: {}, legendGranted: {} },
+      training: { studied: {}, mastered: {}, legendGranted: {}, arith: {} },
     });
   });
 
@@ -260,7 +260,7 @@ describe('저장 데이터 field', () => {
       ...field,
       species: { c031: { ...entry, stage: 1, skills: ['c031-1', 'c031-2'] } },
       capsules: { meadow: 3, waterside: 3, desert: 3, legend: 0 },
-      training: { studied: {}, mastered: {}, legendGranted: {} },
+      training: { studied: {}, mastered: {}, legendGranted: {}, arith: {} },
     });
     expect(useGameStore.getState().economy.stars).toBe(777);
   });
