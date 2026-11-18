@@ -11,7 +11,7 @@ React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/fiel
 
 | 위치 | 내용 |
 |---|---|
-| `src/domain/` | 순수 로직(React 없음). 테스트는 여기를 대상으로. `pet.ts`(펫 상태·돌봄·똥/병·친밀도), `progress.ts`(답 기록·별·탐험 정산), `mastery.ts`·`scheduler.ts`(숙련도·출제), `arith*.ts`(셈 연습), `stairs.ts`(무한의 계단), `shop.ts`·`catalogRules.ts`(상점), `dex.ts`(도감·졸업) |
+| `src/domain/` | 순수 로직(React 없음). 테스트는 여기를 대상으로. `pet.ts`(펫 상태·돌봄·똥/병·친밀도), `progress.ts`(답 기록·별·탐험 정산), `mastery.ts`·`scheduler.ts`(숙련도·출제), `arith*.ts`(셈 연습), `stairs.ts`(무한의 계단), `field/stairsItems.ts`(계단 위 아이템: 간격·종류·이어 놓기), `shop.ts`·`catalogRules.ts`(상점), `dex.ts`(도감·졸업) |
 | `src/store/useGameStore.ts` | 저장되는 게임 상태와 액션(Zustand persist) |
 | `src/store/saveData.ts` | `SaveData` 형식, `createInitialSave`, `mergeSave`(예전 저장 채우기), `SAVE_KEY` |
 | `src/store/useSessionStore.ts` | 저장 안 되는 화면 상태(진화·레벨업 알림 대기 등) |
@@ -83,6 +83,9 @@ npm run build                # 배포용 빌드 (tsc -b && vite build)
 | 종 이름 | `src/domain/monsterNames.ts` (기술 이름은 아래 `skills.ts` 행) | — |
 | 체육관 NPC·트레이너 단 목록 | `src/field/world/maps/gym.ts`의 `GYM_NPCS`(자리·단·색)와 `tuning.ts`의 `TRAINING_DANS` | `tests/field/gymMap.test.ts`, `e2e/gym.spec.ts` |
 | 훈련 보상·마스터 제한 시간·계단 열림 조건 | `tuning.ts`의 `TRAINING_*`(`TRAINING_MASTER_MS`·`TRAINING_FIRST_MASTER_CAPSULES`·`STAIRS_OPEN_AFTER_DAN`…)·`ARITH_TRAINER_*` | `tests/field/tuning.test.ts`, `e2e/training.spec.ts`·`arith.spec.ts`, `MVP_DESIGN.md` 이력 |
+| 계단 아이템(간격·황금 확률·별 개수·별 비율) | `tuning.ts`의 `STAIRS_ITEM_*` (규칙 `src/domain/field/stairsItems.ts`) | `tests/field/stairsItems.test.ts`·`tuning.test.ts`, `e2e/stairs-items.spec.ts`, `MVP_DESIGN.md` 이력 |
+| 레전드 보상 별점수 | `tuning.ts`의 `STAR_LEGEND_REWARD` | `tests/field/legendStars.test.ts`·`tuning.test.ts` |
+| 저학년 전투 문제 시간 배수 | `tuning.ts`의 `LOWGRADE_TIME_FACTOR` (`questionBaseMs`) | `tests/field/wildBattle.test.ts`·`tuning.test.ts` |
 | 별점수(적립량·동상 문제 수)·켜기 | `tuning.ts`의 `STAR_*`·`STATUE_*`, `featureFlags.ts`의 `STAR_POINTS_ENABLED` (꺼진 동안 적립·화면 없음, 동상은 장식) | `tests/field/starPoints.test.ts` |
 | 저학년 모드(문제·시간·비밀번호) | `tuning.ts`의 `LOWGRADE_*`, `src/domain/field/lowGrade.ts` | `tests/field/lowGrade*.test.ts`, `e2e/lowgrade.spec.ts` |
 | 건물 그림자 | `src/field/art/shadow.ts`의 `BUILDING_SHADOW`(밀림·진하기) | `tests/field/townShadow.test.ts` |
