@@ -3,6 +3,8 @@ import { loadField } from '../../src/field/world/loadField';
 import { DIR_DELTA, type Dir, type FieldMap, type Pos, tryStep } from '../../src/domain/field/movement';
 import { MAP_IDS, type FieldId, type MapId } from '../../src/domain/field/fields';
 import { TOWN_ROWS_ADDED, TRAINING_DANS } from '../../src/domain/field/tuning';
+import { TOWN_ROWS } from '../../src/field/world/maps/town';
+import { townStart } from '../../src/store/fieldData';
 
 const DIRS = Object.keys(DIR_DELTA) as Dir[];
 const IDS: readonly MapId[] = MAP_IDS;
@@ -144,5 +146,65 @@ describe('지도 연결', () => {
         expect(dest.entrances[id], `${id} → ${e.to}`).toBeDefined();
         expect(dest.exits.some((x) => x.to === id)).toBe(true);
       }
+  });
+});
+
+/** 트레이닝 거리를 넣기 전의 태초마을 지도 (40줄). 옛 저장의 자리를 TOWN_ROWS_ADDED만큼 밀면 같은 칸이어야 한다 */
+const OLD_TOWN_ROWS = [
+  '####################',
+  '#ggggggg.....aaaaaa#',
+  '#ggggggg.....aaaaaa#',
+  '#ggggggg.....aaaaaa#',
+  '#ggggggg..*..aaaaaa#',
+  '#.........*........#',
+  '#..................#',
+  '#...pppppppp.......#',
+  '#...p~~~~~~p.......#',
+  '#...p~~~~~~p.......#',
+  '#...pppppppp.......#',
+  '#..................#',
+  '#.....*......*.....#',
+  '#..................#',
+  '#..................#',
+  '#..*...........*...#',
+  '#..................#',
+  '#..................#',
+  '#.....*......*.....#',
+  '#..................#',
+  '#..................#',
+  '#..................#',
+  '#..................#',
+  '#.....######.......#',
+  '#.....##D###.......#',
+  '#..................#',
+  '#..........S.......#',
+  '#..##..........##..#',
+  '#..##..........##..#',
+  '#S...............S.#',
+  '<..................>',
+  '#.........@........#',
+  '#.###..........###.#',
+  '#..................#',
+  '#.*..............*.#',
+  '#..................#',
+  '#..........S.......#',
+  '#..................#',
+  '#..................#',
+  '#########v##########',
+];
+
+describe('마을 지도 이동(옛 저장의 자리)이 같은 칸을 가리킨다', () => {
+  it('옛 지도의 맨 윗벽을 뺀 39줄이 새 지도 아래쪽 39줄과 똑같다', () => {
+    expect(OLD_TOWN_ROWS).toHaveLength(40);
+    expect(TOWN_ROWS.slice(TOWN_ROWS_ADDED + 1)).toEqual(OLD_TOWN_ROWS.slice(1));
+  });
+
+  it('옛 시작칸 @(10,31)이 새 시작칸(10,40)으로 옮겨진다', () => {
+    const oldY = OLD_TOWN_ROWS.findIndex((r) => r.includes('@'));
+    const oldX = OLD_TOWN_ROWS[oldY].indexOf('@');
+    expect([oldX, oldY]).toEqual([10, 31]);
+    expect(TOWN_ROWS[oldY + TOWN_ROWS_ADDED][oldX]).toBe('@');
+    expect(townStart()).toEqual({ x: oldX, y: oldY + TOWN_ROWS_ADDED });
+    expect(townStart()).toEqual({ x: 10, y: 40 });
   });
 });

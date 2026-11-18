@@ -5,7 +5,6 @@
  */
 import type { SpecialKind } from './skills';
 import type { CapsuleType } from './capsules';
-import type { Dan } from '../facts';
 
 // ── 만남 ──
 /** 풀숲 한 걸음에 만날 확률 */
@@ -199,6 +198,12 @@ export const TRAINING_DANS = [2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13] as const;
 export type TrainingDan = (typeof TRAINING_DANS)[number];
 /** 마스터 도전: 9문제를 모두 맞히고 이 시간(밀리초) 안에 끝내야 한다 */
 export const TRAINING_MASTER_MS = 27_000;
+/** 마지막 답의 효과·흔들림을 잠깐 보여 준 뒤 결과 화면으로 넘어가는 시간 (밀리초) */
+export const TRAINING_RESULT_DELAY_MS = 700;
+/** 마스터 도전에서 남은 시간이 이만큼(밀리초) 이하면 시계가 빨개진다 */
+export const TRAINING_WARN_MS = 5000;
+/** 트레이닝 시계가 한 프레임에 셀 수 있는 최대 시간 (밀리초, 탭에 돌아온 직후 긴 틈을 한꺼번에 세지 않게) */
+export const TRAINING_MAX_FRAME_MS = 100;
 /** 단을 마스터하면 받는 캡슐 개수 */
 export const TRAINING_CAPSULES = 5;
 /** 단을 마스터하면 받는 캡슐 종류 */
@@ -216,7 +221,7 @@ export const TRAINING_CAPSULE_OF_DAN: Record<TrainingDan, CapsuleType> = {
   13: 'legend',
 };
 /** 무한의 계단이 열리는 조건: 이 단을 마스터한 뒤 (null이면 항상 열림) */
-export const STAIRS_OPEN_AFTER_DAN: Dan | null = null;
+export const STAIRS_OPEN_AFTER_DAN: TrainingDan | null = null;
 /**
  * 마을 지도 맨 위에 새로 넣은 줄 수 (트레이닝센터 거리: 새 줄 10 − 옛 맨 윗벽 1). 예전 저장의 마을 자리를 이만큼 아래로 옮긴다.
  */

@@ -88,6 +88,9 @@ describe('필드 모험 운영 수치', () => {
       SPECIAL_SUCCESS: { heal: 0.9, guard: 0.9, stun: 0.5, clue: 0.8, calm: 0.8, charge: 0.7 },
       TRAINING_DANS: [2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13],
       TRAINING_MASTER_MS: 27_000,
+      TRAINING_RESULT_DELAY_MS: 700,
+      TRAINING_WARN_MS: 5000,
+      TRAINING_MAX_FRAME_MS: 100,
       TRAINING_CAPSULES: 5,
       TRAINING_CAPSULE_OF_DAN: {
         2: 'meadow',

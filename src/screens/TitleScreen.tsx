@@ -42,6 +42,10 @@ export function TitleScreen() {
           필드 모험
         </button>
       </div>
+      {/* 부모용 길: 아이 눈에 덜 띄게 작게. 눌러도 PIN이 있어야 열린다 */}
+      <button type="button" className="title__admin" onClick={() => navigate('/admin')}>
+        관리
+      </button>
       <SpriteCredit />
     </section>
   );

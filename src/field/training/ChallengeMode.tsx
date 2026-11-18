@@ -5,7 +5,7 @@
 import { useMemo, useRef, useState } from 'react';
 import type { SpeciesId } from '../../domain/field/creatures';
 import { planChallenge } from '../../domain/field/training';
-import { TRAINING_MASTER_MS, type TrainingDan } from '../../domain/field/tuning';
+import { TRAINING_MASTER_MS, TRAINING_WARN_MS, type TrainingDan } from '../../domain/field/tuning';
 import { debugFlags } from '../debugFlags';
 import { QuizBoard } from './QuizBoard';
 import { TRAINING_QUESTION_COUNT } from './flow';
@@ -13,9 +13,6 @@ import { trainingText } from './trainingText';
 import { useRunClock } from './useRunClock';
 import { useTrainingFx } from './useTrainingFx';
 import { useTrainingRun, type TrainingDone } from './useTrainingRun';
-
-/** 남은 시간이 이만큼 이하면 시계가 빨개진다 */
-const WARN_MS = 5000;
 
 interface Props {
   dan: TrainingDan;
@@ -26,7 +23,7 @@ interface Props {
 
 export function ChallengeMode({ dan, species, onDone, onQuit }: Props) {
   const questions = useMemo(() => planChallenge(Math.random, dan), [dan]);
-  const { flow, send, record } = useTrainingRun(dan, 'challenge', onDone);
+  const { flow, send, answer, requestQuit } = useTrainingRun(dan, 'challenge', onDone);
   const fx = useTrainingFx(species);
   const [leftMs, setLeftMs] = useState(TRAINING_MASTER_MS);
   const shownTenth = useRef(Math.ceil(TRAINING_MASTER_MS / 100));
@@ -53,9 +50,9 @@ export function ChallengeMode({ dan, species, onDone, onQuit }: Props) {
     if (!running) return;
     const correct = value === q.answer;
     const ms = Math.round(clock.current - lastAt.current);
+    // 받아들여지지 않은 탭(이미 끝난 판)은 기록·효과·글이 없다
+    if (!answer(q.multiplier, correct, ms)) return;
     lastAt.current = clock.current;
-    record(q.multiplier, correct, ms);
-    send({ type: 'answer', correct, ms });
     if (correct) {
       fx.fire(rights);
       setRights((n) => n + 1);
@@ -76,7 +73,7 @@ export function ChallengeMode({ dan, species, onDone, onQuit }: Props) {
       fx={fx}
       badge={
         <div
-          className={`training__badge training__clock ${leftMs <= WARN_MS ? 'training__clock--warn' : ''}`}
+          className={`training__badge training__clock ${leftMs <= TRAINING_WARN_MS ? 'training__clock--warn' : ''}`}
           data-testid="training-clock"
           aria-label={`남은 시간 ${(leftMs / 1000).toFixed(1)}초, ${flow.index}문제 맞힘`}
         >
@@ -93,8 +90,7 @@ export function ChallengeMode({ dan, species, onDone, onQuit }: Props) {
       disabled={!running}
       onPick={onPick}
       onQuit={() => {
-        send({ type: 'quit' });
-        onQuit();
+        if (requestQuit()) onQuit();
       }}
     />
   );

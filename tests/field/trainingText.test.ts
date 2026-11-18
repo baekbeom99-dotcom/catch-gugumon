@@ -11,10 +11,6 @@ describe('trainingText', () => {
     expect(trainingText.title(13)).toContain('13단');
   });
 
-  it('도전 잠금 글', () => {
-    expect(trainingText.challengeLocked).toContain('학습을 먼저');
-  });
-
   it('캡슐 글은 개수를 담는다', () => {
     expect(trainingText.capsuleGain(TRAINING_CAPSULES)).toBe('캡슐 5개 얻었어요');
   });
@@ -37,12 +33,14 @@ describe('trainingText', () => {
     expect(all).toContain('지붕에 숫자가 켜졌어요');
     expect(all).toContain('20.4초');
     expect(all).toContain('새 기록');
+    expect(r.lines[r.newBestIndex!]).toBe('새 기록!');
     expect(all).toContain('캡슐 5개');
   });
 
   it('도전 합격이지만 새 기록이 아니면 새 기록 글 없음', () => {
     const r = trainingText.result(3, 'challenge', 'pass', { ...base, mastered: true, newBest: false, bestMs: 15000 }, 20400);
     expect(r.lines.join(' ')).not.toContain('새 기록');
+    expect(r.newBestIndex).toBeNull();
   });
 
   it('도전 실패: 틀림·느림 모두 다시 도전하자는 말', () => {

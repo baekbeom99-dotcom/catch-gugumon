@@ -360,7 +360,7 @@ export function StairsScreen() {
           {challengeToggle}
           <div className="result__actions">
             <button type="button" className="btn btn--ghost" onClick={() => navigate(returnPathAfterStairs(), { replace: true })}>
-              탐험으로
+              마을로
             </button>
             <button type="button" className="btn btn--primary" onClick={start}>
               다시 오르기

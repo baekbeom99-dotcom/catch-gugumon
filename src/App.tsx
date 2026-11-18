@@ -11,7 +11,7 @@ import { FieldDexScreen } from './field/FieldDexScreen';
 import { StarterScreen } from './field/StarterScreen';
 import { WildBattleScreen } from './field/battle/WildBattleScreen';
 import { FieldRecordsScreen } from './field/training/FieldRecordsScreen';
-import { isQuizEnabled } from './config/featureFlags';
+import { isQuizEnabled, QUIZ_ROOTS } from './config/featureFlags';
 import { TrainingScreen } from './field/training/TrainingScreen';
 import { TitleScreen } from './screens/TitleScreen';
 import { ExploreScreen } from './screens/ExploreScreen';
@@ -37,19 +37,19 @@ function OnboardingGuard() {
   return <Outlet />;
 }
 
-function TabLayout() {
+/** 탭이 있는 화면 틀. 퀴즈 모험이 꺼져 있으면 탭(퀴즈 탭뿐이라 눌러도 필드로 튕김)을 숨긴다 — 관리자 화면이 이 틀을 쓴다 */
+function TabLayout({ tabs = true }: { tabs?: boolean }) {
   return (
     <div className="app">
       <TopBar />
       <main className="screen">
         <Outlet />
       </main>
-      <TabBar />
+      {tabs && <TabBar />}
     </div>
   );
 }
 
-const QUIZ_PATHS = ['/pet', '/explore', '/shop', '/records', '/dex', '/battle', '/practice', '/hatch', '/welcome'];
 const toField = <Navigate to="/field" replace />;
 
 const fullScreen = (el: JSX.Element) => <div className="app app--full">{el}</div>;
@@ -77,14 +77,14 @@ export function App() {
             </Route>
           </Route>
         ) : (
-          QUIZ_PATHS.map((p) => <Route key={p} path={`${p}/*`} element={toField} />)
+          QUIZ_ROOTS.map((p) => <Route key={p} path={`${p}/*`} element={toField} />)
         )}
         {quizEnabled ? (
           <Route element={<TabLayout />}>
             <Route path="/dex" element={<DexScreen />} />
           </Route>
         ) : (
-          <Route element={<TabLayout />}>
+          <Route element={<TabLayout tabs={false} />}>
             <Route path="/admin" element={<AdminScreen />} />
           </Route>
         )}

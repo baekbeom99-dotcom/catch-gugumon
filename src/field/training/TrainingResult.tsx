@@ -27,8 +27,8 @@ export function TrainingResult({ dan, mode, result, outcome, timeMs, onChallenge
       <div className={`training__result-card ${pass ? 'training__result-card--pass' : ''}`}>
         <h1 className="training__result-title">{text.title}</h1>
         <div className="training__result-lines">
-          {text.lines.map((l) => (
-            <p key={l} className={l === '새 기록!' ? 'training__new-best' : undefined}>
+          {text.lines.map((l, i) => (
+            <p key={l} className={i === text.newBestIndex ? 'training__new-best' : undefined}>
               {l}
             </p>
           ))}

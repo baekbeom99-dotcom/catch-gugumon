@@ -71,6 +71,17 @@ describe('트레이닝 저장 데이터', () => {
     expect(twice.position.y).toBe(11);
   });
 
+  it('옛 백업(마을 자리, training 없음)을 replaceSave로 불러오면 한 번만 옮겨진다', () => {
+    useGameStore.getState().resetAll();
+    const old = { ...createInitialSave(NOW), field: oldField({ map: 'town', x: 5, y: 7, facing: 'down' }) };
+    useGameStore.getState().replaceSave(old);
+    expect(useGameStore.getState().field.position.y).toBe(7 + TOWN_ROWS_ADDED);
+    expect(useGameStore.getState().field.training).toEqual(emptyTraining());
+    // 저장된 상태를 다시 읽어 합쳐도(training이 이미 있다) 더 밀리지 않는다
+    useGameStore.getState().replaceSave(JSON.parse(JSON.stringify(currentSave())));
+    expect(useGameStore.getState().field.position.y).toBe(7 + TOWN_ROWS_ADDED);
+  });
+
   it('백업(currentSave)에 훈련 기록이 들어간다', () => {
     useGameStore.getState().resetAll();
     setTraining({ studied: { 2: true } });
@@ -191,6 +202,18 @@ describe('recordTrainingAnswer', () => {
     expect(after.learning.facts['7x4']).toEqual(s.learning.facts['7x4']);
     s.recordTrainingAnswer(12, 5, true, 2000, NOW);
     expect(useGameStore.getState().learning.facts['12x5'].correct).toBe(1);
+  });
+
+  it('isRetry=true면 맞혀도 상자가 오르지 않고(시도·정답 수는 센다), 아니면 오른다', () => {
+    const s = useGameStore.getState();
+    expect(s.learning.facts['5x2'].box).toBe(0);
+    s.recordTrainingAnswer(5, 2, true, 2000, NOW, true);
+    let f = useGameStore.getState().learning.facts['5x2'];
+    expect(f.box).toBe(0);
+    expect([f.attempts, f.correct]).toEqual([1, 1]);
+    s.recordTrainingAnswer(5, 3, true, 2000, NOW);
+    f = useGameStore.getState().learning.facts['5x3'];
+    expect(f.box).toBe(1);
   });
 
   it('(h) 11단은 아무것도 바꾸지 않는다', () => {

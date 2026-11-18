@@ -16,6 +16,11 @@ describe('자동 새로고침', () => {
     expect(isBusyRoute('#/field')).toBe(false);
   });
 
+  it('트레이닝센터(학습·도전) 중에는 기다리고, 내 기록 화면은 새로고침한다', () => {
+    expect(isBusyRoute('#/field/training/7')).toBe(true);
+    expect(isBusyRoute('#/field/records')).toBe(false);
+  });
+
   it('30분마다 확인한다', () => {
     expect(UPDATE_CHECK_MS).toBe(30 * 60 * 1000);
   });

@@ -287,7 +287,8 @@ interface GameActions {
    */
   finishTraining: (input: TrainingInput) => TrainingOutcome;
   /** 트레이닝센터 답 하나: 그 곱셈 문제 기록(learning.facts)만 바꾼다. 별·펫은 그대로, 11단은 기록이 없어 아무것도 안 한다 */
-  recordTrainingAnswer: (dan: number, multiplier: number, correct: boolean, speedMs: number, now: number) => void;
+  /** isRetry: 이 문제에서 이미 틀린 뒤의 답이면 true (맞혀도 상자가 오르지 않는다) */
+  recordTrainingAnswer: (dan: number, multiplier: number, correct: boolean, speedMs: number, now: number, isRetry?: boolean) => void;
   /** 필드 모험: 야생 전투 끝 — 잡기·기록·펫 친밀도 */
   finishWildBattle: (r: WildBattleEnd) => WildResult;
   /** 필드 모험: 기술 제안을 받는다 — removeId를 잊고 그 자리에 새 기술 (replaceSkill과 같은 검사, 한 번의 set). 안 되면 false */
@@ -657,7 +658,7 @@ export const useGameStore = create<GameStore>()(
                   const id = legend.species;
                   const known = speciesEntry(f, id);
                   if (!known) {
-                    // 새 종: 야생 레전드와 같은 레벨로 도감에
+                    // 새 종: 야생 레전드가 나오는 레벨(LEGEND_LEVEL)로 도감에
                     species = { ...species, [id]: newSpeciesEntry(id, LEGEND_LEVEL, now) };
                   } else {
                     // 이미 있는 종: 또 잡았을 때처럼 잡은 수 +1, 중복 경험치 (레벨이 오르면 기술도 배운다)
@@ -678,7 +679,7 @@ export const useGameStore = create<GameStore>()(
         });
         return result;
       },
-      recordTrainingAnswer: (dan, multiplier, correct, speedMs, now) => {
+      recordTrainingAnswer: (dan, multiplier, correct, speedMs, now, isRetry = false) => {
         // 퀴즈 모험 기록이 있는 단(2~9·12·13)과 ×0~×10만. 11단은 기록 칸이 없어 아무것도 안 한다
         if (!(ALL_DANS as readonly number[]).includes(dan) || !(MULTIPLIERS as readonly number[]).includes(multiplier)) return;
         // 걸린 시간이 이상하면 평균 시간이 망가지지 않게 기록하지 않는다
@@ -689,7 +690,7 @@ export const useGameStore = create<GameStore>()(
             correct,
             ms: speedMs,
             inputMode: 'choice',
-            isRetry: false,
+            isRetry,
             now,
             today: localDateString(now),
             // 보기 3개 연습이라 필드 모험처럼 상자 3까지만 (마스터 상자는 퀴즈 도전으로)

@@ -5,6 +5,8 @@ import type { FlowMode, FlowResult } from './flow';
 export interface ResultText {
   title: string;
   lines: string[];
+  /** lines 중 '새 기록!' 줄의 번호 (없으면 null) — 결과 화면이 그 줄을 눈에 띄게 그린다 */
+  newBestIndex: number | null;
 }
 
 export const trainingText = {
@@ -15,7 +17,6 @@ export const trainingText = {
   challengeButton: '마스터 도전',
   challengeHint: '9문제를 모두 맞혀요',
   lockedHint: '학습을 먼저 마쳐요',
-  challengeLocked: '🔒 학습을 먼저 마쳐요',
   recordsButton: '내 기록 보기',
   backToTown: '마을로',
   again: '다시 하기',
@@ -38,6 +39,7 @@ export const trainingText = {
   result(dan: number, mode: FlowMode, result: FlowResult, outcome: TrainingOutcome, timeMs?: number): ResultText {
     const lines: string[] = [];
     let title: string;
+    let newBestIndex: number | null = null;
     if (mode === 'study') {
       title = `${dan}단 학습 끝!`;
       lines.push('끝까지 해냈어요!', '이제 마스터 도전을 할 수 있어요');
@@ -45,7 +47,10 @@ export const trainingText = {
       title = `${dan}단 마스터!`;
       lines.push('지붕에 숫자가 켜졌어요');
       if (timeMs !== undefined) lines.push(`걸린 시간 ${trainingText.seconds(timeMs)}`);
-      if (outcome.newBest) lines.push('새 기록!');
+      if (outcome.newBest) {
+        newBestIndex = lines.length;
+        lines.push('새 기록!');
+      }
     } else if (result === 'wrong') {
       title = `${dan}단 아쉬워요`;
       lines.push('틀리면 끝이에요. 다시 도전해 봐요!');
@@ -54,6 +59,6 @@ export const trainingText = {
       lines.push('조금만 더 빨리! 다시 도전해 봐요!');
     }
     if (outcome.ok && outcome.capsules > 0) lines.push(trainingText.capsuleGain(outcome.capsules));
-    return { title, lines };
+    return { title, lines, newBestIndex };
   },
 } as const;

@@ -49,7 +49,7 @@ async function saved(page: Page) {
 }
 
 /** 문제 9개를 푼다 (화면의 곱하기 숫자를 읽어 정답 보기를 누른다). wrongAt이 있으면 그 번째(0부터)에서 틀린 보기를 누르고 멈춘다 */
-async function solveNine(page: Page, dan: number, wrongAt = -1, tapMany = false) {
+async function solveNine(page: Page, dan: number, wrongAt = -1, tapMany = false, quitRight = false) {
   const question = page.locator('.training__question');
   for (let i = 0; i < 9; i++) {
     const m = Number(await question.getAttribute('data-multiplier'));
@@ -59,9 +59,15 @@ async function solveNine(page: Page, dan: number, wrongAt = -1, tapMany = false)
     }
     const choice = page.getByRole('button', { name: `답 ${dan * m}`, exact: true });
     if (tapMany && i === 8) {
-      // 마지막 답을 한꺼번에 여러 번 눌러도 결과는 한 번만
+      // 마지막 답을 같은 작업 안에서 5번 눌러도 결과·정산은 한 번만 (React가 다시 그리기 전이라 낡은 핸들러까지 확인)
       await choice.evaluate((el) => {
         for (let k = 0; k < 5; k++) (el as HTMLButtonElement).click();
+      });
+    } else if (quitRight && i === 8) {
+      // 마지막 답 바로 뒤(결과가 뜨기 전)에 그만하기를 눌러도 결과 화면으로 간다
+      await choice.evaluate((el) => {
+        (el as HTMLButtonElement).click();
+        (document.querySelector('.training__quit') as HTMLButtonElement).click();
       });
     } else {
       await choice.click();
@@ -160,6 +166,33 @@ test('마스터 도전 성공: 마스터 저장·캡슐 5개·다음 3단이 열
   expect(errors).toEqual([]);
 });
 
+test('마지막 답 바로 뒤에 그만하기를 눌러도 결과 화면이 나오고 캡슐은 한 번만 받는다', async ({ page }) => {
+  const errors = collectErrors(page);
+  await seed(page);
+  await openTraining(page, 2);
+  const before = count(await saved(page), 'meadow');
+  await page.getByTestId('training-study-btn').click();
+  await solveNine(page, 2, -1, false, true);
+  const result = page.getByTestId('training-result');
+  await expect(result).toBeVisible();
+  await expect(result).toContainText('2단 학습 끝!');
+  await expect(page.getByTestId('training-entry')).toHaveCount(0);
+  expect(count(await saved(page), 'meadow')).toBe(before + 5);
+  expect(errors).toEqual([]);
+});
+
+test('학습에서 틀린 뒤 정답을 눌러도 그 문제는 처음 맞힘으로 기록되지 않는다', async ({ page }) => {
+  await seed(page);
+  await openTraining(page, 2);
+  await page.getByTestId('training-study-btn').click();
+  await page.locator('[data-testid=training-choice]:not([data-answer])').first().click(); // 2×1 틀림
+  await page.locator('[data-testid=training-choice][data-answer]').click(); // 정답을 눌러 봄
+  await expect(page.locator('.training__question')).not.toHaveAttribute('data-multiplier', '1');
+  const facts = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.learning.facts['2x1']);
+  expect(facts.box).toBe(1);
+  expect(facts.attempts).toBe(2);
+});
+
 test('마스터 도전 실패(틀림): 마스터는 안 되지만 캡슐 5개는 받는다', async ({ page }) => {
   await seed(page, { training: trainingOf([], [2]), noTimer: true });
   await openTraining(page, 2);
@@ -244,4 +277,13 @@ test('퀴즈 모험이 꺼져 있으면 #/pet은 필드로 가고 타이틀에�
   await expect(page).toHaveURL(/#\/field$/);
   await page.goto('/#/explore');
   await expect(page).toHaveURL(/#\/field$/);
+});
+
+test('퀴즈 모험이 꺼져 있어도 타이틀의 작은 관리 글자로 관리자 화면(탭 없음)에 간다', async ({ page }) => {
+  await seed(page);
+  await page.goto('/#/');
+  await page.getByRole('button', { name: '관리', exact: true }).click();
+  await expect(page).toHaveURL(/#\/admin$/);
+  await expect(page.getByRole('heading', { name: /어른용 화면|PIN/ }).first()).toBeVisible();
+  await expect(page.locator('.tabbar')).toHaveCount(0);
 });

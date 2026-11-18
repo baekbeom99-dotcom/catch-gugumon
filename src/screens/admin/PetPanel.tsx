@@ -5,6 +5,7 @@ import { checkPin } from '../../domain/admin';
 import { GRADUATION_LEVEL, makeTitle } from '../../domain/dex';
 import { josa } from '../../domain/korean';
 import { affectionLevel, SPECIES_INFO, STAGE_LABELS } from '../../domain/pet';
+import { isQuizEnabled } from '../../config/featureFlags';
 import { useGameStore } from '../../store/useGameStore';
 import { PinPad } from './PinPad';
 
@@ -43,9 +44,11 @@ export function PetPanel() {
             )}
           </ul>
         )}
-        <button type="button" className="btn btn--ghost" onClick={() => navigate('/dex')}>
-          📖 도감 보기 ({dexCount}마리)
-        </button>
+        {isQuizEnabled() && (
+          <button type="button" className="btn btn--ghost" onClick={() => navigate('/dex')}>
+            📖 도감 보기 ({dexCount}마리)
+          </button>
+        )}
       </section>
 
       <section className="admin-card">

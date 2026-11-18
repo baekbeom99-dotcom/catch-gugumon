@@ -1,7 +1,8 @@
 /** 퀴즈 모험(펫·탐험·상점 탭 등) 켜기. 다시 열려면 true로 바꾼다 — 화면과 저장 데이터는 그대로 남아 있다. */
 export const QUIZ_ADVENTURE_ENABLED = false;
 
-const QUIZ_ROOTS = ['/pet', '/explore', '/shop', '/records', '/dex', '/battle', '/practice', '/hatch', '/welcome'];
+/** 퀴즈 모험 경로 (꺼져 있으면 이 경로는 모두 필드로 보낸다) */
+export const QUIZ_ROOTS = ['/pet', '/explore', '/shop', '/records', '/dex', '/battle', '/practice', '/hatch', '/welcome'];
 
 /**
  * 퀴즈 모험이 켜져 있는가. E2E에서는 window.__GUGU_E2E_QUIZ__ (true·false)가 있으면 그것을 따른다.

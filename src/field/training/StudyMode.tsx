@@ -18,7 +18,7 @@ interface Props {
 
 export function StudyMode({ dan, species, onDone, onQuit }: Props) {
   const questions = useMemo(() => planStudy(dan), [dan]);
-  const { flow, send, record } = useTrainingRun(dan, 'study', onDone);
+  const { flow, answer, requestQuit } = useTrainingRun(dan, 'study', onDone);
   const fx = useTrainingFx(species);
   const clock = useRunClock(flow.phase === 'running', false);
   const lastAt = useRef(0);
@@ -32,9 +32,8 @@ export function StudyMode({ dan, species, onDone, onQuit }: Props) {
     if (flow.phase !== 'running') return;
     const correct = value === q.answer;
     const ms = Math.round(clock.current - lastAt.current);
+    if (!answer(q.multiplier, correct, ms)) return;
     lastAt.current = clock.current;
-    record(q.multiplier, correct, ms);
-    send({ type: 'answer', correct, ms });
     if (correct) {
       fx.fire(rights);
       setRights((n) => n + 1);
@@ -63,8 +62,7 @@ export function StudyMode({ dan, species, onDone, onQuit }: Props) {
       disabled={flow.phase !== 'running'}
       onPick={onPick}
       onQuit={() => {
-        send({ type: 'quit' });
-        onQuit();
+        if (requestQuit()) onQuit();
       }}
     />
   );

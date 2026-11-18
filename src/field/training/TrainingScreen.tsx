@@ -37,7 +37,8 @@ function TrainingCenter({ dan }: { dan: TrainingDan }) {
   const challengeOpen = isChallengeOpen(training, dan);
   const best = training.mastered[dan]?.bestMs;
 
-  const toTown = () => navigate('/field');
+  // 입장은 history에 쌓였으므로 나갈 때는 바꿔 끼운다 (안드로이드 뒤로 가기에 건물로 다시 들어가지 않게)
+  const toTown = () => navigate('/field', { replace: true });
   const start = (kind: 'study' | 'challenge') => {
     setRun((n) => n + 1);
     setView({ kind, run: run + 1 });
