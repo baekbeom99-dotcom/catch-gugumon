@@ -1,5 +1,5 @@
 /** 처음 화면: 그림 한 장 위에 [시작하기]를 가운데 두고, 오른쪽 위에 저학년 모드 스위치를 둔다 */
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SpriteCredit } from '../field/art/SpriteCredit';
 import { isQuizEnabled } from '../config/featureFlags';
@@ -10,17 +10,33 @@ import titleTall from '../assets/title/title-tall.webp';
 import '../field/lowgrade/lowgrade.css';
 import './title.css';
 
+/** 앱 칸의 가장 넓은 폭(styles.css .app)과, 이 비율보다 좁으면 긴 그림을 쓴다 */
+const TITLE_MAX_W = 600;
+const TALL_BELOW = 0.6;
+
 export function TitleScreen() {
   const navigate = useNavigate();
   const lowGrade = useGameStore((s) => s.settings.lowGrade);
   const [asking, setAsking] = useState(false);
+  const box = useRef<HTMLElement>(null);
+  // 앱은 600px보다 넓어지지 않으므로 처음 값도 그 폭으로 잰다 (깜빡임 없음)
+  const [tall, setTall] = useState(() => Math.min(window.innerWidth, TITLE_MAX_W) / window.innerHeight < TALL_BELOW);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const measure = () => {
+      const r = el.getBoundingClientRect();
+      if (r.height > 0) setTall(r.width / r.height < TALL_BELOW);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
   return (
-    <section className="title">
-      {/* 화면이 세로로 아주 길면(가로÷세로 < 3:5) 긴 그림, 아니면 3:4 그림. 늘리지 않고 비율 그대로 덮는다 */}
-      <picture className="title__art">
-        <source media="(min-aspect-ratio: 3/5)" srcSet={title3x4} />
-        <img src={titleTall} alt="" decoding="async" fetchPriority="high" draggable={false} />
-      </picture>
+    <section className="title" ref={box}>
+      {/* 이 화면 칸의 가로÷세로가 3:5보다 좁으면 긴 그림, 아니면 3:4 그림. 늘리지 않고 비율 그대로 덮는다 */}
+      <img className="title__art" src={tall ? titleTall : title3x4} alt="" decoding="async" fetchPriority="high" draggable={false} />
       {/* 제목 글자는 그림 안에 있다. 화면 읽기용으로만 둔다 */}
       <h1 className="title__sr">잡아라! 구구단 몬스터</h1>
 

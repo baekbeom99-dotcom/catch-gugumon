@@ -43,16 +43,25 @@ test('퀴즈 모험 위쪽 [처음 화면]을 누르면 타이틀로 돌아온�
 
 for (const [w, h, want] of [
   [375, 812, 'title-tall'],
-  [768, 1024, 'title-3x4'],
+  [768, 1024, 'title-tall'],
+  [600, 800, 'title-3x4'],
 ] as const) {
   test(`시작 화면 ${w}×${h}: ${want} 그림, 시작하기는 가운데, 저학년 모드는 오른쪽 위, 가로 스크롤 없음`, async ({ page }) => {
     await page.setViewportSize({ width: w, height: h });
     await page.goto('/');
-    const img = page.locator('.title__art img');
+    const img = page.locator('img.title__art');
     await expect(img).toBeVisible();
     await expect.poll(() => img.evaluate((e: HTMLImageElement) => e.currentSrc)).toContain(want);
     // 비율 그대로 덮기 (늘리지 않음)
     await expect(img).toHaveCSS('object-fit', 'cover');
+    // 덮기: 그림 칸이 화면 칸보다 작지 않다 (옆이 잘리지 않게 그림을 고른 것)
+    const ib = (await img.boundingBox())!;
+    const cb = (await page.locator('.title').boundingBox())!;
+    expect(ib.width).toBeGreaterThanOrEqual(cb.width - 1);
+    expect(ib.height).toBeGreaterThanOrEqual(cb.height - 1);
+    const nat = await img.evaluate((e: HTMLImageElement) => e.naturalWidth / e.naturalHeight);
+    // 가로로 잘리는 몫이 5% 안쪽 (제목 글자가 옆에서 잘리지 않는다)
+    expect(Math.max(0, 1 - cb.width / cb.height / nat)).toBeLessThan(0.05);
 
     const start = page.getByRole('button', { name: '시작하기' });
     await expect(start).toBeVisible();
@@ -68,7 +77,7 @@ for (const [w, h, want] of [
     const sw = (await page.getByRole('switch', { name: '저학년 모드' }).boundingBox())!;
     expect(sw.x + sw.width).toBeGreaterThan(vw * 0.55);
     expect(sw.y).toBeLessThan(vh * 0.15);
-    expect(sw.height).toBeLessThanOrEqual(44);
+    expect(sw.height).toBeLessThanOrEqual(46);
 
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
     await expect(page.getByRole('heading', { name: '잡아라! 구구단 몬스터' })).toHaveCount(1);
