@@ -586,7 +586,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
         ...(compSheet ? { lift: 0 } : {}),
       };
       const npcSprites: NpcSprite[] =
-        map.id === 'gym' ? GYM_NPCS.map((n) => ({ id: n.id, x: n.pos.x, y: n.pos.y, pic: npcPicture(n.id, n.tint, isNpcMastered(n, game.field.training), now) })) : [];
+        map.id === 'gym' ? GYM_NPCS.map((n) => ({ id: n.id, x: n.pos.x, y: n.pos.y, pic: npcPicture(n.id, n.tint, isNpcMastered(n, game.field.training), now, n.hair, n.facing) })) : [];
       const sprites = s.roamers.length > 0 ? buildSprites(s.roamers, (r) => useGameStore.getState().field.species[r.species]?.stage ?? 1, now) : undefined;
       const cam = drawField(ctx, map, view, hero, comp, { now, step: stepT }, sprites, npcSprites);
       s.camX = cam.cx;

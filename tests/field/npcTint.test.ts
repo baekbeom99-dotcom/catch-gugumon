@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hsvToRgb, isHair, isSkin, rgbToHsv, tintImageData, tintPixel, type Rgba } from '../../src/field/art/npcTint';
+import { MASTER_HAIR_LOOKS, NPC_SPARKLE_MS, hsvToRgb, isHair, isSkin, isYellowHue, rgbToHsv, sparklePhase, tintImageData, tintPixel, type Rgba } from '../../src/field/art/npcTint';
 
 const ONE = { r: 1, g: 1, b: 1 };
 const ORANGE: Rgba = [245, 150, 50, 255]; // 013 머리카락 (색상 약 30°)
@@ -77,5 +77,42 @@ describe('NPC 색 입히기', () => {
     tintImageData(data, ONE, true);
     expect(rgbToHsv(data[0], data[1], data[2])[0]).toBeGreaterThan(50);
     expect(Array.from(data.slice(4, 8))).toEqual([20, 100, 200, 255]);
+  });
+
+  it('안 마스터한 NPC의 머리는 정해진 머리색(색상)으로 바뀌고, 피부·윤곽선·옷은 그대로 규칙', () => {
+    const [r, g, b] = tintPixel(ORANGE, ONE, false, { hue: 200 });
+    const [h, s, v] = rgbToHsv(r, g, b);
+    expect(Math.abs(h - 200)).toBeLessThan(3);
+    expect(s).toBeCloseTo(rgbToHsv(245, 150, 50)[1], 1);
+    expect(v).toBeCloseTo(rgbToHsv(245, 150, 50)[2], 1);
+    const hair = { hue: 200 };
+    expect(tintPixel(SKIN, ONE, false, hair)).toEqual(SKIN);
+    expect(tintPixel(OUTLINE, ONE, false, hair)).toEqual(OUTLINE);
+    expect(tintPixel(BLUE, { r: 0.5, g: 1.5, b: 2 }, false, hair)).toEqual([20, 150, 255, 255]);
+  });
+
+  it('머리색의 채도·밝기 곱(검정·흰색 등)이 적용된다', () => {
+    const [r, g, b] = tintPixel(ORANGE, ONE, false, { hue: 240, sat: 0.1, val: 0.4 });
+    const [, s, v] = rgbToHsv(r, g, b);
+    expect(s).toBeLessThan(0.1);
+    expect(v).toBeLessThan(0.45);
+  });
+
+  it('마스터하면 머리색 설정과 상관없이 노랑이고, 두 번째 모습은 더 밝고 연하다', () => {
+    const [a0, a1] = [0, 1].map((ph) => {
+      const [r, g, b] = tintPixel(ORANGE, ONE, true, { hue: 200 }, ph);
+      return rgbToHsv(r, g, b);
+    });
+    expect(isYellowHue(a0[0])).toBe(true);
+    expect(isYellowHue(a1[0])).toBe(true);
+    expect(a1[2]).toBeGreaterThanOrEqual(a0[2]);
+    expect(a1[1]).toBeLessThan(a0[1]);
+    for (const look of MASTER_HAIR_LOOKS) expect(isYellowHue(look.hue)).toBe(true);
+  });
+
+  it('반짝임은 두 모습이 번갈아 바뀌고, 동작 줄이기면 언제나 0', () => {
+    const half = NPC_SPARKLE_MS / 2;
+    expect([0, half - 1, half, NPC_SPARKLE_MS - 1, NPC_SPARKLE_MS].map((t) => sparklePhase(t, false))).toEqual([0, 0, 1, 1, 0]);
+    for (const t of [0, half, 12345]) expect(sparklePhase(t, true)).toBe(0);
   });
 });

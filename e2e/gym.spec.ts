@@ -101,25 +101,25 @@ test('체육관 출구(7,19)로 나가면 마을 체육관 문 앞(9,5)에 선�
 });
 
 test('잠긴 3단 트레이너에게 말을 걸면 "2단 트레이너를 먼저 이겨요"가 뜨고 들어가지 않는다', async ({ page }) => {
-  await seed(page, { pos: { x: 3, y: 15, facing: 'up' } });
+  await seed(page, { pos: { x: 2, y: 15, facing: 'up' } });
   await page.goto('/#/field');
-  await expect(canvas(page)).toHaveAttribute('data-pos', '3,15');
+  await expect(canvas(page)).toHaveAttribute('data-pos', '2,15');
   await bump(page, 'ArrowUp', async () => {
     await expect(page.getByRole('dialog', { name: '표지판' })).toContainText('2단 트레이너를 먼저 이겨요');
   });
   await expect(page).toHaveURL(/#\/field$/);
-  await expect(canvas(page)).toHaveAttribute('data-pos', '3,15');
+  await expect(canvas(page)).toHaveAttribute('data-pos', '2,15');
 });
 
 test('2단 트레이너 → 학습 → 돌아오면 그 앞 → 도전 합격 → 마스터 표식 1 → 3단 트레이너 표식은 아직 0', async ({ page }) => {
   const errors = collectErrors(page);
-  await seed(page, { pos: { x: 11, y: 17, facing: 'up' } }); // 한 칸 아래에서 걸어 올라가 트레이너 앞 칸(11,16)에서 부딪힌다
+  await seed(page, { pos: { x: 4, y: 18, facing: 'up' } }); // 한 칸 아래에서 걸어 올라가 트레이너 앞 칸(4,17)에서 부딪힌다
   await page.goto('/#/field');
-  await expect(canvas(page)).toHaveAttribute('data-pos', '11,17');
+  await expect(canvas(page)).toHaveAttribute('data-pos', '4,18');
   await bump(page, 'ArrowUp', async () => {
     await expect(page).toHaveURL(/#\/field\/training\/2$/);
   });
-  expect(await savedPos(page)).toMatchObject({ map: 'gym', x: 11, y: 16, facing: 'up' }); // 이동 전에 현재 칸·바라보는 쪽을 저장했다
+  expect(await savedPos(page)).toMatchObject({ map: 'gym', x: 4, y: 17, facing: 'up' }); // 이동 전에 현재 칸·바라보는 쪽을 저장했다
   await expect(page.getByTestId('training-entry')).toBeVisible();
   await expect(page.getByTestId('training-challenge-btn')).toHaveAttribute('aria-disabled', 'true');
 
@@ -130,7 +130,7 @@ test('2단 트레이너 → 학습 → 돌아오면 그 앞 → 도전 합격 �
   await page.getByRole('button', { name: '체육관으로' }).click();
   await expect(page).toHaveURL(/#\/field$/);
   await expect(canvas(page)).toHaveAttribute('data-map', 'gym');
-  await expect(canvas(page)).toHaveAttribute('data-pos', '11,16'); // 그 트레이너 앞 칸
+  await expect(canvas(page)).toHaveAttribute('data-pos', '4,17'); // 그 트레이너 앞 칸
   await expect(canvas(page)).toHaveAttribute('data-npcs', /^dan2:0,/);
 
   // 다시 말을 걸어 마스터 도전 (시계는 멈춰 있다)
@@ -142,15 +142,15 @@ test('2단 트레이너 → 학습 → 돌아오면 그 앞 → 도전 합격 �
   await solveDan(page, 2);
   await expect(page.getByTestId('training-result')).toHaveAttribute('data-result', 'pass');
   await page.getByRole('button', { name: '체육관으로' }).click();
-  await expect(canvas(page)).toHaveAttribute('data-pos', '11,16');
+  await expect(canvas(page)).toHaveAttribute('data-pos', '4,17');
   await expect(canvas(page)).toHaveAttribute('data-npcs', /^dan2:1,dan3:0,/);
   expect(errors).toEqual([]);
 });
 
 test('2단을 마스터했으면 3단 트레이너에게 말을 걸어 3단 트레이닝센터로 들어간다', async ({ page }) => {
-  await seed(page, { pos: { x: 3, y: 15, facing: 'up' }, masteredDans: [2] });
+  await seed(page, { pos: { x: 2, y: 15, facing: 'up' }, masteredDans: [2] });
   await page.goto('/#/field');
-  await expect(canvas(page)).toHaveAttribute('data-pos', '3,15');
+  await expect(canvas(page)).toHaveAttribute('data-pos', '2,15');
   await bump(page, 'ArrowUp', async () => {
     await expect(page).toHaveURL(/#\/field\/training\/3$/);
   });
@@ -158,17 +158,17 @@ test('2단을 마스터했으면 3단 트레이너에게 말을 걸어 3단 트�
 });
 
 test('셈연습 트레이너(기본)에게 말을 걸면 처음부터 열려 있고, 나오면 그 앞에 선다', async ({ page }) => {
-  await seed(page, { pos: { x: 6, y: 15, facing: 'up' } }); // 한 칸 아래에서 걸어 올라간다
+  await seed(page, { pos: { x: 11, y: 16, facing: 'up' } }); // 한 칸 아래에서 걸어 올라간다
   await page.goto('/#/field');
-  await expect(canvas(page)).toHaveAttribute('data-pos', '6,15');
+  await expect(canvas(page)).toHaveAttribute('data-pos', '11,16');
   await bump(page, 'ArrowUp', async () => {
     await expect(page).toHaveURL(/#\/field\/training\/arith\/basic$/);
   });
-  expect(await savedPos(page)).toMatchObject({ map: 'gym', x: 6, y: 14, facing: 'up' });
+  expect(await savedPos(page)).toMatchObject({ map: 'gym', x: 11, y: 15, facing: 'up' });
   await expect(page.getByTestId('arith-entry')).toBeVisible();
   await page.getByRole('button', { name: '체육관으로' }).click();
   await expect(page).toHaveURL(/#\/field$/);
-  await expect(canvas(page)).toHaveAttribute('data-pos', '6,14');
+  await expect(canvas(page)).toHaveAttribute('data-pos', '11,15');
 });
 
 test('동상은 별점수가 꺼져 있으면 아무 반응이 없다', async ({ page }) => {
@@ -194,9 +194,9 @@ test('별점수를 켜면 동상에게 말을 걸어 동상 화면으로 간다'
 });
 
 test('저학년 모드여도 체육관 트레이닝 화면은 구구단(×) 그대로다', async ({ page }) => {
-  await seed(page, { pos: { x: 11, y: 16, facing: 'up' }, lowGrade: true });
+  await seed(page, { pos: { x: 4, y: 17, facing: 'up' }, lowGrade: true });
   await page.goto('/#/field');
-  await expect(canvas(page)).toHaveAttribute('data-pos', '11,16');
+  await expect(canvas(page)).toHaveAttribute('data-pos', '4,17');
   await bump(page, 'ArrowUp', async () => {
     await expect(page).toHaveURL(/#\/field\/training\/2$/);
   });

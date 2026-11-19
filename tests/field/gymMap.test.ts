@@ -3,6 +3,7 @@ import { GYM_EXITS, GYM_NPCS, GYM_ROWS, GYM_SIGNS, GYM_STATUES } from '../../src
 import { DIR_DELTA, type Dir, type FieldMap, type Pos, npcAt, safeStartPosition, tryStep } from '../../src/domain/field/movement';
 import { TRAINING_DANS } from '../../src/domain/field/tuning';
 import { loadField } from '../../src/field/world/loadField';
+import { isYellowHue } from '../../src/field/art/npcTint';
 import { encounterChance } from '../../src/domain/field/encounter';
 
 const DIRS = Object.keys(DIR_DELTA) as Dir[];
@@ -43,9 +44,34 @@ describe('체육관 NPC 표', () => {
     for (const n of GYM_NPCS) for (const v of [n.tint.r, n.tint.g, n.tint.b]) expect(v >= 0 && v <= 2).toBe(true);
   });
 
-  it('낮은 단일수록 입구(아래)에 가깝다', () => {
-    const ys = GYM_NPCS.filter((n) => n.kind === 'dan').map((n) => n.pos.y);
-    for (let i = 1; i < ys.length; i++) expect(ys[i], `${i}번째`).toBeLessThanOrEqual(ys[i - 1]);
+  it('단 트레이너는 왼쪽에서 입구 가까운 쪽부터 위로, x=4·x=2를 번갈아 선다', () => {
+    const dan = GYM_NPCS.filter((n) => n.kind === 'dan');
+    for (const n of dan) expect(n.pos.x, n.id).toBeLessThanOrEqual(5);
+    for (let i = 1; i < dan.length; i++) {
+      expect(dan[i].pos.y, `${i}번째`).toBeLessThan(dan[i - 1].pos.y); // 입구에서 멀어질수록 위
+      expect(dan[i].pos.x, `${i}번째 열`).not.toBe(dan[i - 1].pos.x); // 번갈아
+    }
+    expect(new Set(dan.map((n) => n.pos.x))).toEqual(new Set([2, 4]));
+    expect(dan[0].pos.y).toBeGreaterThanOrEqual(15); // 첫 사람은 입구 가까이
+  });
+
+  it('셈연습 트레이너는 오른쪽 세로줄(x 10 이상)에 위로 늘어선다', () => {
+    const arith = GYM_NPCS.filter((n) => n.kind === 'arith');
+    for (const n of arith) expect(n.pos.x, n.id).toBeGreaterThanOrEqual(10);
+    for (let i = 1; i < arith.length; i++) expect(arith[i].pos.y).toBeLessThan(arith[i - 1].pos.y);
+  });
+
+  it('머리색은 사람마다 다르고 노랑(마스터 전용)이 아니다, 옷색도 다 다르다', () => {
+    const look = (n: (typeof GYM_NPCS)[number]) => `${n.hair.hue},${n.hair.sat ?? 1},${n.hair.val ?? 1}`;
+    expect(new Set(GYM_NPCS.map(look)).size).toBe(13);
+    expect(new Set(GYM_NPCS.map((n) => n.hair.hue)).size).toBe(13);
+    for (const n of GYM_NPCS) expect(isYellowHue(n.hair.hue), `${n.id} 머리 ${n.hair.hue}도`).toBe(false);
+  });
+
+  it('바라보는 쪽은 올바른 값이고 모두 같지 않다', () => {
+    const ok = ['down', 'up', 'left', 'right'];
+    for (const n of GYM_NPCS) expect(ok, n.id).toContain(n.facing);
+    expect(new Set(GYM_NPCS.map((n) => n.facing)).size).toBeGreaterThanOrEqual(3);
   });
 });
 

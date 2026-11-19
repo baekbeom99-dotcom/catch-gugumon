@@ -93,14 +93,14 @@ test('마을 체육관 문으로 들어가 2단 트레이너에게 말을 걸면
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-map', 'gym');
   await page.keyboard.up('ArrowUp');
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '7,18'); // 체육관 입구
-  // 2단 트레이너(11,15) 앞 칸으로 저장 자리를 옮겨 둔 것처럼 다시 연다
+  // 2단 트레이너(4,16) 앞 칸으로 저장 자리를 옮겨 둔 것처럼 다시 연다
   await page.evaluate(() => {
     const raw = JSON.parse(localStorage.getItem('gugu-monster:save')!);
-    raw.state.field.position = { map: 'gym', x: 11, y: 16, facing: 'up' };
+    raw.state.field.position = { map: 'gym', x: 4, y: 17, facing: 'up' };
     localStorage.setItem('gugu-monster:save', JSON.stringify(raw));
   });
   await page.reload();
-  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '11,16');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '4,17');
   await page.keyboard.down('ArrowUp');
   await expect(page).toHaveURL(/#\/field\/training\/2$/);
   await page.keyboard.up('ArrowUp');
@@ -110,9 +110,9 @@ test('마을 체육관 문으로 들어가 2단 트레이너에게 말을 걸면
 });
 
 test('잠긴 3단 트레이너에게 말을 걸면 "2단 트레이너를 먼저 이겨요"가 뜨고 들어가지 않는다', async ({ page }) => {
-  await seed(page, { map: 'gym', pos: { x: 3, y: 15, facing: 'up' } });
+  await seed(page, { map: 'gym', pos: { x: 2, y: 15, facing: 'up' } });
   await page.goto('/#/field');
-  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '3,15');
+  await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '2,15');
   await page.keyboard.down('ArrowUp');
   await expect(page.getByRole('dialog', { name: '표지판' })).toContainText('2단 트레이너를 먼저 이겨요');
   await page.keyboard.up('ArrowUp');
