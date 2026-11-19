@@ -159,7 +159,7 @@ describe('지도 연결', () => {
 
 /** 트레이닝 거리를 넣기 전의 태초마을 지도 (40줄). 옛 저장의 자리를 TOWN_ROWS_ADDED만큼 밀면 같은 칸이어야 한다 */
 const OLD_TOWN_ROWS = [
-  '####################',
+  '#.....######.......#',
   '#ggggggg.....aaaaaa#',
   '#ggggggg.....aaaaaa#',
   '#ggggggg.....aaaaaa#',
@@ -204,7 +204,20 @@ const OLD_TOWN_ROWS = [
 describe('마을 지도 이동(옛 저장의 자리)이 같은 칸을 가리킨다', () => {
   it('옛 지도의 맨 윗벽을 뺀 39줄이 새 지도 아래쪽 39줄과 똑같다', () => {
     expect(OLD_TOWN_ROWS).toHaveLength(40);
-    expect(TOWN_ROWS.slice(TOWN_ROWS_ADDED + 1)).toEqual(OLD_TOWN_ROWS.slice(1));
+    // 상점 폭을 6칸에서 5칸으로 줄여서(문 자리는 그대로) 상점 두 줄만 옛 지도와 다르다.
+    // 그 두 줄을 뺀 나머지는 옛 지도와 똑같아야 하고, 두 줄은 새 5칸 글자와 같아야 한다.
+    const shopY = OLD_TOWN_ROWS.findIndex((r) => r.includes('D')); // 문이 있는 벽 줄
+    const oldRest = OLD_TOWN_ROWS.slice(1).filter((_, i) => i !== shopY - 2 && i !== shopY - 1);
+    const newRest = TOWN_ROWS.slice(TOWN_ROWS_ADDED + 1).filter((_, i) => i !== shopY - 2 && i !== shopY - 1);
+    expect(newRest).toEqual(oldRest);
+    expect(TOWN_ROWS[shopY - 1 + TOWN_ROWS_ADDED]).toBe('#.....#####........#');
+    expect(TOWN_ROWS[shopY + TOWN_ROWS_ADDED]).toBe('#.....##D##........#');
+  });
+
+  it('상점이 줄어 길이 된 두 칸(옛 x=11, 문 벽 줄·지붕 줄)은 걸을 수 있다', async () => {
+    const town = await loadField('town');
+    const shopY = OLD_TOWN_ROWS.findIndex((r) => r.includes('D'));
+    for (const y of [shopY - 1, shopY]) expect(town.tiles[y + TOWN_ROWS_ADDED][11], `11,${y + TOWN_ROWS_ADDED}`).toBe('path');
   });
 
   it('옛 시작칸 @(10,31)이 새 시작칸(10,40)으로 옮겨진다', () => {
