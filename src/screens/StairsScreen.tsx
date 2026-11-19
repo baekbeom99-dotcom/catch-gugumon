@@ -1,6 +1,6 @@
 /**
  * 무한의 계단 — 설계서 4-5.
- * 키우는 펫이 계단을 오른다. 구구단 문제를 5초(12·13단은 10초) 안에 맞히면 한 칸, 틀리거나 시간이 지나면 떨어져서 끝.
+ * 내 주인공이 깡충 뛰며 계단을 오른다. 구구단 문제를 5초(12·13단은 10초) 안에 맞히면 한 칸, 틀리거나 시간이 지나면 떨어져서 끝.
  * 답은 빠르게 고를 수 있도록 언제나 보기 4개. 오른 계단만큼 별을 받는다.
  */
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -308,6 +308,8 @@ export function StairsScreen() {
           <div
             key={phase === 'over' ? 'fall' : `step-${steps}`}
             data-testid="stairs-hero"
+            role="img"
+            aria-label="내 주인공"
             className={`stairs__pet ${phase === 'over' ? 'stairs__pet--fall' : steps > 0 ? 'stairs__pet--hop' : ''}`}
             style={{ left: camX, top: -camY }}
           >

@@ -100,7 +100,7 @@ describe('픽셀 그림', () => {
 
 describe('마을 건물 타일', () => {
   it('체육관·계단 건물 그림이 등록표에 있고, 훈련 건물 그림은 없다', () => {
-    for (const k of ['gymWall', 'gymDoor', 'gymSign', 'gymRoofL', 'gymRoofR', 'stairsWall', 'stairsDoor', 'shopWall', 'shopWallWin', 'shopDoor', 'shopRoof', 'shopRoofMark', 'stairsRoof', 'stairsRoofMark']) expect(Object.keys(TOWN_TILES.arts)).toContain(k);
+    for (const k of ['gymWall', 'gymDoor', 'gymSign', 'gymRoofL', 'gymRoofR', 'stairsWall', 'stairsDoor', 'shopWall', 'shopWallWin', 'shopDoor', 'shopRoof', 'shopRoofMark', 'stairsRoof', 'stairsRoofMark', 'shopRoofL', 'shopRoofR', 'stairsRoofL', 'stairsRoofR']) expect(Object.keys(TOWN_TILES.arts)).toContain(k);
     for (const k of ['trainWall', 'trainDoor']) expect(Object.keys(TOWN_TILES.arts)).not.toContain(k);
   });
 

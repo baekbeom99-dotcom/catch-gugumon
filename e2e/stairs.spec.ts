@@ -28,6 +28,7 @@ test('무한의 계단: 세 칸 오르고 틀리면 끝, 별 6개(계단 × 2)�
   await expect(page.locator('.stairs__pet [aria-label="펫"], .stairs__pet [aria-label="알"]')).toHaveCount(0);
   await page.getByRole('button', { name: '오르기 시작!' }).click();
 
+  let prevHero: import('@playwright/test').ElementHandle | null = null;
   for (let i = 0; i < 3; i++) {
     await expect(page.locator('.stairs__question')).toBeVisible();
     await answerStairs(page, true);
@@ -35,6 +36,10 @@ test('무한의 계단: 세 칸 오르고 틀리면 끝, 별 6개(계단 × 2)�
     // 한 칸 오를 때마다 주인공이 깡충 뛴다 (칸이 바뀌면 그림이 새로 나와 애니메이션을 다시 한다)
     await expect(page.getByTestId('stairs-hero')).toHaveClass(/stairs__pet--hop/);
     await expect(page.getByTestId('stairs-hero')).toBeVisible();
+    // 칸마다 요소가 새로 만들어져(key) 애니메이션이 처음부터 다시 돈다: 새 요소는 이전 핸들과 다르고, 애니메이션이 걸려 있거나 이미 끝난 새 요소다
+    const handle = await page.getByTestId('stairs-hero').elementHandle();
+    if (prevHero) expect(await prevHero.evaluate((a, b) => a === b, handle), '칸이 바뀌면 주인공 요소가 새로 나온다').toBe(false);
+    prevHero = handle;
   }
   await answerStairs(page, false);
   await expect(page.locator('.stairs__reason')).toHaveText('앗, 헛디뎠어요!');

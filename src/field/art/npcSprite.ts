@@ -4,7 +4,7 @@
  * 굽는 일은 rAF 안에서만 부른다 (이미지를 읽는 중이면 그 사이 한두 프레임은 안 그린다).
  */
 import type { HairLook, Tint } from './npcTint';
-import { sparklePhase, tintImageData, tintPixel } from './npcTint';
+import { NPC_SPARKLE_PHASES, sparklePhase, tintImageData, tintPixel } from './npcTint';
 import { NPC_ART } from './localSprites';
 import { ART_SIZE, bakeTiles, type PixelArt } from './pixelArt';
 import { bodyRatio, drawShadow, SHADOW_FALLBACK_BODY } from './shadow';
@@ -109,6 +109,13 @@ export function npcPixelArt(tint: Tint, mastered: boolean, hair?: HairLook, phas
   };
 }
 
+/** 한 모습 말고 나머지 반짝임 모습들의 캐시 열쇠 (순수) */
+export function otherPhaseKeys(id: string, phase: number): { key: string; phase: number }[] {
+  const out: { key: string; phase: number }[] = [];
+  for (let p = 0; p < NPC_SPARKLE_PHASES; p++) if (p !== phase) out.push({ key: `${id}:1:${p}`, phase: p });
+  return out;
+}
+
 let reducedCache: boolean | null = null;
 /** 동작 줄이기 설정인가 (한 번만 읽는다) */
 function reducedMotion(): boolean {
@@ -136,7 +143,13 @@ export function npcPicture(id: string, tint: Tint, mastered: boolean, now: numbe
         // 불러오기가 끝났는데 실패했으면 픽셀 폴백을 쓴다 (아직이면 기다린다)
         if (img.complete) sheet = null;
         else return null;
-      } else sheet = bakeSheet(img, tint, mastered, hair, phase);
+      } else {
+        sheet = bakeSheet(img, tint, mastered, hair, phase);
+        // 마스터 NPC는 반짝임 다른 모습도 이때 함께 구워 둔다 (모습이 바뀔 때 시트를 새로 굽느라 멈칫하지 않게). 동작 줄이기면 0만
+        if (mastered && !reducedMotion()) {
+          for (const k of otherPhaseKeys(id, phase)) if (!baked.has(k.key)) baked.set(k.key, bakeSheet(img, tint, mastered, hair, k.phase));
+        }
+      }
       baked.set(key, sheet);
     }
     if (sheet) {

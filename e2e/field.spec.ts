@@ -409,6 +409,8 @@ test('잡으면 초원 캡슐이 1개 준다 (3 → 2, 저장본)', async ({ pag
   // 연타해도 한 번만 던진다
   await page.getByRole('button', { name: '캡슐 던지기' }).click();
   await page.getByRole('button', { name: '캡슐 던지기' }).click({ force: true }).catch(() => undefined);
+  // 던지는 중에는 반짝이지 않는다
+  await expect(page.locator('[data-sparkle="1"]')).toHaveCount(0);
   // 던지는 순간 바로 저장된다 (흔들리는 중)
   expect((await savedCapsules(page)).meadow).toBe(2);
   await expect(page.getByText(/잡았다!/)).toBeVisible({ timeout: 5000 });

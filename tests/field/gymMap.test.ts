@@ -3,7 +3,7 @@ import { GYM_EXITS, GYM_NPCS, GYM_ROWS, GYM_SIGNS, GYM_STATUES } from '../../src
 import { DIR_DELTA, type Dir, type FieldMap, type Pos, npcAt, safeStartPosition, tryStep } from '../../src/domain/field/movement';
 import { TRAINING_DANS } from '../../src/domain/field/tuning';
 import { loadField } from '../../src/field/world/loadField';
-import { isYellowHue } from '../../src/field/art/npcTint';
+import { MASTER_HAIR_LOOKS, isYellowHue, hsvToRgb, rgbToHsv, tintPixel } from '../../src/field/art/npcTint';
 import { encounterChance } from '../../src/domain/field/encounter';
 
 const DIRS = Object.keys(DIR_DELTA) as Dir[];
@@ -160,5 +160,31 @@ describe('체육관 지도', () => {
     expect(safeStartPosition(m, { map: 'gym', x: s.x, y: s.y, facing: 'left' })).toMatchObject({ ...m.entrances.start });
     const ok = { x: m.entrances.town!.x, y: m.entrances.town!.y };
     expect(safeStartPosition(m, { map: 'gym', ...ok, facing: 'left' })).toEqual({ ...ok, facing: 'left' });
+  });
+});
+
+describe('체육관 NPC 머리 색칠 (원본 머리 화소 전체)', () => {
+  const ONE = { r: 1, g: 1, b: 1 };
+  /** 013 머리 범위(색상 8~45, 채도 0.5~1, 밝기 0.55~1)를 성기게 훑는 원본 화소들 */
+  const sources: [number, number, number][] = [];
+  for (const h of [10, 16, 24, 32, 40, 44]) for (const s of [0.55, 0.65, 0.8, 1]) for (const v of [0.6, 0.7, 0.85, 1]) sources.push(hsvToRgb(h, s, v));
+
+  it('안 마스터한 NPC는 어떤 머리 화소도 노랗게 보이지 않는다', () => {
+    for (const n of GYM_NPCS) {
+      for (const [r, g, b] of sources) {
+        const [nr, ng, nb] = tintPixel([r, g, b, 255], ONE, false, n.hair);
+        const [h, s] = rgbToHsv(nr, ng, nb);
+        if (s >= 0.05) expect(isYellowHue(h), `${n.id} 원본 ${r},${g},${b} → ${nr},${ng},${nb} (색상 ${h.toFixed(1)})`).toBe(false);
+      }
+    }
+  });
+
+  it('마스터한 트레이너는 두 반짝임 모습 모두 머리가 노랗다', () => {
+    for (const phase of MASTER_HAIR_LOOKS.keys()) {
+      for (const [r, g, b] of sources) {
+        const [nr, ng, nb] = tintPixel([r, g, b, 255], ONE, true, undefined, phase);
+        expect(isYellowHue(rgbToHsv(nr, ng, nb)[0]), `모습 ${phase} 원본 ${r},${g},${b}`).toBe(true);
+      }
+    }
   });
 });
