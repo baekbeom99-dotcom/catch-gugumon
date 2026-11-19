@@ -830,6 +830,8 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   // 문제를 푸는 동안의 캡슐 버튼: 야생 체력이 1/4 이하일 때만 켜진다 (맞는 캡슐이 없으면 꺼짐)
   const catchRow = !ending && (picking || asking);
   const catchReady = catchActive(wild);
+  // 캡슐 버튼 반짝임: 지금 던질 수 있을 때만 (맞는 캡슐이 있고, 연출·확인창·끝난 뒤가 아닐 때). 두 버튼이 같은 값을 쓴다
+  const capsuleSparkle = canThrow(wild) && capsulesLeft > 0 && !throwing && !confirmQuit && !intro && !ending;
   const strongCard = wild.tier === 'strong' ? 'wild__card--strong' : wild.tier === 'mighty' ? 'wild__card--mighty' : '';
   const gone = ending === 'escaped' || ending === 'released' || ending === 'quit';
   // 캡슐 연출: 공이 보이는 동안(실패로 열린 뒤에는 사라진다. 잡힌 뒤에는 닫힌 채 그대로) 야생 그림은 숨는다
@@ -976,7 +978,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
           </button>
         ) : dizzy ? (
           <div className="wild__dizzy-choice">
-            <button type="button" className="btn btn--primary wild__capsule" aria-label="캡슐 던지기" disabled={throwing || confirmQuit} onClick={onCapsule}>
+            <button type="button" className="btn btn--primary wild__capsule" aria-label="캡슐 던지기" data-sparkle={capsuleSparkle ? '1' : undefined} disabled={throwing || confirmQuit} onClick={onCapsule}>
               <CapsuleBall type={capsuleType} size={28} /> {battleText.throwButton(capsulesLeft)}
             </button>
             <button type="button" className="btn btn--ghost wild__letgo" aria-label="놓아주기" disabled={throwing || confirmQuit} onClick={onLetGo}>
@@ -1021,6 +1023,7 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
               type="button"
               className="btn wild__catch-btn"
               aria-label="캡슐로 잡기"
+              data-sparkle={capsuleSparkle ? '1' : undefined}
               disabled={!catchReady || throwing || confirmQuit || capsulesLeft <= 0}
               onClick={onCapsule}
             >

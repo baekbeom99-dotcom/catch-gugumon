@@ -770,6 +770,21 @@
   box-shadow: none;
 }
 
+/* 캡슐을 던질 수 있을 때 버튼이 부드럽게 반짝인다 (data-sparkle) */
+.wild__capsule[data-sparkle='1'],
+.wild__catch-btn[data-sparkle='1'] {
+  animation: capsule-sparkle 1.2s ease-in-out infinite;
+}
+@keyframes capsule-sparkle {
+  0%,
+  100% {
+    box-shadow: 0 0 0 2px rgba(255, 214, 64, 0.55), 0 0 6px 1px rgba(255, 214, 64, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(255, 236, 140, 1), 0 0 16px 5px rgba(255, 214, 64, 0.85);
+  }
+}
+
 .wild__catch-note {
   font-size: 13px;
   line-height: 1.3;
@@ -1099,6 +1114,12 @@
 
 /* 동작 줄이기: 날아가고 빨려들고 떨어지고 통통 튀는 움직임은 빼고, 바로 바닥에 놓여 흔들림만 단순하게 */
 @media (prefers-reduced-motion: reduce) {
+  .wild__capsule[data-sparkle='1'],
+  .wild__catch-btn[data-sparkle='1'] {
+    animation: none;
+    outline: 3px solid #ffe36b;
+    outline-offset: 2px;
+  }
   /* 단계가 바뀌어도 번쩍이지 않고 색만 바뀐다 */
   .wild__timer--dropped .wild__timer-fill {
     animation: none;

@@ -398,6 +398,7 @@ test('던지기 버튼에 맞는 캡슐의 남은 수 (3)가 보인다', async (
   const button = page.getByRole('button', { name: '캡슐 던지기' });
   await expect(button).toBeVisible();
   await expect(button).toContainText('캡슐 던지기 (3)');
+  await expect(button).toHaveAttribute('data-sparkle', '1'); // 던질 수 있으면 반짝인다
   await page.screenshot({ path: '.superpowers/sdd/2026-11-12-field-adventure-2/task-14-shots/capsule-button-375.png' });
 });
 
