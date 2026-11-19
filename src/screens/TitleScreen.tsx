@@ -36,7 +36,7 @@ export function TitleScreen() {
   return (
     <section className="title" ref={box}>
       {/* 이 화면 칸의 가로÷세로가 3:5보다 좁으면 긴 그림, 아니면 3:4 그림. 늘리지 않고 비율 그대로 덮는다 */}
-      <img className="title__art" src={tall ? titleTall : title3x4} alt="" decoding="async" fetchPriority="high" draggable={false} />
+      <img className="title__art" src={tall ? titleTall : title3x4} alt="" decoding="async" {...{ fetchpriority: 'high' }} draggable={false} />
       {/* 제목 글자는 그림 안에 있다. 화면 읽기용으로만 둔다 */}
       <h1 className="title__sr">잡아라! 구구단 몬스터</h1>
 
