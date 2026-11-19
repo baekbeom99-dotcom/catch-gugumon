@@ -90,7 +90,8 @@ export function App() {
             <Route path="/admin" element={<AdminScreen />} />
           </Route>
         )}
-        <Route path="/" element={fullScreen(<TitleScreen />)} />
+        {/* 시작 화면만 600px 열을 풀어 화면 전체를 덮는다 */}
+        <Route path="/" element={<div className="app app--full app--title"><TitleScreen /></div>} />
         <Route path="/field" element={fullScreen(<FieldScreen />)} />
         <Route path="/field/starter" element={fullScreen(<StarterScreen />)} />
         <Route path="/field/dex" element={fullScreen(<FieldDexScreen />)} />

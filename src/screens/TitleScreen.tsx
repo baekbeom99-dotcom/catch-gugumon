@@ -10,8 +10,7 @@ import titleTall from '../assets/title/title-tall.webp';
 import '../field/lowgrade/lowgrade.css';
 import './title.css';
 
-/** 앱 칸의 가장 넓은 폭(styles.css .app)과, 이 비율보다 좁으면 긴 그림을 쓴다 */
-const TITLE_MAX_W = 600;
+/** 화면 가로÷세로가 이 비율보다 좁으면 긴 그림을 쓴다 */
 const TALL_BELOW = 0.6;
 
 export function TitleScreen() {
@@ -19,8 +18,8 @@ export function TitleScreen() {
   const lowGrade = useGameStore((s) => s.settings.lowGrade);
   const [asking, setAsking] = useState(false);
   const box = useRef<HTMLElement>(null);
-  // 앱은 600px보다 넓어지지 않으므로 처음 값도 그 폭으로 잰다 (깜빡임 없음)
-  const [tall, setTall] = useState(() => Math.min(window.innerWidth, TITLE_MAX_W) / window.innerHeight < TALL_BELOW);
+  // 시작 화면은 창 전체를 덮으므로 처음 값도 창 크기로 잰다 (깜빡임 없음)
+  const [tall, setTall] = useState(() => window.innerWidth / window.innerHeight < TALL_BELOW);
   useEffect(() => {
     const el = box.current;
     if (!el) return;

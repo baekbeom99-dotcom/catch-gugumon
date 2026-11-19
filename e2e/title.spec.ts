@@ -43,8 +43,11 @@ test('퀴즈 모험 위쪽 [처음 화면]을 누르면 타이틀로 돌아온�
 
 for (const [w, h, want] of [
   [375, 812, 'title-tall'],
-  [768, 1024, 'title-tall'],
+  // 시작 화면은 창 전체를 덮으므로(600px 열 제한 없음) 768×1024는 가로÷세로 0.75 → 3:4 그림
+  [768, 1024, 'title-3x4'],
   [600, 800, 'title-3x4'],
+  [1280, 720, 'title-3x4'],
+  [1024, 768, 'title-3x4'],
 ] as const) {
   test(`시작 화면 ${w}×${h}: ${want} 그림, 시작하기는 가운데, 저학년 모드는 오른쪽 위, 가로 스크롤 없음`, async ({ page }) => {
     await page.setViewportSize({ width: w, height: h });
@@ -57,6 +60,12 @@ for (const [w, h, want] of [
     // 덮기: 그림 칸이 화면 칸보다 작지 않다 (옆이 잘리지 않게 그림을 고른 것)
     const ib = (await img.boundingBox())!;
     const cb = (await page.locator('.title').boundingBox())!;
+    // 화면 전체를 꽉 채운다: 옆 띠 없음 (그림 칸 = 창 크기)
+    const vp = page.viewportSize()!;
+    expect(Math.abs(ib.x)).toBeLessThanOrEqual(1);
+    expect(Math.abs(ib.y)).toBeLessThanOrEqual(1);
+    expect(Math.abs(ib.width - vp.width)).toBeLessThanOrEqual(1);
+    expect(Math.abs(ib.height - vp.height)).toBeLessThanOrEqual(1);
     expect(ib.width).toBeGreaterThanOrEqual(cb.width - 1);
     expect(ib.height).toBeGreaterThanOrEqual(cb.height - 1);
     const nat = await img.evaluate((e: HTMLImageElement) => e.naturalWidth / e.naturalHeight);
@@ -72,7 +81,8 @@ for (const [w, h, want] of [
     expect(Math.abs(sb.x + sb.width / 2 - vw / 2)).toBeLessThanOrEqual(2);
     const cy = sb.y + sb.height / 2;
     expect(cy).toBeGreaterThan(vh * 0.35);
-    expect(cy).toBeLessThan(vh * 0.65);
+    // 가로로 넓은 창(가로÷세로 ≥ 5:4)에선 제목 글자 아래로 내려온다
+    expect(cy).toBeLessThan(vh * (vw / vh >= 1.25 ? 0.9 : 0.65));
 
     const sw = (await page.getByRole('switch', { name: '저학년 모드' }).boundingBox())!;
     expect(sw.x + sw.width).toBeGreaterThan(vw * 0.55);
