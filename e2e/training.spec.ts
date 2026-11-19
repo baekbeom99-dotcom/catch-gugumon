@@ -282,7 +282,7 @@ test('무한의 계단 건물에 부딪히면 계단으로 들어가고, 나오�
 test('퀴즈 모험이 꺼져 있으면 #/pet은 필드로 가고 타이틀에는 퀴즈 모험 버튼이 없다', async ({ page }) => {
   await seed(page);
   await page.goto('/#/');
-  await expect(page.getByRole('button', { name: '필드 모험' })).toBeVisible();
+  await expect(page.getByRole('button', { name: '시작하기' })).toBeVisible();
   await expect(page.getByRole('button', { name: '퀴즈 모험' })).toHaveCount(0);
   await page.goto('/#/pet');
   await expect(page).toHaveURL(/#\/field$/);

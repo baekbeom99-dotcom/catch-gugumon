@@ -19,6 +19,8 @@ export default defineConfig({
       includeAssets: ['icon.svg'],
       // Google 글꼴을 한 번 받으면 오프라인에서도 쓰도록 캐시
       workbox: {
+        // 시작 화면 그림(webp)도 미리 받아 둬서 오프라인에서도 시작된다
+        globPatterns: ['**/*.{js,css,html}', 'assets/title-*.webp'],
         // 새 버전을 받으면 기다리지 않고 바로 넘겨받는다 (새로고침은 autoUpdate.ts가 안전할 때)
         skipWaiting: true,
         clientsClaim: true,

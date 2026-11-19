@@ -29,7 +29,7 @@ React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/fiel
 | `src/field/` | 기술 화면: `SkillOfferDialog`(기술 선택창: 새 기술 + 그 자리 기술 하나), `SkillManager`(도감 기술 관리: 주속성 사슬·부속성 자리·특수 자리 세 구역), `SkillCard`, `skillText`(기술 글) |
 | `src/field/` | 그 밖: `StarterScreen`, `FieldDexScreen`, `useFieldSession`(저장 안 되는 만남 상태), `debugFlags`(디버그 스위치), `DevFieldGallery`(#/dev/field) |
 | `src/store/fieldData.ts` | 필드 모험 저장 데이터(`SaveData.field`) 형식·기본값·병합 |
-| `src/screens/` | 화면. `TitleScreen.tsx`(타이틀 `#/`). Pet·Explore·Shop·Records·Dex(탭), Battle·Practice·Stairs(전체 화면), `admin/`(관리자, PIN) |
+| `src/screens/` | 화면. `TitleScreen.tsx`(타이틀 `#/`: `src/assets/title/` 그림 두 장을 비율대로 덮고 가운데 「시작하기」→`#/field`, 오른쪽 위 저학년 모드). Pet·Explore·Shop·Records·Dex(탭), Battle·Practice·Stairs(전체 화면), `admin/`(관리자, PIN) |
 | `src/art/` | 펫·몬스터·모자 SVG 그림 |
 | `src/data/defaultCatalog.ts` | 상점 기본 아이템 |
 | `src/pwa/autoUpdate.ts` | 서비스 워커 등록, 새 버전 확인(탭 복귀·30분), 문제 푸는 화면이 아닐 때 자동 새로고침 |

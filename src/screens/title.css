@@ -1,189 +1,138 @@
+/* 처음 화면: 그림을 비율 그대로 덮고(늘리지 않음), 가운데에 시작 버튼 */
 .title {
   position: relative;
   flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  gap: 40px;
-  padding: 24px 24px calc(150px + env(safe-area-inset-bottom));
-  text-align: center;
   overflow: hidden;
-  background: linear-gradient(#9fdcff, #dff4ff 55%);
+  background: #5aa9e6;
 }
 
-.title__name,
-.title__buttons {
-  position: relative;
-  z-index: 1;
-}
-
-/* ── 뒤 그림: 해, 구름, 언덕, 흙길, 주인공과 구구몬 ── */
-.title__scene {
+.title__art,
+.title__art img {
   position: absolute;
   inset: 0;
-  pointer-events: none;
+  width: 100%;
+  height: 100%;
 }
 
-.title__sun {
+.title__art img {
+  object-fit: cover;
+  object-position: center top;
+  user-select: none;
+}
+
+/* 화면 읽기용 글 (눈에는 안 보임) */
+.title__sr {
   position: absolute;
-  top: 7%;
-  right: 9%;
-  width: 56px;
-  height: 56px;
-  border: 4px solid var(--ink);
-  border-radius: 50%;
-  background: #ffd23a;
-  box-shadow: 0 0 0 10px rgba(255, 210, 58, 0.35);
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
-.title__cloud {
+/* 한가운데 */
+.title__center {
   position: absolute;
-  width: 90px;
-  height: 30px;
-  border: 4px solid var(--ink);
-  border-radius: 20px;
-  background: #fff;
-}
-
-.title__cloud::before {
-  content: '';
-  position: absolute;
-  left: 18px;
-  bottom: 14px;
-  width: 40px;
-  height: 32px;
-  border: 4px solid var(--ink);
-  border-bottom: none;
-  border-radius: 20px 20px 0 0;
-  background: #fff;
-}
-
-.title__cloud--a {
-  top: 12%;
-  left: 8%;
-}
-
-.title__cloud--b {
-  top: 4%;
-  left: 48%;
-  transform: scale(0.7);
-}
-
-.title__hill {
-  position: absolute;
-  border: 4px solid var(--ink);
-  border-radius: 50% 50% 0 0;
-}
-
-.title__hill--back {
-  left: -20%;
-  right: 30%;
-  bottom: 0;
-  height: 32%;
-  background: #8fd06a;
-}
-
-.title__hill--front {
-  left: 25%;
-  right: -25%;
-  bottom: 0;
-  height: 26%;
-  background: #a5e07f;
-}
-
-/* 앞쪽 들판과 흙길 */
-.title__scene::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 17%;
-  border-top: 4px solid var(--ink);
-  background:
-    radial-gradient(circle at 20% 40%, #8fd06a 0 3px, transparent 4px) 0 0 / 28px 22px,
-    #a5e07f;
-}
-
-.title__path {
-  position: absolute;
-  z-index: 1;
+  top: 50%;
   left: 50%;
-  bottom: 0;
-  width: 120px;
-  height: 17%;
-  transform: translateX(-50%);
-  clip-path: polygon(38% 0, 62% 0, 100% 100%, 0 100%);
-  background: #e9c99a;
-}
-
-.title__cast {
-  position: absolute;
   z-index: 2;
-  left: 0;
-  right: 0;
-  bottom: calc(14px + env(safe-area-inset-bottom));
   display: flex;
-  align-items: flex-end;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  transform: translate(-50%, -50%);
+}
+
+/* 시작하기: 그림 속 파란 글자처럼 하늘색→짙은 파랑, 크림 테두리 + 남색 바깥선 + 굵은 그림자 */
+.title__start {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
+  min-width: 208px;
+  min-height: 62px;
+  padding: 8px 22px 10px;
+  border: 4px solid #fff6dc;
+  border-radius: 999px;
+  background: linear-gradient(#7fd0ff 0%, #2f8be0 55%, #1d5fc0 100%);
+  box-shadow:
+    0 0 0 4px #14295e,
+    0 8px 0 4px #14295e,
+    0 14px 18px 4px rgba(10, 25, 70, 0.4),
+    inset 0 5px 0 rgba(255, 255, 255, 0.45);
+  color: #fff;
+  font-family: var(--font-display);
+  font-size: 27px;
+  font-weight: 800;
+  letter-spacing: 1px;
+  text-shadow:
+    0 3px 0 #14295e,
+    2px 0 0 #14295e,
+    -2px 0 0 #14295e,
+    0 -2px 0 #14295e;
+  cursor: pointer;
+  animation: title-pulse 1.8s ease-in-out infinite;
+  transition: filter 0.1s;
 }
 
-.title__mon--c {
-  margin-bottom: 6px;
-  animation: title-hop 1.6s steps(2) 0.4s infinite;
+.title__start:hover {
+  filter: brightness(1.08);
 }
 
-.title__hero {
-  image-rendering: pixelated;
+/* 눌렀을 때: 아래로 푹 */
+.title__start:active {
+  transform: translateY(6px);
+  box-shadow:
+    0 0 0 4px #14295e,
+    0 2px 0 4px #14295e,
+    0 6px 10px 2px rgba(10, 25, 70, 0.4),
+    inset 0 5px 0 rgba(255, 255, 255, 0.35);
+  animation: none;
 }
 
-.title__hero-img {
-  width: auto;
+.title__start:focus-visible,
+.title__quiz:focus-visible,
+.title__lowgrade:focus-visible,
+.title__admin:focus-visible {
+  outline: 4px solid #ffe14d;
+  outline-offset: 5px;
 }
 
-.title__mon--a {
-  animation: title-hop 1.6s steps(2) infinite;
+/* 노란 별 (그림 속 별과 같은 색) */
+.title__start-star {
+  width: 24px;
+  height: 24px;
+  background: #ffd93b;
+  clip-path: polygon(50% 0, 62% 35%, 98% 35%, 69% 57%, 80% 92%, 50% 71%, 20% 92%, 31% 57%, 2% 35%, 38% 35%);
+  filter: drop-shadow(0 2px 0 #14295e);
 }
 
-.title__mon--b {
-  animation: title-hop 1.6s steps(2) 0.8s infinite;
-}
-
-@keyframes title-hop {
+@keyframes title-pulse {
   50% {
-    transform: translateY(-6px);
+    transform: scale(1.04);
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .title__mon--a,
-  .title__mon--b,
-  .title__mon--c {
+  .title__start {
     animation: none;
   }
 }
 
-.title__name {
-  margin: 0;
-  text-shadow:
-    3px 3px 0 #fff,
-    -2px -2px 0 #fff;
+/* 퀴즈 모험 (켜져 있을 때만): 시작하기보다 작게 */
+.title__quiz {
+  min-height: 48px;
+  padding: 6px 22px;
+  border: 3px solid #14295e;
+  border-radius: 999px;
+  background: #fff6dc;
+  box-shadow: 0 4px 0 #14295e;
+  color: #14295e;
   font-family: var(--font-display);
-  font-size: 34px;
-  line-height: 1.25;
-}
-
-.title__buttons {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-}
-
-.title__btn {
-  width: 100%;
-  min-height: 72px;
-  font-size: 26px;
+  font-size: 18px;
+  cursor: pointer;
 }
 
 .field-soon {
@@ -198,18 +147,32 @@
   font-size: 24px;
 }
 
-/* 부모용 '관리' 글자 링크: 작고 흐리게 (왼쪽 위) */
+/* 부모용 '관리' 글자 링크: 왼쪽 아래, 작고 흐리게 */
 .title__admin {
   position: absolute;
-  top: calc(8px + env(safe-area-inset-top));
   left: 8px;
-  z-index: 2;
+  bottom: calc(46px + env(safe-area-inset-bottom));
+  z-index: 3;
   min-height: 32px;
   padding: 4px 10px;
   border: none;
-  background: none;
-  color: var(--ink);
-  font-size: 13px;
-  opacity: 0.45;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff;
+  font-size: 12px;
+  opacity: 0.6;
   cursor: pointer;
+}
+
+/* 그림 출처: 그림 위에서도 읽히게 어두운 반투명 알약 */
+.title .sprite-credit {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: calc(6px + env(safe-area-inset-bottom));
+  padding: 4px 10px;
+  border-radius: 10px;
+  background: rgba(10, 20, 50, 0.62);
+  color: #fff;
+  font-size: 10px;
 }
