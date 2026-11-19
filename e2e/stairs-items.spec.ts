@@ -45,7 +45,9 @@ test('계단 아이템: 12칸을 오르면 캡슐을 얻어 저장된다 (별점
   const errors = collectErrors(page);
   await seedHatchedPet(page);
   await page.goto('/#/stairs');
-  await expect(page.locator('.stairs__pet svg')).toBeVisible();
+  await expect(page.getByTestId('stairs-hero')).toBeVisible();
+  // 키우는 펫 그림은 이 화면에 없다 (내 주인공만)
+  await expect(page.locator('.stairs__pet [aria-label="펫"], .stairs__pet [aria-label="알"]')).toHaveCount(0);
 
   const seen = await climb(page, 12);
   // 첫 아이템은 4~10칸 사이라 12칸 안에 반드시 하나 이상
@@ -67,7 +69,9 @@ test('계단 아이템: 별점수가 켜져 있으면 별 아이템(+3)도 나�
   const errors = collectErrors(page);
   await seedHatchedPet(page);
   await page.goto('/#/stairs');
-  await expect(page.locator('.stairs__pet svg')).toBeVisible();
+  await expect(page.getByTestId('stairs-hero')).toBeVisible();
+  // 키우는 펫 그림은 이 화면에 없다 (내 주인공만)
+  await expect(page.locator('.stairs__pet [aria-label="펫"], .stairs__pet [aria-label="알"]')).toHaveCount(0);
 
   const seen = await climb(page, 22);
   expect(seen.length).toBeGreaterThanOrEqual(2);

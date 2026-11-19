@@ -3,15 +3,16 @@
  * 키우는 펫이 계단을 오른다. 구구단 문제를 5초(12·13단은 10초) 안에 맞히면 한 칸, 틀리거나 시간이 지나면 떨어져서 끝.
  * 답은 빠르게 고를 수 있도록 언제나 보기 4개. 오른 계단만큼 별을 받는다.
  */
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { isStarPointsEnabled } from '../config/featureFlags';
 import { CapsuleBall } from '../field/art/CapsuleBall';
 import { CAPSULE_NAMES } from '../domain/field/capsules';
 import { nextItemGap, stairsItemSlots, type StairsItem } from '../domain/field/stairsItems';
 import { returnPathAfterStairs } from '../field/training/routes';
-import { hatArtOf } from '../art/HatSprite';
-import { EggSprite, type PetExpression, PetSprite } from '../art/PetSprite';
+import { PixelSprite } from '../field/art/PixelSprite';
+import { HERO_SPRITES } from '../field/art/hero';
+import { HERO_ART } from '../field/art/localSprites';
 import { playSfx } from '../audio/sfx';
 import { ChoiceGrid } from '../components/AnswerInput';
 import { Confetti } from '../components/Confetti';
@@ -22,11 +23,9 @@ import type { Rng } from '../domain/random';
 import {
   newStairsDeck,
   nextStairsFact,
-  STAIRS_AFFECTION_PER_TEN,
   STAIRS_SKIES,
   STAIRS_SKY_EVERY,
   stairsSkyIndex,
-  STAIRS_CHALLENGE_AFFECTION,
   STAIRS_CHALLENGE_STARS,
   STAIRS_BONUS_EVERY,
   STAIRS_BONUS_STARS,
@@ -37,7 +36,6 @@ import {
   type StairsSlot,
   stairsPath,
 } from '../domain/stairs';
-import { findItem } from '../domain/shop';
 import { useGameStore } from '../store/useGameStore';
 import { useSessionStore } from '../store/useSessionStore';
 import './battle.css';
@@ -49,6 +47,8 @@ const rng: Rng = Math.random;
 const STEP_W = 54;
 const STEP_H = 40;
 /** 화면에 그리는 계단: 아래로 몇 칸, 위로 몇 칸 */
+/** 주인공 그림 크기(px) */
+const HERO_PX = 84;
 const BELOW = 4;
 const ABOVE = 8;
 
@@ -67,8 +67,6 @@ interface Result {
   best: number;
   reason: 'timeout' | 'wrong';
   missed: Current;
-  /** 이번 판에 오른 친밀도 */
-  affection: number;
 }
 
 /** 계단 아이템 상태: 놓인 아이템과, 다음 아이템이 놓일 칸·여기까지 놓았다는 칸 (계단이 늘면 이어서 놓는다) */
@@ -108,8 +106,6 @@ function StairItem({ item }: { item: StairsItem }) {
 
 export function StairsScreen() {
   const navigate = useNavigate();
-  const pet = useGameStore((s) => s.pet);
-  const catalog = useGameStore((s) => s.catalog);
   const record = useGameStore((s) => s.stairs);
   const stars = useGameStore((s) => s.economy.stars);
 
@@ -185,7 +181,7 @@ export function StairsScreen() {
       const r = useGameStore.getState().finishStairs(steps, Date.now(), challenges);
       if (r.evolvedTo) useSessionStore.getState().set({ pendingEvolution: r.evolvedTo });
       if (r.levelUp) useSessionStore.getState().set({ pendingLevelUp: r.levelUp });
-      setResult({ steps, stars: r.stars, newBest: r.newBest, best: r.record.best, reason, missed: current, affection: r.affection });
+      setResult({ steps, stars: r.stars, newBest: r.newBest, best: r.record.best, reason, missed: current });
       setPhase('over');
       playSfx(r.newBest && steps > 0 ? 'fanfare' : 'gentle');
     },
@@ -245,18 +241,6 @@ export function StairsScreen() {
     }
     draw();
   };
-
-  const hat = hatArtOf(findItem(catalog, pet.equippedHat ?? ''));
-  const expression: PetExpression = phase === 'over' ? (result?.newBest && result.steps > 0 ? 'excited' : 'request') : phase === 'play' ? 'happy' : 'idle';
-  const climber = useMemo(
-    () =>
-      !pet.species ? null : pet.stage === 'egg' ? (
-        <EggSprite species={pet.species} size={64} />
-      ) : (
-        <PetSprite species={pet.species} stage={pet.stage} expression={expression} size={84} hat={hat} />
-      ),
-    [pet.species, pet.stage, expression, hat],
-  );
 
   const includeChallenge = record.includeChallenge !== false;
   const challengeToggle = (
@@ -323,27 +307,22 @@ export function StairsScreen() {
           })}
           <div
             key={phase === 'over' ? 'fall' : `step-${steps}`}
+            data-testid="stairs-hero"
             className={`stairs__pet ${phase === 'over' ? 'stairs__pet--fall' : steps > 0 ? 'stairs__pet--hop' : ''}`}
             style={{ left: camX, top: -camY }}
           >
-            {climber}
+            {HERO_ART ? (
+              <img src={HERO_ART.front} alt="" height={HERO_PX} draggable={false} className="stairs__hero-img" />
+            ) : (
+              <PixelSprite art={HERO_SPRITES.down[0]} size={HERO_PX} />
+            )}
           </div>
         </div>
         {phase === 'play' && goldAt === steps && steps > 0 ? (
           <div key={`gold-${steps}`} className="stairs__heart stairs__heart--gold">
             황금 계단! ★+{STAIRS_CHALLENGE_STARS}
-            {pet.stage !== 'egg' && ` ♥+${STAIRS_CHALLENGE_AFFECTION + (steps % 10 === 0 ? STAIRS_AFFECTION_PER_TEN : 0)}`}
           </div>
-        ) : (
-          phase === 'play' &&
-          steps > 0 &&
-          steps % 10 === 0 &&
-          pet.stage !== 'egg' && (
-            <div key={`heart-${steps}`} className="stairs__heart">
-              ♥ 친밀도 +{STAIRS_AFFECTION_PER_TEN}
-            </div>
-          )
-        )}
+        ) : null}
         {phase === 'play' && loot && loot.at === steps && (
           <div key={`loot-${loot.at}`} className="stairs__loot">
             {loot.text}
@@ -376,12 +355,9 @@ export function StairsScreen() {
             </li>
             {includeChallenge && (
               <li>
-                12·13단을 맞히면 <strong>★+{STAIRS_CHALLENGE_STARS}</strong>, 친밀도 <strong>+{STAIRS_CHALLENGE_AFFECTION}</strong>!
+                12·13단을 맞히면 <strong>★+{STAIRS_CHALLENGE_STARS}</strong>!
               </li>
             )}
-            <li>
-              10층을 지날 때마다 {pet.name || '펫'}의 친밀도 <strong>+{STAIRS_AFFECTION_PER_TEN}</strong>!
-            </li>
             <li>
               올라간 계단 한 칸마다 별 <strong>{STAIRS_STAR_PER_STEP}개</strong>, {STAIRS_BONUS_EVERY}층을 넘을 때마다 보너스{' '}
               <strong>+{STAIRS_BONUS_STARS}</strong>!
@@ -426,11 +402,6 @@ export function StairsScreen() {
             <p className="stairs__record">최고 기록 {result.best}칸</p>
           )}
           <p className="stairs__stars">+{result.stars} ★</p>
-          {result.affection > 0 && (
-            <p className="stairs__love">
-              ♥ {pet.name}의 친밀도 +{result.affection}
-            </p>
-          )}
           {challengeToggle}
           <div className="result__actions">
             <button type="button" className="btn btn--ghost" onClick={() => navigate(returnPathAfterStairs(), { replace: true })}>

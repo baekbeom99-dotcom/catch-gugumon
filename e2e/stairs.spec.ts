@@ -23,13 +23,18 @@ test('무한의 계단: 세 칸 오르고 틀리면 끝, 별 6개(계단 × 2)�
   await page.getByRole('link', { name: /탐험/ }).click();
   await page.locator('.explore__main--stairs').click();
   await expect(page).toHaveURL(/#\/stairs/);
-  await expect(page.locator('.stairs__pet svg')).toBeVisible();
+  await expect(page.getByTestId('stairs-hero')).toBeVisible();
+  // 키우는 펫 그림은 이 화면에 없다 (내 주인공만)
+  await expect(page.locator('.stairs__pet [aria-label="펫"], .stairs__pet [aria-label="알"]')).toHaveCount(0);
   await page.getByRole('button', { name: '오르기 시작!' }).click();
 
   for (let i = 0; i < 3; i++) {
     await expect(page.locator('.stairs__question')).toBeVisible();
     await answerStairs(page, true);
     await expect(page.locator('.stairs__count strong')).toHaveText(String(i + 1));
+    // 한 칸 오를 때마다 주인공이 깡충 뛴다 (칸이 바뀌면 그림이 새로 나와 애니메이션을 다시 한다)
+    await expect(page.getByTestId('stairs-hero')).toHaveClass(/stairs__pet--hop/);
+    await expect(page.getByTestId('stairs-hero')).toBeVisible();
   }
   await answerStairs(page, false);
   await expect(page.locator('.stairs__reason')).toHaveText('앗, 헛디뎠어요!');

@@ -342,6 +342,11 @@
   width: 84px;
   height: 84px;
 }
+.stairs__hero-img {
+  height: 84px;
+  width: auto;
+  image-rendering: pixelated;
+}
 .stairs__pet--hop {
   animation: stair-hop 0.22s ease-out;
 }
