@@ -1,3 +1,4 @@
+import { FullscreenButton } from '../../components/FullscreenButton';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Navigate, useNavigate } from 'react-router-dom';
 import { companionStart, type Dir, type FieldMap, type StepResult, safeStartPosition, tryStep } from '../../domain/field/movement';
@@ -637,6 +638,7 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
         <canvas ref={canvasRef} className="fieldmode__canvas" data-testid="field-canvas" />
         <Joystick onDir={setPadDir} onTap={onTap} />
         <FieldHud />
+        <FullscreenButton className="fieldmode__fs-btn" />
         <button type="button" className="btn btn--ghost fieldmode__menu-btn" onClick={() => setMenuOpen((v) => !v)}>
           메뉴
         </button>

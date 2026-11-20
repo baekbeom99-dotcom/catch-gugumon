@@ -189,3 +189,11 @@
   color: #fff;
   font-size: 10px;
 }
+
+/* 왼쪽 위 전체 화면 아이콘 버튼 (오른쪽 위 저학년 모드와 같은 높이, 안전 영역 존중) */
+.title__fullscreen {
+  position: absolute;
+  top: calc(10px + env(safe-area-inset-top));
+  left: calc(10px + env(safe-area-inset-left));
+  z-index: 3;
+}

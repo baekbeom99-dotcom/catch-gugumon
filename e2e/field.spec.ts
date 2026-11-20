@@ -2202,3 +2202,20 @@ test('캡슐에서 빠져나온 뒤 결과를 보여 주는 동안(150ms)은 문
   // CAPSULE_RESULT_MS(150ms) 동안은 멈춰 있다 (프레임 오차를 조금 둔다)
   expect(fillAt - healedAt).toBeGreaterThanOrEqual(130);
 });
+
+test('필드 오른쪽 위: 전체 화면 아이콘 버튼은 메뉴 버튼·알약과 겹치지 않는다', async ({ page }) => {
+  const errors = collectErrors(page);
+  await seedStarter(page);
+  await page.goto('/#/field');
+  const fs = page.getByTestId('fullscreen-btn');
+  await expect(fs).toBeVisible();
+  await expect(fs).toHaveAttribute('aria-label', '전체 화면');
+  const f = (await fs.boundingBox())!;
+  const m = (await page.getByRole('button', { name: '메뉴' }).boundingBox())!;
+  const h = (await page.locator('.fieldhud').boundingBox())!;
+  const hit = (a: typeof f, b: typeof f) => a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+  expect(hit(f, m)).toBe(false);
+  expect(hit(f, h)).toBe(false);
+  expect(f.x + f.width).toBeLessThanOrEqual(375);
+  expect(errors).toEqual([]);
+});

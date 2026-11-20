@@ -32,6 +32,7 @@ React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/fiel
 | `src/screens/` | 화면. `TitleScreen.tsx`(타이틀 `#/`: `src/assets/title/` 그림 두 장을 비율대로 덮고 가운데 「시작하기」→`#/field`, 오른쪽 위 저학년 모드). Pet·Explore·Shop·Records·Dex(탭), Battle·Practice·Stairs(전체 화면), `admin/`(관리자, PIN) |
 | `src/art/` | 펫·몬스터·모자 SVG 그림 |
 | `src/data/defaultCatalog.ts` | 상점 기본 아이템 |
+| `src/components/FullscreenButton.tsx`·`src/lib/fullscreen.ts` | 전체 화면 아이콘 버튼(타이틀 왼쪽 위·필드 메뉴 아래, 지원 안 하면 안 그림)과 그 도우미(`toggleFullscreen`·`useFullscreen`) |
 | `src/pwa/autoUpdate.ts` | 서비스 워커 등록, 새 버전 확인(탭 복귀·30분), 문제 푸는 화면이 아닐 때 자동 새로고침 |
 | `tests/` | Vitest 단위 테스트 |
 | `e2e/` | Playwright. `helpers.ts`(`seedHatchedPet`, `playExploration`, `closeEvolutionIfShown`…), `fixtures.ts`(무작위 똥·병 끔) |

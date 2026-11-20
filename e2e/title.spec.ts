@@ -1,5 +1,5 @@
 import { expect, test } from './fixtures';
-import { seedHatchedPet, enableQuiz } from './helpers';
+import { seedHatchedPet, enableQuiz, collectErrors } from './helpers';
 
 // 퀴즈 모험은 배포에서 꺼져 있으므로 이 파일은 스위치로 켜고 본다
 test.beforeEach(async ({ page }) => {
@@ -93,3 +93,41 @@ for (const [w, h, want] of [
     await expect(page.getByRole('heading', { name: '잡아라! 구구단 몬스터' })).toHaveCount(1);
   });
 }
+
+test('타이틀 왼쪽 위에 전체 화면 아이콘 버튼이 있고 누르면 바뀐다', async ({ page }) => {
+  const errors = collectErrors(page);
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto('/');
+  const btn = page.getByTestId('fullscreen-btn');
+  await expect(btn).toBeVisible();
+  await expect(btn).toHaveAttribute('aria-label', '전체 화면');
+  await expect(btn).toHaveText('');
+  const b = (await btn.boundingBox())!;
+  expect(b.x).toBeLessThan(375 * 0.25);
+  expect(b.y).toBeLessThan(812 * 0.15);
+  expect(b.width).toBeGreaterThanOrEqual(44);
+  expect(b.height).toBeGreaterThanOrEqual(44);
+  // 오른쪽 위 저학년 모드와 겹치지 않는다
+  const sw = (await page.getByRole('switch', { name: '저학년 모드' }).boundingBox())!;
+  expect(b.x + b.width).toBeLessThan(sw.x);
+  // 헤드리스에서 전체 화면이 거절될 수도 있어, 켜지면 라벨이 바뀌고 안 켜져도 오류는 없어야 한다
+  await btn.click();
+  await page.waitForTimeout(400);
+  const on = await page.evaluate(() => document.fullscreenElement !== null);
+  if (on) {
+    await expect(btn).toHaveAttribute('aria-label', '전체 화면 끝내기');
+    await btn.click();
+    await expect(btn).toHaveAttribute('aria-label', '전체 화면');
+  }
+  expect(errors).toEqual([]);
+});
+
+test('전체 화면을 못 하는 브라우저에서는 버튼이 없다', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(Document.prototype, 'fullscreenEnabled', { get: () => false });
+    Object.defineProperty(Document.prototype, 'webkitFullscreenEnabled', { get: () => false });
+  });
+  await page.goto('/');
+  await expect(page.getByRole('button', { name: '시작하기' })).toBeVisible();
+  await expect(page.getByTestId('fullscreen-btn')).toHaveCount(0);
+});
