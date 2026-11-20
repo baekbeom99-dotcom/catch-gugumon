@@ -638,7 +638,6 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
         <canvas ref={canvasRef} className="fieldmode__canvas" data-testid="field-canvas" />
         <Joystick onDir={setPadDir} onTap={onTap} />
         <FieldHud />
-        <FullscreenButton className="fieldmode__fs-btn" />
         <button type="button" className="btn btn--ghost fieldmode__menu-btn" onClick={() => setMenuOpen((v) => !v)}>
           메뉴
         </button>
@@ -683,6 +682,8 @@ function FieldView({ map, onExit, notice, onStep }: Props & { map: FieldMap; onE
             </button>
           </div>
         )}
+        {/* 키보드 순서에서 메뉴·메뉴 항목 뒤에 오도록 DOM 맨 뒤쪽에 둔다 (자리는 CSS로 메뉴 아래) */}
+        <FullscreenButton className="fieldmode__fs-btn" />
         {notice && (
           <div className="fieldmode__notice" role="alert">
             {notice}

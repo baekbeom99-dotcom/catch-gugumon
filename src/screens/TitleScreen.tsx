@@ -58,8 +58,6 @@ export function TitleScreen() {
         <span className="title__sr">{lowGrade ? '켜짐' : '꺼짐'}</span>
         <span className="title__lowgrade-track" aria-hidden />
       </button>
-      {/* 전체 화면: 왼쪽 위 (오른쪽 위 저학년 모드와 마주 봄). 지원 안 하는 브라우저에선 안 보인다 */}
-      <FullscreenButton className="title__fullscreen" />
       {/* 부모용 길: 아이 눈에 덜 띄게 작게. 눌러도 PIN이 있어야 열린다 */}
       <button type="button" className="title__admin" onClick={() => navigate('/admin')}>
         관리
@@ -74,6 +72,8 @@ export function TitleScreen() {
           }}
         />
       )}
+      {/* 전체 화면: 왼쪽 위 (오른쪽 위 저학년 모드와 마주 봄). 키보드 순서는 마지막, 지원 안 하는 브라우저에선 안 보인다 */}
+      <FullscreenButton className="title__fullscreen" />
       <SpriteCredit />
     </section>
   );
