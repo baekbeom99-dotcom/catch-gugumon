@@ -3,7 +3,7 @@
 어린이용 구구단 학습 PWA. 몬스터 탐험(문제 풀이)으로 별을 모아 다마고치 펫을 키운다.
 React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/field`, `#/field/battle`, `#/field/starter`, `#/field/dex`, `#/field/training/:dan`·`#/field/training/arith/:level` 체육관 트레이너 화면, `#/field/statue` 동상(별점수 켜야 열림), `#/field/records` 학습 기록, `#/stairs` 무한의 계단). 마을 위쪽 체육관(실내 지도 `gym`)이 훈련 장소다. 퀴즈 모험(`#/pet` 등 탭 화면)은 `src/config/featureFlags.ts`로 꺼져 있고 `#/field`로 보낸다, GitHub Pages 정적 배포. 서버 없음 — 모든 데이터는 브라우저 localStorage.
 
-- 라이브: https://baekbeom99-dotcom.github.io/gugu-monster/
+- 라이브: https://baekbeom99-dotcom.github.io/catch-gugumon/
 - 사용자는 한국어로 요청한다. 화면 글자·주석·커밋 메시지도 한국어(어린이가 읽기 쉬운 말).
 - 규칙·수치의 기준은 `MVP_DESIGN.md`(설계서, 크다 — 필요한 절만 grep해서 읽기). 맨 위 변경 이력 표에 버전(v1.xx)을 한 줄씩 추가한다.
 
@@ -55,7 +55,7 @@ npm run build                # 배포용 빌드 (tsc -b && vite build)
 
 - E2E 스위치(`window`에 설정): `__GUGU_E2E_CALM__`(똥·병 끔), `__GUGU_E2E_FIELD__`(필드 만남·캡슐 100%), `__GUGU_E2E_PATH__`(길 걸음도 만남 100%), `__GUGU_E2E_NO_WILD__`(강제 안 한 야생 만남 끔, e2e 기본), `__GUGU_E2E_NO_TIMER__`(전투 문제 시간 멈춤), `__GUGU_E2E_TIER__`(야생 강함 단계 고정, `'weak'`·`'normal'`·`'strong'`·`'mighty'`), `__GUGU_E2E_LEGEND__`(만남이 레전드), `__GUGU_E2E_QUESTION__`(전투 문제 고정), `__GUGU_E2E_FAST__`(true면 항상 빠르게=모든 조건 시간 충족, false면 항상 미충족), `__GUGU_E2E_COPY__`(true 복사 100%, false 복사 안 함, 없으면 2%; `e2e/fixtures.ts`가 기본 false), `__GUGU_E2E_THROW__`(`'caught'`·`'healed'`·`'escaped'`·`'angry'`로 던지기 결과 고정), `__GUGU_E2E_COMBAT__`(`{ crit, dodge, effect }`를 true·false로 전투 굴림 고정, `fixtures.ts` 기본은 크리티컬·회피 없음·효과 성공), `__GUGU_E2E_STARS__`(true면 별점수를 켬, 없으면 꺼짐), `__GUGU_E2E_QUIZ__`(true면 퀴즈 모험·타이틀 버튼을 켬. 없으면 꺼짐 — 퀴즈 화면을 보는 스펙은 `helpers.enableQuiz(page)`를 `beforeEach`에서). 트레이닝 도전 시계는 `__GUGU_E2E_NO_TIMER__`로 멈춘다. 필드 스위치는 `src/field/debugFlags.ts` 한 곳에서 읽는다.
 - E2E 하나가 가끔 시간 문제로 실패할 수 있다(`dex.spec` 놀이 장면). 따로 다시 돌려 확인. 파이프로 줄일 때는 `set -o pipefail`로 실패를 놓치지 않기.
-- Windows Git Bash에서 `BASE_PATH=/gugu-monster/`처럼 `/`로 시작하는 값은 경로로 바뀐다 → 로컬 빌드 확인 때 `MSYS_NO_PATHCONV=1`.
+- Windows Git Bash에서 `BASE_PATH=/catch-gugumon/`처럼 `/`로 시작하는 값은 경로로 바뀐다 → 로컬 빌드 확인 때 `MSYS_NO_PATHCONV=1`.
 
 ## 배포
 
