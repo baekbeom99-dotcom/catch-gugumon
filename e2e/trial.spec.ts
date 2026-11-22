@@ -41,7 +41,7 @@ test('7단 도전: 11문제 모두, 틀리면 MASTER 아님, 틀린 문제는 �
 
   // 틀린 문제는 부스트 3 → 추천 탐험에서 다시 나와 맞히면 2로, 결과에 풀이 시간
   const factId = `7x${wrongFact!.match(/7 × (\d+)/)![1]}`;
-  const boostOf = () => page.evaluate((id) => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.learning.boosted[id], factId);
+  const boostOf = () => page.evaluate((id) => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.learning.boosted[id], factId);
   expect(await boostOf()).toBe(3);
   await page.getByRole('button', { name: '펫에게 가기' }).click();
   await closeEvolutionIfShown(page);

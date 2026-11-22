@@ -89,7 +89,7 @@ import {
 } from './fieldData';
 import { learnedAt, newlyLearned, rollCopy, type SkillId } from '../domain/field/skills';
 import { pickOne, type Rng } from '../domain/random';
-import { createInitialSave, mergeSave, migrateSave, SAVE_KEY, type SaveData, SCHEMA_VERSION, type Settings } from './saveData';
+import { adoptLegacySave, createInitialSave, mergeSave, migrateSave, SAVE_KEY, type SaveData, SCHEMA_VERSION, type Settings } from './saveData';
 
 export interface PetChange {
   evolvedTo: Stage | null;
@@ -452,6 +452,9 @@ function settlePet(before: PetData, after: PetData, now: number): { pet: PetData
   const lvAfter = affectionLevel(evo.pet.affection);
   return { pet: evo.pet, evolvedTo: evo.evolvedTo, levelUp: before.stage !== 'egg' && lvAfter > lvBefore ? lvAfter : null };
 }
+
+// 저장 이름을 바꾸기 전(원본 앱과 같은 이름) 기록을 처음 한 번 옮겨 온다 — 저장소가 읽기 전에
+if (typeof localStorage !== 'undefined') adoptLegacySave(localStorage);
 
 export const useGameStore = create<GameStore>()(
   persist(

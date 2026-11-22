@@ -77,7 +77,7 @@ export async function seedHatchedPet(page: Page): Promise<void> {
   await page.evaluate(() => {
     localStorage.clear();
     localStorage.setItem(
-      'gugu-monster:save',
+      'catch-gugumon:save',
       JSON.stringify({
         version: 1,
         state: {

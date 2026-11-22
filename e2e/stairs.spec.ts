@@ -47,7 +47,7 @@ test('무한의 계단: 세 칸 오르고 틀리면 끝, 별 6개(계단 × 2)�
   await expect(page.locator('.stairs__stars')).toHaveText('+6 ★');
   await expect(page.locator('.banner--master')).toContainText('최고 기록');
 
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state);
   expect(saved.stairs).toMatchObject({ best: 3, plays: 1, totalSteps: 3 });
   expect(saved.economy.stars).toBe(56);
 
@@ -62,7 +62,7 @@ test('무한의 계단: 세 칸 오르고 틀리면 끝, 별 6개(계단 × 2)�
   await expect(toggle).toBeChecked();
   await page.locator('.stairs__toggle').click();
   await expect(toggle).not.toBeChecked();
-  const saved2 = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state);
+  const saved2 = await page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state);
   expect(saved2.stairs.includeChallenge).toBe(false);
 
   await page.getByRole('button', { name: '마을로' }).click();

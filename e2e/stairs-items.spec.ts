@@ -38,7 +38,7 @@ async function climb(page: Page, count: number): Promise<string[]> {
 }
 
 async function savedField(page: Page) {
-  return page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
+  return page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.field);
 }
 
 test('계단 아이템: 12칸을 오르면 캡슐을 얻어 저장된다 (별점수는 꺼져 있어 캡슐만)', async ({ page }) => {

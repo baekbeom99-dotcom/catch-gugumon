@@ -39,14 +39,14 @@ async function seed(page: Page, opts: { training?: Training; map?: 'town' | 'gym
     ({ f, noTimer, stars }) => {
       if (stars) (window as unknown as { __GUGU_E2E_STARS__: boolean }).__GUGU_E2E_STARS__ = true;
       if (noTimer) (window as unknown as { __GUGU_E2E_NO_TIMER__: boolean }).__GUGU_E2E_NO_TIMER__ = true;
-      if (!localStorage.getItem('gugu-monster:save')) localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field: f } }));
+      if (!localStorage.getItem('catch-gugumon:save')) localStorage.setItem('catch-gugumon:save', JSON.stringify({ version: 1, state: { field: f } }));
     },
     { f: field, noTimer: !!opts.noTimer, stars: !!opts.stars },
   );
 }
 
 async function saved(page: Page) {
-  return page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
+  return page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.field);
 }
 
 /** 문제 9개를 푼다 (화면의 곱하기 숫자를 읽어 정답 보기를 누른다). wrongAt이 있으면 그 번째(0부터)에서 틀린 보기를 누르고 멈춘다 */
@@ -95,9 +95,9 @@ test('마을 체육관 문으로 들어가 2단 트레이너에게 말을 걸면
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '7,18'); // 체육관 입구
   // 2단 트레이너(4,16) 앞 칸으로 저장 자리를 옮겨 둔 것처럼 다시 연다
   await page.evaluate(() => {
-    const raw = JSON.parse(localStorage.getItem('gugu-monster:save')!);
+    const raw = JSON.parse(localStorage.getItem('catch-gugumon:save')!);
     raw.state.field.position = { map: 'gym', x: 4, y: 17, facing: 'up' };
-    localStorage.setItem('gugu-monster:save', JSON.stringify(raw));
+    localStorage.setItem('catch-gugumon:save', JSON.stringify(raw));
   });
   await page.reload();
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '4,17');
@@ -213,7 +213,7 @@ test('학습에서 틀린 뒤 정답을 눌러도 그 문제는 처음 맞힘으
   await page.locator('[data-testid=training-choice]:not([data-answer])').first().click(); // 2×1 틀림
   await page.locator('[data-testid=training-choice][data-answer]').click(); // 정답을 눌러 봄
   await expect(page.locator('.training__question')).not.toHaveAttribute('data-multiplier', '1');
-  const facts = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.learning.facts['2x1']);
+  const facts = await page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.learning.facts['2x1']);
   expect(facts.box).toBe(1);
   expect(facts.attempts).toBe(2);
 });

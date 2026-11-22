@@ -39,7 +39,8 @@ React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/fiel
 
 ## 저장 데이터 — 바꿀 때 꼭
 
-- 키: `gugu-monster:save` (공유 코드 `gugu-monster/shop`, 백업 `gugu-monster/backup`). 로컬 데이터를 잃지 않는 것이 최우선.
+- 키: `catch-gugumon:save` (공유 코드 `catch-gugumon/shop`, 백업 `catch-gugumon/backup`). 로컬 데이터를 잃지 않는 것이 최우선.
+- 원본 앱(`gugu-monster` 저장소, …github.io/gugu-monster/)과 같은 github.io 아래라 localStorage를 함께 쓴다 → 키를 원본(`gugu-monster:save`)과 다르게 둔다. 예전 키 기록은 `adoptLegacySave`가 처음 한 번 복사해 오고, 예전 형식 공유 코드·백업도 불러온다(v1.74).
 - `SaveData`에 필드를 추가하면 함께 고친다(네 곳, `field` 같은 중첩 데이터도 `mergeSave`에서 깊게 채우기): `createInitialSave` 기본값, `mergeSave`(예전 저장에 기본값 채우기), `useGameStore`의 `partialize` 목록, 그리고 `admin/DataSecurityPanels.tsx`의 `currentSave()`(백업).
 - 펫 친밀도·XP가 바뀌는 액션은 `settlePet(before, after, now)`로 진화·레벨업을 잡고, 화면이 결과의 `evolvedTo`·`levelUp`을 `useSessionStore`에 넘긴다.
 - 같은 github.io 아래에 다른 버전을 배포하면 localStorage가 공유되므로 키를 바꿔야 한다.

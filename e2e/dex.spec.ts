@@ -14,7 +14,7 @@ test('Lv10이 된 펫이 칭호를 받고 도감에 들어가고, 새 알을 키
     localStorage.clear();
     const now = Date.now();
     localStorage.setItem(
-      'gugu-monster:save',
+      'catch-gugumon:save',
       JSON.stringify({
         version: 1,
         state: {
@@ -90,7 +90,7 @@ test('놀기: 산책과 장난감마다 다른 놀이 장면', async ({ page }) 
   await page.evaluate(() => {
     localStorage.clear();
     localStorage.setItem(
-      'gugu-monster:save',
+      'catch-gugumon:save',
       JSON.stringify({
         version: 1,
         state: {
@@ -122,7 +122,7 @@ test('놀기: 산책과 장난감마다 다른 놀이 장면', async ({ page }) 
   await expect(page.locator('.play-prop--float').first()).toBeVisible();
   await expect(page.locator('.pet-button')).toHaveClass(/pet-play--float/);
 
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.pet);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.pet);
   expect(saved.careCounts).toMatchObject({ walk: 1, 'item:toy': 2 });
   expect(errors).toEqual([]);
 });
@@ -144,7 +144,7 @@ test('관리자가 새 펫을 시작하면 지금 펫은 도감으로 가고, �
 
   await expect(page).toHaveURL(/#\/welcome/);
   await expect(page.getByRole('heading', { name: '새 친구가 될 알을 골라 줘!' })).toBeVisible();
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state);
   expect(saved.dex).toHaveLength(1);
   expect(saved.dex[0]).toMatchObject({ name: '냥이', reason: 'admin' });
   expect(saved.economy.stars).toBe(50);

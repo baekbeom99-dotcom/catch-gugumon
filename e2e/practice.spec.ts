@@ -45,7 +45,7 @@ async function playPractice(page: Page, { wrongFirst }: { wrongFirst: boolean })
   await expect(page.locator('.result')).toBeVisible();
 }
 
-const savedState = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!));
+const savedState = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!));
 
 test('받아올림 덧셈 연습: 힌트, 결과, 별 유지·적립, 기록', async ({ page }) => {
   const errors = collectErrors(page);

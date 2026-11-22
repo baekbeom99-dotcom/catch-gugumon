@@ -21,15 +21,15 @@ interface Seed {
 async function seed(page: Page, { lowGrade, position, field }: Seed) {
   await page.addInitScript(
     ([starter, lg, pos, extra]) => {
-      if (localStorage.getItem('gugu-monster:save')) return;
+      if (localStorage.getItem('catch-gugumon:save')) return;
       const f = { ...(starter as object), position: pos, ...(extra as object) };
-      localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field: f, settings: { lowGrade: lg } } }));
+      localStorage.setItem('catch-gugumon:save', JSON.stringify({ version: 1, state: { field: f, settings: { lowGrade: lg } } }));
     },
     [STARTER, lowGrade, position, field ?? {}] as const,
   );
 }
 
-const saved = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save') ?? '{}').state ?? {});
+const saved = (page: Page) => page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save') ?? '{}').state ?? {});
 const totalAttempts = async (page: Page) => ((await saved(page)).learning?.totalAttempts ?? 0) as number;
 
 /** 비밀번호 창의 숫자판 누르기 (4번째 숫자에서 바로 확인된다) */

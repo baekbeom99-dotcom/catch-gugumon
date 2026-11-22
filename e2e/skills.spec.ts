@@ -4,7 +4,7 @@ import { expect, test } from './fixtures';
 test.use({ viewport: { width: 375, height: 812 } });
 
 const SHOTS = '.superpowers/sdd/2026-11-12-field-adventure-3/task-13-shots';
-const SAVE_KEY = 'gugu-monster:save';
+const SAVE_KEY = 'catch-gugumon:save';
 
 interface SeedOptions {
   /** 동행 구구몬의 기록 */

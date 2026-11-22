@@ -19,8 +19,8 @@ const STARTER_FIELD = {
 /** 페이지가 열리기 전에 첫 구구몬을 고른 저장본을 넣는다 (이미 저장이 있으면 그대로) */
 async function seedStarter(page: Page) {
   await page.addInitScript((field) => {
-    if (!localStorage.getItem('gugu-monster:save')) {
-      localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field } }));
+    if (!localStorage.getItem('catch-gugumon:save')) {
+      localStorage.setItem('catch-gugumon:save', JSON.stringify({ version: 1, state: { field } }));
     }
   }, STARTER_FIELD);
 }
@@ -121,7 +121,7 @@ test('표지판에 부딪히면 글이 뜨고, 탭하면 닫히고, 계속 눌�
   await page.evaluate((starter) => {
     localStorage.clear();
     localStorage.setItem(
-      'gugu-monster:save',
+      'catch-gugumon:save',
       JSON.stringify({ version: 1, state: { field: { ...starter, position: { map: 'meadow', x: 9, y: 6, facing: 'up' } } } }),
     );
   }, STARTER_FIELD);
@@ -145,7 +145,7 @@ async function openSignAtNine(page: Page) {
   await page.evaluate((starter) => {
     localStorage.clear();
     localStorage.setItem(
-      'gugu-monster:save',
+      'catch-gugumon:save',
       JSON.stringify({ version: 1, state: { field: { ...starter, position: { map: 'meadow', x: 9, y: 6, facing: 'up' } } } }),
     );
   }, STARTER_FIELD);
@@ -270,7 +270,7 @@ async function standBesideGrass(page: Page, opts: GrassOptions = {}) {
         position: { map: 'meadow', x: 5, y: 8, facing: 'right' },
         ...(capsules ? { capsules } : {}),
       };
-      localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field } }));
+      localStorage.setItem('catch-gugumon:save', JSON.stringify({ version: 1, state: { field } }));
     },
     [STARTER_FIELD, opts.c034 ?? {}, opts.capsules ?? null, opts.others ?? {}, opts.as ?? ''] as const,
   );
@@ -281,7 +281,7 @@ async function standBesideGrass(page: Page, opts: GrassOptions = {}) {
 /** 저장본의 꽃등짐몬 기록 */
 async function savedCloud(page: Page): Promise<{ hp: number; wounds: { factId: string; type: string }[] }> {
   return page.evaluate(() => {
-    const f = JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field;
+    const f = JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.field;
     return f.species[f.companion];
   });
 }
@@ -319,13 +319,13 @@ function moveButton(page: Page, answer: number) {
 /** 별 개수와 펫 성장 점수 (상점 연습은 둘 다 안 바뀐다) */
 async function starsAndGrowth(page: Page): Promise<{ stars: number; growthXp: number }> {
   return page.evaluate(() => {
-    const st = JSON.parse(localStorage.getItem('gugu-monster:save') ?? '{}').state ?? {};
+    const st = JSON.parse(localStorage.getItem('catch-gugumon:save') ?? '{}').state ?? {};
     return { stars: st.economy?.stars ?? 0, growthXp: st.pet?.growthXp ?? 0 };
   });
 }
 
 async function totalAttempts(page: Page): Promise<number> {
-  return page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save') ?? '{}').state?.learning?.totalAttempts ?? 0);
+  return page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save') ?? '{}').state?.learning?.totalAttempts ?? 0);
 }
 
 test('길 스위치를 켜면 풀숲 밖 길 한 걸음에도 만나 전투 화면으로 간다', async ({ page }) => {
@@ -377,7 +377,7 @@ test('HP가 0이 되면 캡슐 던지기와 놓아주기를 고를 수 있고, �
 
 /** 저장본의 캡슐 개수 */
 async function savedCapsules(page: Page): Promise<Record<string, number>> {
-  return page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.capsules);
+  return page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.field.capsules);
 }
 
 /** 정답만 골라 어지러워질 때까지 (캡슐 버튼이 나오거나, 캡슐이 없어 돌려보낼 때까지) */
@@ -425,7 +425,7 @@ test('캡슐 0개면 어지러워질 때 돌려보낸다 (버튼 없음)', async
   await expect(page.getByRole('status')).toHaveText('캡슐이 없어서 돌려보냈어! 상점에서 캡슐을 구해 오자');
   await expect(page.getByRole('button', { name: '캡슐 던지기' })).toHaveCount(0);
   await expect(page).toHaveURL(/#\/field$/, { timeout: 5000 });
-  const field = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
+  const field = await page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.field);
   expect(field.capsules.meadow).toBe(0);
   expect(field.stats).toMatchObject({ battles: 1, catches: 0, fled: 1 });
 });
@@ -542,7 +542,7 @@ test('시간이 다 되면 적이 공격하고, 쓰러지면 태초마을로 돌
   // 대신 다닐 건강한 구구몬이 없으면 동행은 그대로, 알림은 예전 글
   await expect(page.getByRole('dialog', { name: '쓰러짐 알림' })).toContainText('구구몬이 쓰러졌어요. 상점에서 회복시켜요');
   await expect(page.getByRole('dialog', { name: '쓰러짐 알림' })).not.toContainText('대신 함께 다녀요');
-  const field = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
+  const field = await page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.field);
   expect(field.position.map).toBe('town');
   expect(field.companion).toBe('c034');
   expect(field.species.c034.hp).toBe(0);
@@ -573,7 +573,7 @@ test('쓰러지면 도감의 건강한 다른 구구몬이 대신 함께 다닌�
   const notice = page.getByRole('dialog', { name: '쓰러짐 알림' });
   await expect(notice).toContainText('쓰러졌어…');
   await expect(notice).toContainText('물거북몬이 대신 함께 다녀요');
-  const field = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
+  const field = await page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.field);
   expect(field.companion).toBe('c036');
   expect(field.species.c034.hp).toBe(0);
   expect(field.position.map).toBe('town');
@@ -674,9 +674,9 @@ test('처음 필드는 첫 구구몬 고르기로 가고, 물거북몬을 골라
 
   // 풀숲 바로 옆으로 자리를 옮긴다 — 물거북몬은 초원 종이라, 같은 종을 만나지 않게 물가 풀숲에서
   await page.evaluate(() => {
-    const raw = JSON.parse(localStorage.getItem('gugu-monster:save')!);
+    const raw = JSON.parse(localStorage.getItem('catch-gugumon:save')!);
     raw.state.field.position = { map: 'waterside', x: 4, y: 9, facing: 'right' };
-    localStorage.setItem('gugu-monster:save', JSON.stringify(raw));
+    localStorage.setItem('catch-gugumon:save', JSON.stringify(raw));
   });
   await page.reload();
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '4,9');
@@ -709,7 +709,7 @@ test('처음 필드는 첫 구구몬 고르기로 가고, 물거북몬을 골라
   await expect(page.locator('.fdex__cell--caught')).toHaveCount(2);
   await expect(page.locator('.fdex__cell--unknown')).toHaveCount(46);
   // 별점수는 꺼져 있어 발견·포획으로 쌓이지 않는다
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.starPoints)).toBe(0);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.field.starPoints)).toBe(0);
 
   // 잡은 구구몬을 동행으로
   await page.getByLabel(`${wildName} 잡음`).click();
@@ -727,7 +727,7 @@ async function standAt(page: Page, map: string, x: number, y: number, facing: st
   await page.evaluate(
     ([starter, position]) => {
       localStorage.clear();
-      localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field: { ...(starter as object), position } } }));
+      localStorage.setItem('catch-gugumon:save', JSON.stringify({ version: 1, state: { field: { ...(starter as object), position } } }));
     },
     [STARTER_FIELD, { map, x, y, facing }] as const,
   );
@@ -748,7 +748,7 @@ test('초원 왼쪽 출구로 나가면 불러오기 화면 뒤 물가 입구에
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '18,10');
   await page.reload();
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '18,10');
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.position.map);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.field.position.map);
   expect(saved).toBe('waterside');
 });
 
@@ -771,7 +771,7 @@ test('처음 필드는 첫 구구몬 고르기로 가고, 고르면 태초마을
   await page.getByRole('button', { name: '물거북몬 고르기' }).click();
   await expect(page).toHaveURL(/#\/field$/);
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '10,40');
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.field);
   expect(saved.position).toEqual({ map: 'town', x: 10, y: 40, facing: 'down' });
   // 스타터는 기술 1개(슬롯 1)로 시작한다
   expect(saved.species.c036.skills).toEqual(['c036-1']);
@@ -791,7 +791,7 @@ async function standAtShopDoor(page: Page, extra: { species?: Record<string, unk
       const s = starter as typeof STARTER_FIELD;
       const e = ex as { species?: Record<string, unknown>; field?: Record<string, unknown> };
       const field = { ...s, species: e.species ?? s.species, position: { map: 'town', x: 8, y: 25, facing: 'up' }, ...(e.field ?? {}) };
-      localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field } }));
+      localStorage.setItem('catch-gugumon:save', JSON.stringify({ version: 1, state: { field } }));
     },
     [STARTER_FIELD, extra] as const,
   );
@@ -806,11 +806,11 @@ async function openShop(page: Page) {
 }
 
 async function savedFact(page: Page, id: string): Promise<{ box: number; dueAt: number | null }> {
-  return page.evaluate((f) => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.learning.facts[f], id);
+  return page.evaluate((f) => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.learning.facts[f], id);
 }
 
 async function savedField(page: Page) {
-  return page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
+  return page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.field);
 }
 
 /** 연습 문제의 답 (a × b = ?) */
@@ -992,7 +992,7 @@ test('회복약: 쓰러진 마을 구구몬은 회복하고 상점을 닫으면 
       seen: ['c034', 'c036'],
       position: { map: 'town', x: 8, y: 25, facing: 'up' },
     };
-    localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field } }));
+    localStorage.setItem('catch-gugumon:save', JSON.stringify({ version: 1, state: { field } }));
   }, STARTER_FIELD);
   await page.reload();
   const canvas = page.getByTestId('field-canvas');
@@ -1024,12 +1024,12 @@ test('초원 위 출구로 나가면 태초마을 아래 출구 위 칸, 마을 
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', `9,${38 + R}`);
   await page.reload();
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', `9,${38 + R}`);
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.position.map)).toBe('town');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.field.position.map)).toBe('town');
 
   await tap(page, 'ArrowDown', 400); // 도착하면 위를 보고 있어서 돌아선 뒤 걷는다
   await expect(page.getByRole('status', { name: '불러오는 중' })).toContainText('초원');
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '7,1');
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.position.map)).toBe('meadow');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.field.position.map)).toBe('meadow');
 });
 
 test('물가 풀숲에서 만난 구구몬은 물가 13종(020~032) 중 하나', async ({ page }) => {
@@ -1061,7 +1061,7 @@ async function standBesideGrassWith(page: Page, unlocked: boolean) {
       localStorage.clear();
       const learning = open ? { challengeUnlocked: true, challengeUnlockedBy: 'admin' } : {};
       localStorage.setItem(
-        'gugu-monster:save',
+        'catch-gugumon:save',
         JSON.stringify({
           version: 1,
           state: { field: { ...(starter as object), position: { map: 'meadow', x: 5, y: 8, facing: 'right' } }, learning },
@@ -1104,7 +1104,7 @@ test('황금 캡슐이 0개여도 레전드를 만나고, 어지러워지면 캡
   await expect(page.getByRole('status')).toHaveText('캡슐이 없어서 돌려보냈어! 상점에서 캡슐을 구해 오자');
   await expect(page.getByRole('button', { name: '캡슐 던지기' })).toHaveCount(0);
   await expect(page).toHaveURL(/#\/field$/, { timeout: 5000 });
-  const field = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
+  const field = await page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.field);
   expect(field.capsules.legend).toBe(0);
   expect(Object.keys(field.species).some((id) => id.startsWith('legend-'))).toBe(false);
   expect(field.stats).toMatchObject({ battles: 1, catches: 0, fled: 1 });
@@ -1168,7 +1168,7 @@ test('전투를 마치면 필드에서 "레벨이 올랐어!" 알림이 뜨고, 
       species: { c034: { level: 5, exp: 65, stage: 1, caught: 1, firstCaughtAt: 1 } },
       position: { map: 'meadow', x: 5, y: 8, facing: 'right' },
     };
-    localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field } }));
+    localStorage.setItem('catch-gugumon:save', JSON.stringify({ version: 1, state: { field } }));
   }, STARTER_FIELD);
   await page.reload();
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '5,8');
@@ -1190,7 +1190,7 @@ test('전투를 마치면 필드에서 "레벨이 올랐어!" 알림이 뜨고, 
 // ── 기술 배우기·복사 ──
 
 async function savedSkills(page: Page): Promise<string[]> {
-  return page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.species.c034.skills);
+  return page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.field.species.c034.skills);
 }
 
 function copyOn(page: Page) {
@@ -1356,9 +1356,9 @@ test('도망 확인창을 열어 둔 시간은 답하는 데 걸린 시간에 �
   await page.getByRole('button', { name: '계속 싸우기' }).click();
   await moveButton(page, answer).click();
   await expect
-    .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.learning.facts['13x10']?.avgMs ?? -1))
+    .poll(() => page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.learning.facts['13x10']?.avgMs ?? -1))
     .toBeGreaterThanOrEqual(0);
-  const ms = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.learning.facts['13x10'].avgMs);
+  const ms = await page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.learning.facts['13x10'].avgMs);
   expect(ms).toBeLessThan(1500);
 });
 
@@ -1379,7 +1379,7 @@ test('정답 명중 연출 중에는 도망 버튼과 Esc가 막혀 확인창이
 async function seedTownRoam(page: Page, at: { x: number; y: number }, facing: string, extra: { c034?: Record<string, unknown> } = {}) {
   await page.addInitScript(
     ([position, c034]) => {
-      if (!localStorage.getItem('gugu-monster:save')) {
+      if (!localStorage.getItem('catch-gugumon:save')) {
         const field = {
           starterChosen: true,
           companion: 'c034',
@@ -1390,7 +1390,7 @@ async function seedTownRoam(page: Page, at: { x: number; y: number }, facing: st
           seen: ['c034', 'c020'],
           position,
         };
-        localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field } }));
+        localStorage.setItem('catch-gugumon:save', JSON.stringify({ version: 1, state: { field } }));
       }
       const w = window as unknown as { __pin: boolean };
       w.__pin = true;
@@ -1452,14 +1452,14 @@ test('구구몬이 있는 칸을 탭해도 말풍선이 뜬다', async ({ page }
 test('옛 저장에 013(c013)이 있어도 열리고, 도감은 48종이며 저장에서 c013이 사라진다', async ({ page }) => {
   const errors = collectErrors(page);
   await page.addInitScript(() => {
-    if (localStorage.getItem('gugu-monster:save')) return;
+    if (localStorage.getItem('catch-gugumon:save')) return;
     const f = {
       starterChosen: true,
       companion: 'c013',
       species: { c013: { level: 7, exp: 3, stage: 1, caught: 1, firstCaughtAt: 1, skills: ['c013-1'] } },
       seen: ['c013'],
     };
-    localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field: f } }));
+    localStorage.setItem('catch-gugumon:save', JSON.stringify({ version: 1, state: { field: f } }));
   });
   await page.goto('/#/field');
   await expect(page).toHaveURL(/#\/field$/);
@@ -1472,7 +1472,7 @@ test('옛 저장에 013(c013)이 있어도 열리고, 도감은 48종이며 저�
   await page.waitForTimeout(500);
   await page.keyboard.up('ArrowRight');
   await expect.poll(async () => (await pos(page)).x).not.toBe(before.x);
-  const field = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
+  const field = await page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.field);
   expect(field.species.c013).toBeUndefined();
   expect(field.species.c046.level).toBe(7);
   expect(field.companion).toBe('c046');
@@ -1500,7 +1500,7 @@ test('초원에서 메뉴의 태초마을로를 누르면 마을 @에 서고 저
   await page.getByRole('button', { name: '메뉴' }).click();
   await page.getByRole('button', { name: '태초마을로' }).click();
   await expect(page.getByTestId('field-canvas')).toHaveAttribute('data-pos', '10,40');
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.position);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.field.position);
   expect(saved).toEqual({ map: 'town', x: 10, y: 40, facing: 'down' });
 });
 
@@ -1516,7 +1516,7 @@ test('마을에서는 메뉴에 태초마을로가 없다', async ({ page }) => 
 test('도감에서 쓰러진 종은 쓰러짐 꼬리표와 빨간 막대, 함께 다니기가 꺼져 있다', async ({ page }) => {
   await page.addInitScript(() => {
     localStorage.setItem(
-      'gugu-monster:save',
+      'catch-gugumon:save',
       JSON.stringify({
         version: 1,
         state: {

@@ -21,8 +21,8 @@ async function seed(page: Page, opts: { stars?: boolean; lowGrade?: boolean } = 
       const w = window as unknown as { __GUGU_E2E_NO_TIMER__: boolean; __GUGU_E2E_STARS__?: boolean };
       w.__GUGU_E2E_NO_TIMER__ = true;
       if (stars) w.__GUGU_E2E_STARS__ = true;
-      if (!localStorage.getItem('gugu-monster:save')) {
-        localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field: f, settings: lowGrade ? { lowGrade: true } : undefined } }));
+      if (!localStorage.getItem('catch-gugumon:save')) {
+        localStorage.setItem('catch-gugumon:save', JSON.stringify({ version: 1, state: { field: f, settings: lowGrade ? { lowGrade: true } : undefined } }));
       }
     },
     { f: field, stars: !!opts.stars, lowGrade: !!opts.lowGrade },
@@ -30,7 +30,7 @@ async function seed(page: Page, opts: { stars?: boolean; lowGrade?: boolean } = 
 }
 
 async function saved(page: Page) {
-  return page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field);
+  return page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.field);
 }
 
 const capsuleTotal = (f: { capsules?: Record<string, number> }) => Object.values(f.capsules ?? {}).reduce((a, b) => a + b, 0);

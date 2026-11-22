@@ -13,7 +13,7 @@ test('똥은 치우고, 아프면 주사를 맞힌다', async ({ page }) => {
   await page.evaluate(() => {
     localStorage.clear();
     localStorage.setItem(
-      'gugu-monster:save',
+      'catch-gugumon:save',
       JSON.stringify({
         version: 2,
         state: {
@@ -54,11 +54,11 @@ test('똥은 치우고, 아프면 주사를 맞힌다', async ({ page }) => {
   await expect(page.locator('.room .poop')).toHaveCount(0);
   await expect(page.locator('.trouble-bar')).toHaveCount(0);
 
-  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.pet);
+  const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.pet);
   expect(saved).toMatchObject({ poops: 0, sick: null, name: '멍멍' });
   expect(saved.careCounts).toMatchObject({ clean: 1, shot: 1 });
   // 주사 ★50 + 청소 ★50
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.economy.stars)).toBe(20);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.economy.stars)).toBe(20);
   expect(errors).toEqual([]);
 });
 
@@ -68,7 +68,7 @@ test('배부름 15 이하면 밥만 줄 수 있고, 똥 치우기는 된다 · �
   await page.evaluate(() => {
     localStorage.clear();
     localStorage.setItem(
-      'gugu-monster:save',
+      'catch-gugumon:save',
       JSON.stringify({
         version: 2,
         state: {
@@ -114,7 +114,7 @@ test('별이 50개보다 적으면 똥을 치우거나 주사를 맞힐 수 없�
   await page.evaluate(() => {
     localStorage.clear();
     localStorage.setItem(
-      'gugu-monster:save',
+      'catch-gugumon:save',
       JSON.stringify({
         version: 2,
         state: {
@@ -133,5 +133,5 @@ test('별이 50개보다 적으면 똥을 치우거나 주사를 맞힐 수 없�
   await page.locator('.trouble--clean').click();
   await expect(page.locator('.speech--room')).toContainText('별이 50개 필요해요! 별이 20개 모자라요');
   await expect(page.locator('.room .poop')).toHaveCount(1);
-  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.economy.stars)).toBe(30);
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.economy.stars)).toBe(30);
 });

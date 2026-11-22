@@ -36,8 +36,8 @@ async function seed(page: Page, o: Seed) {
       const w = window as unknown as { __GUGU_E2E_NO_TIMER__: boolean; __GUGU_E2E_STARS__?: boolean };
       w.__GUGU_E2E_NO_TIMER__ = true;
       if (stars) w.__GUGU_E2E_STARS__ = true;
-      if (!localStorage.getItem('gugu-monster:save')) {
-        localStorage.setItem('gugu-monster:save', JSON.stringify({ version: 1, state: { field: f, settings: lowGrade ? { lowGrade: true } : undefined } }));
+      if (!localStorage.getItem('catch-gugumon:save')) {
+        localStorage.setItem('catch-gugumon:save', JSON.stringify({ version: 1, state: { field: f, settings: lowGrade ? { lowGrade: true } : undefined } }));
       }
     },
     { f: field, stars: !!o.stars, lowGrade: !!o.lowGrade },
@@ -55,7 +55,7 @@ async function bump(page: Page, key: string, check: () => Promise<void>) {
 
 /** 저장된 주인공 자리 (이동 직후 확인용) */
 async function savedPos(page: Page) {
-  return page.evaluate(() => JSON.parse(localStorage.getItem('gugu-monster:save')!).state.field.position);
+  return page.evaluate(() => JSON.parse(localStorage.getItem('catch-gugumon:save')!).state.field.position);
 }
 
 /** 단 학습·도전 문제 9개를 푼다 */

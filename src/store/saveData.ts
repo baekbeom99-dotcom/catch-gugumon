@@ -16,7 +16,23 @@ import { type EconomyData, initialEconomy, initialLearning, type LearningData, r
  * 1 → 2: 셈 연습 기록(practice) 추가
  */
 export const SCHEMA_VERSION = 2;
-export const SAVE_KEY = 'gugu-monster:save';
+/** 저장 이름. 원본 앱(구구단 몬스터 탐험대)과 같은 github.io 아래라 이름을 달리해야 서로 덮어쓰지 않는다 */
+export const SAVE_KEY = 'catch-gugumon:save';
+/** 원본 앱과 저장 이름을 같이 쓰던 때의 이름 — 새 이름에 아무것도 없을 때 한 번만 복사해 온다 (지우지 않는다) */
+export const LEGACY_SAVE_KEY = 'gugu-monster:save';
+
+/** 예전 이름의 저장본을 새 이름으로 복사한다. 복사했으면 true */
+export function adoptLegacySave(storage: Pick<Storage, 'getItem' | 'setItem'>): boolean {
+  try {
+    if (storage.getItem(SAVE_KEY) !== null) return false;
+    const old = storage.getItem(LEGACY_SAVE_KEY);
+    if (old === null) return false;
+    storage.setItem(SAVE_KEY, old);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export interface Settings {
   /** 효과음 — 기본 켬 */

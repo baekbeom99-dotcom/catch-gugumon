@@ -50,7 +50,7 @@ export function DataPanel() {
           <button
             type="button"
             className="btn btn--primary"
-            onClick={() => downloadText(`gugu-monster-backup-${dateStamp(Date.now())}.json`, exportBackup(currentSave(), Date.now()))}
+            onClick={() => downloadText(`catch-gugumon-backup-${dateStamp(Date.now())}.json`, exportBackup(currentSave(), Date.now()))}
           >
             백업 파일 저장
           </button>

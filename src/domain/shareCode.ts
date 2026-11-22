@@ -5,11 +5,13 @@
 import { CATALOG_PRICE_SCALE, scaleItemPrices, validateItem } from './catalogRules';
 import type { CatalogData, ItemDef } from './shop';
 
-export const SHOP_FORMAT = 'gugu-monster/shop';
+export const SHOP_FORMAT = 'catch-gugumon/shop';
+/** 저장 이름을 나누기 전에 만든 상점 코드도 받는다 */
+export const LEGACY_SHOP_FORMAT = 'gugu-monster/shop';
 export const CODE_PREFIX = 'GUGU1-';
 
 interface ShopSettingsFile {
-  format: typeof SHOP_FORMAT;
+  format: typeof SHOP_FORMAT | typeof LEGACY_SHOP_FORMAT;
   /** 1: v1.19까지(가격 1배), 2: v1.20부터(가격 2배) */
   version: 1 | 2;
   exportedAt: string;
@@ -66,7 +68,7 @@ export function parseShopSettings(input: string, current: CatalogData): ParseRes
     return { ok: false, error: '상점 설정 코드나 파일이 아니에요.' };
   }
   const file = data as Partial<ShopSettingsFile>;
-  if (file?.format !== SHOP_FORMAT || !Array.isArray(file.items)) return { ok: false, error: '상점 설정 코드나 파일이 아니에요.' };
+  if ((file?.format !== SHOP_FORMAT && file?.format !== LEGACY_SHOP_FORMAT) || !Array.isArray(file.items)) return { ok: false, error: '상점 설정 코드나 파일이 아니에요.' };
 
   const preview: ImportPreview = { valid: [], skipped: [], added: 0, priceChanged: 0, saleChanged: 0, otherChanged: 0 };
   // 예전 버전에서 만든 코드는 가격이 절반이라 지금 배율로 맞춘다
@@ -102,7 +104,9 @@ export function applyShopSettings(current: CatalogData, valid: ItemDef[]): Catal
 
 // ── 전체 백업 (설계서 11-2) ─────────────────────
 
-export const BACKUP_FORMAT = 'gugu-monster/backup';
+export const BACKUP_FORMAT = 'catch-gugumon/backup';
+/** 저장 이름을 나누기 전에 받은 백업 파일도 불러온다 */
+export const LEGACY_BACKUP_FORMAT = 'gugu-monster/backup';
 
 export function exportBackup(save: object, now: number): string {
   return JSON.stringify({ format: BACKUP_FORMAT, exportedAt: new Date(now).toISOString(), save }, null, 1);
@@ -126,7 +130,7 @@ export function parseBackup(text: string): { ok: true; save: Record<string, unkn
   const save = data?.save as
     | { learning?: { facts?: object; totalExplorations?: number; studyDays?: unknown[] }; economy?: { stars?: number }; pet?: { name?: string } }
     | undefined;
-  if (data?.format !== BACKUP_FORMAT || !save?.learning?.facts || typeof save.economy?.stars !== 'number') {
+  if ((data?.format !== BACKUP_FORMAT && data?.format !== LEGACY_BACKUP_FORMAT) || !save?.learning?.facts || typeof save.economy?.stars !== 'number') {
     return { ok: false, error: '구구단 몬스터 탐험대 백업 파일이 아니에요.' };
   }
   return {
