@@ -2,7 +2,7 @@
 
 구구단을 풀어 몬스터를 잡고, 모은 별로 나만의 펫을 키우는 초등 3학년용 학습 웹앱.
 
-**바로 해 보기:** https://baekbeom99-dotcom.github.io/gugu-monster/
+**바로 해 보기:** https://baekbeom99-dotcom.github.io/catch-gugumon/
 (휴대폰에서 열고 '홈 화면에 추가'하면 앱처럼 쓸 수 있고, 한 번 열면 인터넷 없이도 돼요)
 
 - 기획 초안: [PROJECT_PLAN.md](PROJECT_PLAN.md)
@@ -28,7 +28,7 @@ Pages 주소가 `/<저장소 이름>/` 아래라서 빌드 때 `BASE_PATH`로 �
 | 폴더 | 내용 |
 |---|---|
 | `src/domain/` | 학습·게임 규칙 (순수 함수, UI 의존 없음) — 곱셈 사실, 문제 생성, 숙련도, 출제 알고리즘 |
-| `src/store/` | 저장 데이터 스키마와 Zustand 스토어 (localStorage `gugu-monster:save`) |
+| `src/store/` | 저장 데이터 스키마와 Zustand 스토어 (localStorage `catch-gugumon:save`) |
 | `src/screens/`, `src/components/` | 화면 |
 | `src/audio/` | Web Audio 합성 효과음 |
 | `tests/` | Vitest 단위·시뮬레이션 테스트 |
@@ -50,3 +50,11 @@ Pages 주소가 `/<저장소 이름>/` 아래라서 빌드 때 `BASE_PATH`로 �
 - [x] 단 도전: 단 골라 탐험은 그 단 11문제를 모두 맞힐 때까지, 오답 0개·33초 안이면 MASTER(+★30), 틀린 문제는 추천 탐험에 다시
 
 아직 확인하지 못한 것: 실제 휴대폰·태블릿 기기에서의 확인, 효과음을 귀로 들어 보는 확인
+
+## 라이선스와 저작권
+
+Copyright (c) 2026 baekbeom99-dotcom. **모든 권리 보유.**
+
+- 이 앱을 개인·가정·학급에서 비영리로 공부하는 데 쓰는 것과, 소스를 읽고 공부하는 것은 자유입니다.
+- 복제·수정·재배포·다시 올리기(호스팅)·상업적 이용은 **허락 없이 할 수 없습니다.** 자세한 내용은 [LICENSE](LICENSE)를 보세요.
+- 함께 쓴 오픈소스와 캐릭터 그림에 대한 안내는 [NOTICE.md](NOTICE.md)에 있습니다. 그림 가운데에는 다른 사람이 권리를 가진 캐릭터가 포함되어 있어 이 저장소의 라이선스로 허락되지 않습니다.

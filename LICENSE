@@ -1,0 +1,85 @@
+잡아라! 구구단 몬스터 (catch-gugumon) — 사용 허락 / License
+
+Copyright (c) 2026 baekbeom99-dotcom. All rights reserved.
+저작권자: baekbeom99-dotcom — 모든 권리를 보유합니다.
+
+이 문서는 영어와 한국어로 같은 내용을 적었습니다. 뜻이 다르게 읽히면 영어 문장을 따릅니다.
+The English and Korean texts say the same thing. If they seem to differ, the English text prevails.
+
+
+1. 적용 범위 / What this covers
+-------------------------------
+This license applies only to the ORIGINAL work in this repository: the source code,
+the texts and messages, the game rules and design documents, and any artwork or sound
+created by the copyright holder.
+
+이 사용 허락은 이 저장소 안의 저작권자가 직접 만든 것에만 적용됩니다: 소스 코드, 글과 안내 문구,
+게임 규칙과 설계 문서, 그리고 저작권자가 직접 만든 그림·소리.
+
+It does NOT apply to, and grants or claims no rights in:
+ (a) third-party software listed in NOTICE.md, which stays under its own license; and
+ (b) character artwork (for example the sprite images under src/field/art/creatures/ and
+     any image that depicts or resembles characters, names or marks owned by other people).
+     Those rights belong to their respective owners. See NOTICE.md and docs/sprite-license-audit.md.
+
+다음에는 적용되지 않으며, 저작권자는 그에 대한 권리를 허락하지도 주장하지도 않습니다:
+ (a) NOTICE.md에 적힌 제3자 소프트웨어 — 각자의 라이선스를 따릅니다.
+ (b) 캐릭터 그림(예: src/field/art/creatures/ 아래의 스프라이트 그림 등, 다른 사람이 권리를 가진
+     캐릭터·이름·상표를 그리거나 닮은 모든 그림) — 권리는 각 권리자에게 있습니다.
+     NOTICE.md와 docs/sprite-license-audit.md를 보세요.
+
+
+2. 허용하는 것 / What you may do (free of charge)
+-------------------------------------------------
+ - Use the published app for personal, family, or classroom learning, on a non-commercial basis.
+ - Read the source code on GitHub for reference and study.
+ - View and fork this public repository on GitHub, as allowed by the GitHub Terms of Service
+   (a fork is only for viewing, studying or proposing changes; it does not grant any right in section 3).
+
+ - 공개된 앱을 개인·가정·학급에서 비영리로 공부하는 데 쓰는 것.
+ - 참고와 공부를 위해 GitHub에서 소스 코드를 읽는 것.
+ - GitHub 이용약관이 허용하는 범위에서 공개 저장소를 보고 포크하는 것
+   (포크는 보고 공부하거나 수정 제안을 하는 용도일 뿐, 3항의 어떤 권리도 주지 않습니다).
+
+
+3. 허락 없이 할 수 없는 것 / What you may NOT do without written permission
+----------------------------------------------------------------------------
+ - copy, modify, translate, adapt, merge, publish, host, deploy, distribute, sublicense or sell
+   this work or any part of it (including re-publishing the app, or a clone or derivative of it,
+   on any website, app store or other service);
+ - use any part of it (code, texts, design, original artwork, sounds) in another app, game or product,
+   whether commercial or not;
+ - use it for any commercial purpose (selling, advertising, paid lessons, paid access, and so on);
+ - remove or change copyright notices, this license, or NOTICE.md;
+ - use the names "잡아라! 구구단 몬스터" or "catch-gugumon", or the app icon, in a way that suggests
+   your product comes from or is approved by the copyright holder.
+
+ - 이 저작물 전체 또는 일부를 복제·수정·번역·개작·합치기·게시·호스팅·배포·재허락·판매하는 것
+   (앱이나 그 복제본·파생물을 다른 웹사이트·앱 스토어·서비스에 다시 올리는 것 포함).
+ - 코드·글·설계·직접 만든 그림·소리의 일부라도 다른 앱·게임·제품에 쓰는 것 (상업 여부와 관계없이).
+ - 판매, 광고, 유료 수업, 유료 이용권 등 모든 상업 목적으로 쓰는 것.
+ - 저작권 표시, 이 사용 허락, NOTICE.md를 지우거나 바꾸는 것.
+ - "잡아라! 구구단 몬스터", "catch-gugumon"이라는 이름이나 앱 아이콘을 저작권자가 만들었거나
+   승인한 것처럼 보이게 쓰는 것.
+
+To ask for permission, open an issue or contact the owner through https://github.com/baekbeom99-dotcom.
+허락이 필요하면 이슈를 열거나 https://github.com/baekbeom99-dotcom 으로 연락해 주세요.
+
+
+4. 보증 없음 / No warranty
+--------------------------
+THE WORK IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
+LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE COPYRIGHT HOLDER BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY ARISING FROM
+THE USE OF THE WORK.
+
+이 저작물은 "있는 그대로" 제공되며, 어떤 종류의 보증도 하지 않습니다. 저작물 이용으로 생기는 문제에
+저작권자는 책임지지 않습니다.
+
+
+5. 이 문서에 대해 / About this file
+-----------------------------------
+This is a plain notice written by the project owner, not legal advice. If you need stronger or
+different terms (for example before selling or publishing widely), please ask a lawyer.
+이 문서는 프로젝트 소유자가 쓴 안내문이며 법률 자문이 아닙니다. 더 강하거나 다른 조건이 필요하면
+(예: 판매하거나 널리 배포하기 전) 변호사와 상의하세요.

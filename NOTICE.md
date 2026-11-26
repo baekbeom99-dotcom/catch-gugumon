@@ -1,5 +1,17 @@
 # 함께 쓴 것 (Notices)
 
+## 이 저장소의 저작권
+
+잡아라! 구구단 몬스터(catch-gugumon)의 직접 만든 코드·글·설계는 Copyright (c) 2026 baekbeom99-dotcom 에게 있고, 모든 권리를 보유합니다.
+어떻게 쓸 수 있는지는 [LICENSE](LICENSE)에 적었습니다. 아래 "함께 쓴 것"은 LICENSE가 아니라 각자의 라이선스를 따릅니다.
+
+### 캐릭터 그림에 대하여
+
+`src/field/art/creatures/` 아래의 스프라이트 그림과 앱 안에서 쓰는 캐릭터 그림 가운데에는 다른 사람이 권리를 가진 캐릭터·이름·상표를 그리거나 닮은 것이 포함되어 있습니다.
+- 그 권리는 각 권리자에게 있고, 이 저장소의 저작권자는 그 그림에 대한 권리를 주장하지도, 다른 사람에게 허락하지도 않습니다.
+- 이 앱은 비영리 학습용 팬 앱이며, 권리자가 내려 달라고 요청하면 해당 그림을 내립니다. 자세한 점검 내용은 [docs/sprite-license-audit.md](docs/sprite-license-audit.md)를 보세요.
+- 이 그림들은 LICENSE의 "허용하는 것"에 들어가지 않으며, 복사·재배포할 수 있다는 뜻이 아닙니다.
+
 ## pixelfx
 
 필드 모험의 전투 효과에 [pixelfx](https://github.com/patch-gg/pixelfx) (MIT License)의 효과 세 가지를 그대로 불러 쓴다.

@@ -72,6 +72,7 @@ npm run build                # 배포용 빌드 (tsc -b && vite build)
 
 ## 작업 습관
 
+- 저작권: 저장소 루트 `LICENSE`(모든 권리 보유)·`NOTICE.md`(제3자·캐릭터 그림 안내)가 기준이다. 표시 문구는 `src/config/copyright.ts` 한 곳, 타이틀·관리자 화면과 빌드 머리 주석이 같이 쓴다. 새 그림·코드를 가져올 때는 NOTICE.md에 출처를 적는다.
 - 여러 줄 Python 패치는 bash heredoc보다 스크래치 폴더에 파일로 써서 실행하는 편이 따옴표 문제가 없다.
 - 화면이 바뀌는 수정은 브라우저(개발 서버 `npx vite --port 5181`)에서 직접 보고 확인한다. 휴대폰 폭(375px) 기준.
 - 관련 수치는 상수로 두고(`STAIRS_*`, `EXPLORATION_AFFECTION` 등) 테스트에서 값을 고정해 둔다.
