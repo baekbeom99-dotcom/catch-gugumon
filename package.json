@@ -1,6 +1,8 @@
 {
   "name": "gugu-monster",
   "private": true,
+  "author": "baekbeom99-dotcom",
+  "license": "SEE LICENSE IN LICENSE",
   "version": "0.1.0",
   "type": "module",
   "scripts": {

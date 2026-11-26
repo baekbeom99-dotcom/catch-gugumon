@@ -131,3 +131,32 @@ test('전체 화면을 못 하는 브라우저에서는 버튼이 없다', async
   await expect(page.getByRole('button', { name: '시작하기' })).toBeVisible();
   await expect(page.getByTestId('fullscreen-btn')).toHaveCount(0);
 });
+
+for (const [w, h] of [[375, 812], [360, 740], [1280, 720]] as const) {
+  test(`저작권 한 줄이 ${w}×${h}에서 보이고 다른 것과 겹치지 않는다`, async ({ page }) => {
+    await page.setViewportSize({ width: w, height: h });
+    const logs: string[] = [];
+    page.on('pageerror', (e) => logs.push(e.message));
+    page.on('console', (m) => {
+      if (m.type() === 'error' || m.type() === 'warning') logs.push(m.text());
+    });
+    await page.goto('/');
+    const line = page.locator('.title__copyright');
+    await expect(line).toBeVisible();
+    await expect(line).toHaveText('© 2026 baekbeom99-dotcom · 모든 권리 보유');
+    const box = await line.boundingBox();
+    expect(box).not.toBeNull();
+    const others = [page.locator('.sprite-credit'), page.getByRole('button', { name: '관리' }), page.getByRole('button', { name: '시작하기' })];
+    for (const o of others) {
+      if ((await o.count()) === 0) continue; // 그림 없는 빌드엔 출처 표기가 없다
+      const b = await o.first().boundingBox();
+      if (!b || !box) continue;
+      const hit = box.x < b.x + b.width && b.x < box.x + box.width && box.y < b.y + b.height && b.y < box.y + box.height;
+      expect(hit).toBe(false);
+    }
+    const noHScroll = await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
+    expect(noHScroll).toBe(true);
+    // React Router v7 예고 경고는 이 변경과 무관한 기존 개발 서버 경고라 뺀다
+    expect(logs.filter((t) => !t.includes('React Router Future Flag'))).toEqual([]);
+  });
+}

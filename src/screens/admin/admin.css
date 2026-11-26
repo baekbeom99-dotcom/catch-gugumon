@@ -587,3 +587,11 @@ ul.admin-note {
   width: 100%;
   accent-color: var(--ink);
 }
+
+/* 저작권 한 줄: 메뉴 맨 아래, 작고 회색 */
+.admin__copyright {
+  margin: 16px 0 8px;
+  color: #888;
+  font-size: 12px;
+  text-align: center;
+}

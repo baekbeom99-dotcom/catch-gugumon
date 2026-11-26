@@ -7,6 +7,7 @@ import { LockScreen } from './LockScreen';
 import { PetPanel } from './PetPanel';
 import { LearningPanel, SoundPanel } from './SettingsPanels';
 import { SharePanel } from './SharePanel';
+import { COPYRIGHT_LINE } from '../../config/copyright';
 import './admin.css';
 
 type Menu = 'pet' | 'items' | 'share' | 'learning' | 'sound' | 'data' | 'security';
@@ -86,6 +87,7 @@ export function AdminScreen() {
           ))}
         </div>
       )}
+      {!menu && <p className="admin__copyright">{COPYRIGHT_LINE}</p>}
       {menu === 'pet' && <PetPanel />}
       {menu === 'items' && <ItemsPanel />}
       {menu === 'share' && <SharePanel />}

@@ -8,9 +8,28 @@ declare const process: { env: Record<string, string | undefined> };
 // GitHub Pages는 https://<계정>.github.io/<저장소>/ 아래에서 열리므로 배포 때 BASE_PATH로 경로를 넘긴다.
 const base = process.env.BASE_PATH ?? '/';
 
+// 빌드된 JS·CSS 맨 앞에 남는 저작권 안내 (/*! 는 압축해도 지워지지 않는다)
+const COPYRIGHT_BANNER = '/*! © 2026 baekbeom99-dotcom — catch-gugumon. All rights reserved. See LICENSE. */';
+
 export default defineConfig({
   base,
+  build: {
+    rollupOptions: { output: { banner: COPYRIGHT_BANNER } },
+  },
   plugins: [
+    {
+      // CSS는 rollup banner가 닿지 않으므로 묶음 마지막에 맨 앞 줄로 붙인다
+      name: 'copyright-css-banner',
+      enforce: 'post',
+      generateBundle(_o, bundle) {
+        for (const f of Object.values(bundle)) {
+          if (f.type === 'asset' && f.fileName.endsWith('.css') && typeof f.source === 'string') {
+            f.source = `${COPYRIGHT_BANNER}
+${f.source}`;
+          }
+        }
+      },
+    },
     react(),
     VitePWA({
       registerType: 'autoUpdate',

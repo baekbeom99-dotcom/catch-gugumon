@@ -5,6 +5,7 @@ import { FullscreenButton } from '../components/FullscreenButton';
 import { SpriteCredit } from '../field/art/SpriteCredit';
 import { isQuizEnabled } from '../config/featureFlags';
 import { PasswordDialog } from '../field/lowgrade/PasswordDialog';
+import { COPYRIGHT_LINE } from '../config/copyright';
 import { useGameStore } from '../store/useGameStore';
 import title3x4 from '../assets/title/title-3x4.webp';
 import titleTall from '../assets/title/title-tall.webp';
@@ -75,6 +76,8 @@ export function TitleScreen() {
       {/* 전체 화면: 왼쪽 위 (오른쪽 위 저학년 모드와 마주 봄). 키보드 순서는 마지막, 지원 안 하는 브라우저에선 안 보인다 */}
       <FullscreenButton className="title__fullscreen" />
       <SpriteCredit />
+      {/* 저작권 표시: 눌리지 않는 작은 글 (오른쪽 아래, 그림 출처 알약 위) */}
+      <p className="title__copyright">{COPYRIGHT_LINE}</p>
     </section>
   );
 }
