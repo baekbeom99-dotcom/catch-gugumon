@@ -26,6 +26,9 @@ import { RecordsScreen } from './screens/RecordsScreen';
 import { AdminScreen } from './screens/admin/AdminScreen';
 import { ShopScreen } from './screens/ShopScreen';
 import { needsHatch } from './domain/pet';
+import { isMigrationBuild } from './config/migration';
+import { MIGRATE_ROUTE } from './domain/migration';
+import { MigrateInScreen, MigrateOutScreen } from './screens/MigrateScreens';
 import { useGameStore } from './store/useGameStore';
 import { useSessionStore } from './store/useSessionStore';
 
@@ -57,6 +60,12 @@ const toField = <Navigate to="/field" replace />;
 const fullScreen = (el: JSX.Element) => <div className="app app--full">{el}</div>;
 
 export function App() {
+  // 옛 주소용 빌드: 게임 대신 "이사했어요" 화면만 (저장 데이터는 읽기만 한다)
+  if (isMigrationBuild()) return <MigrateOutScreen />;
+  return <Game />;
+}
+
+function Game() {
   const quizEnabled = isQuizEnabled();
   useEffect(() => {
     const { welcomeBack } = useGameStore.getState().openApp(Date.now());
@@ -106,6 +115,7 @@ export function App() {
         {quizEnabled && <Route path="/battle" element={fullScreen(<BattleScreen />)} />}
         {quizEnabled && <Route path="/practice" element={fullScreen(<PracticeScreen />)} />}
         <Route path="/stairs" element={fullScreen(<StairsScreen />)} />
+        <Route path={`${MIGRATE_ROUTE}/:payload`} element={<MigrateInScreen />} />
         {import.meta.env.DEV && <Route path="/dev/gallery" element={<DevGallery />} />}
         {import.meta.env.DEV && <Route path="/dev/field" element={<DevFieldGallery />} />}
         <Route path="*" element={<Navigate to="/" replace />} />

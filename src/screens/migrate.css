@@ -1,0 +1,84 @@
+/* 주소 이사 화면 */
+.migrate {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: #5aa9e6;
+}
+
+.migrate__card {
+  width: 100%;
+  max-width: 420px;
+  padding: 24px 20px;
+  border-radius: 20px;
+  background: #fffdf5;
+  box-shadow: 0 6px 0 rgba(0, 0, 0, 0.15);
+  text-align: center;
+  color: #2b2b2b;
+}
+
+.migrate__title {
+  margin: 0 0 12px;
+  font-size: 1.5rem;
+}
+
+.migrate__text {
+  margin: 0 0 16px;
+  line-height: 1.6;
+}
+
+.migrate__small {
+  margin: 12px 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: #666;
+}
+
+.migrate__list {
+  margin: 0 0 12px;
+  padding: 0;
+  list-style: none;
+  line-height: 1.8;
+  font-weight: 700;
+}
+
+.migrate__btn {
+  display: block;
+  width: 100%;
+  min-height: 52px;
+  padding: 12px 16px;
+  border: 0;
+  border-radius: 14px;
+  background: #ff9f1c;
+  color: #fff;
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 800;
+  box-shadow: 0 4px 0 #c66f00;
+  cursor: pointer;
+}
+
+.migrate__btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.migrate__link {
+  margin-top: 8px;
+  padding: 10px;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 0.9rem;
+  color: #3a6ea5;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.migrate__error {
+  margin: 0 0 12px;
+  color: #b3261e;
+  font-weight: 700;
+}

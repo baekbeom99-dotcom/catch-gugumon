@@ -8,6 +8,7 @@
 | 버전 | 내용 |
 |---|---|
 | v1.75 | **라이선스와 저작권 표시** — 저장소에 `LICENSE`(모든 권리 보유, 개인·가정·학급 비영리 이용만 허용, 복제·수정·재배포·호스팅·상업 이용은 허락 필요, 캐릭터 그림과 제3자 소프트웨어는 적용 제외)를 넣고 `NOTICE.md`·`README.md`에 같은 안내를 적었다. 앱에는 타이틀 오른쪽 아래·관리자 화면에 `© 2026 baekbeom99-dotcom · 모든 권리 보유` 한 줄, 메타 태그(`author`·`copyright`), 빌드 파일 머리 주석(`src/config/copyright.ts`)을 넣었다. 저장 데이터 변화 없음. |
+| v1.76 | **Cloudflare 이사 + 이사 다리** — 새 주소 https://catch-gugumon.baekbeom99.workers.dev (Cloudflare 정적 배포, `wrangler.jsonc`, `npm run build` 뒤 `npx wrangler deploy`). 옛 GitHub Pages 주소는 저장소 변수 `MIGRATE_TO`(새 주소)가 있으면 게임 대신 「새 집으로 이사했어요」 화면만 보여 주고(`VITE_MIGRATE_TO`, `src/config/migration.ts`), 누르면 저장 데이터(백업과 같은 모양을 gzip·base64url)를 `#/migrate/<꾸러미>`로 새 주소에 넘긴다(`src/domain/migration.ts`, `src/screens/MigrateScreens.tsx`). 새 주소는 기록 요약을 보여 주고 확인하면 `replaceSave`로 바꾼다(관리자 PIN은 안 옮김). 옛 기기 기록은 지우지 않는다. 저장 형식 변화 없음. |
 | v1.74 | **원본 앱과 저장 이름 나누기** — 원본(구구단 몬스터 탐험대, …/gugu-monster/)과 같은 github.io 아래라 같은 저장 이름을 쓰면 서로 덮어쓴다. 저장 이름을 `catch-gugumon:save`로, 공유 코드·백업 형식을 `catch-gugumon/shop`·`catch-gugumon/backup`으로 바꾼다. 새 이름에 기록이 없으면 예전 이름(`gugu-monster:save`) 기록을 처음 한 번 복사해 온다(예전 기록은 지우지 않음). 예전 형식 코드·백업 파일도 불러온다. |
 | v1.73 | **전체 화면 아이콘 버튼** — 타이틀 왼쪽 위와 필드 메뉴 버튼 아래에 글자 없는 아이콘 버튼(`FullscreenButton`)을 둔다. 누르면 전체 화면을 켜고 끄며 Esc로 나가도 아이콘이 따라 바뀐다. 전체 화면을 지원하지 않는 브라우저(아이폰 사파리 등)에서는 버튼을 그리지 않는다. 저장 데이터·길은 그대로. |
 | v1.72 | **시작 화면을 화면 전체에 꽉 차게** — 시작 화면만 600px 가운데 열 제한을 풀어, 태블릿·PC 같은 넓은 창에서도 옆 띠 없이 그림이 창 전체를 덮는다(비율 유지, 위쪽 기준으로 위아래를 자름). 창이 가로 5:4보다 넓으면 시작하기 버튼은 제목 글자 아래로 내려오고 가로는 늘 가운데. 다른 화면은 그대로 600px 열. |

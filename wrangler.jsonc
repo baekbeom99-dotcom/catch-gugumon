@@ -1,0 +1,6 @@
+{
+  // Cloudflare 정적 배포 설정: dist 폴더를 그대로 올린다 (해시 라우터라 서버 규칙 없음)
+  "name": "catch-gugumon",
+  "compatibility_date": "2026-11-01",
+  "assets": { "directory": "./dist" }
+}

@@ -3,7 +3,7 @@
 어린이용 구구단 학습 PWA. 몬스터 탐험(문제 풀이)으로 별을 모아 다마고치 펫을 키운다.
 React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/field`, `#/field/battle`, `#/field/starter`, `#/field/dex`, `#/field/training/:dan`·`#/field/training/arith/:level` 체육관 트레이너 화면, `#/field/statue` 동상(별점수 켜야 열림), `#/field/records` 학습 기록, `#/stairs` 무한의 계단). 마을 위쪽 체육관(실내 지도 `gym`)이 훈련 장소다. 퀴즈 모험(`#/pet` 등 탭 화면)은 `src/config/featureFlags.ts`로 꺼져 있고 `#/field`로 보낸다, GitHub Pages 정적 배포. 서버 없음 — 모든 데이터는 브라우저 localStorage.
 
-- 라이브: https://baekbeom99-dotcom.github.io/catch-gugumon/
+- 라이브: https://catch-gugumon.baekbeom99.workers.dev (Cloudflare — `npm run build` 뒤 `npx wrangler deploy`, 수동). 옛 주소 https://baekbeom99-dotcom.github.io/catch-gugumon/ 는 `main` push 때 저장소 변수 `MIGRATE_TO`가 있으면 게임 대신 이사 안내(데이터 넘기기)만 보여 준다(`src/domain/migration.ts`·`src/screens/MigrateScreens.tsx`·`src/config/migration.ts`)
 - 사용자는 한국어로 요청한다. 화면 글자·주석·커밋 메시지도 한국어(어린이가 읽기 쉬운 말).
 - 규칙·수치의 기준은 `MVP_DESIGN.md`(설계서, 크다 — 필요한 절만 grep해서 읽기). 맨 위 변경 이력 표에 버전(v1.xx)을 한 줄씩 추가한다.
 
