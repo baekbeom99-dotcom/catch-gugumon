@@ -66,6 +66,7 @@ import {
 } from '../domain/field/tuning';
 import { isStarPointsEnabled } from '../config/featureFlags';
 import { addStarPoints as addStarPointsTo, statueStars } from '../domain/field/starPoints';
+import { buyCostume as buyCostumeIn, equipCostume as equipCostumeIn } from '../domain/field/costumes';
 import { isLowGradeProblem, type LowGradeProblem, pushLowGradeWrong, removeLowGradeWrong, sameLowGrade } from '../domain/field/lowGrade';
 import { isChallengeOpen, isFirstMaster, isTrainingOpen, judgeChallenge, pickLegendReward } from '../domain/field/training';
 import { judgeArithTrainer } from '../domain/field/arithTrainer';
@@ -348,6 +349,10 @@ interface GameActions {
    * 꺼져 있으면 {ok:false, stars:0}이고 아무것도 안 바꾼다. 틀린 문제가 있으면 {ok:true, stars:0}, 저장 그대로
    */
   finishStatue: (input: StatueInput) => { ok: boolean; stars: number };
+  /** 꾸미기 세트 사기: 별점수에서 값만큼 뺀다 (입지는 않는다). 별점수가 꺼짐·별 모자람·이미 가짐·모르는 세트면 {ok:false}, 아무것도 안 바꾼다 */
+  buyCostume: (id: string) => { ok: boolean };
+  /** 꾸미기 세트 입기: 가진 세트만. 아니면 {ok:false} */
+  equipCostume: (id: string) => { ok: boolean };
   /** 저학년 모드 켜고 끄기 (비밀번호 검사는 화면 몫). 같은 값이나 불리언이 아니면 아무것도 안 바꾼다 */
   setLowGrade: (on: boolean) => void;
   /** 저학년 문제 답 기록: 틀리면 틀린 문제 목록 맨 앞에(같은 문제는 앞으로), 맞히면 목록에서 뺀다. 깨진 문제는 무시 */
@@ -563,6 +568,20 @@ export const useGameStore = create<GameStore>()(
         if (stars === 0) return { ok: true, stars: 0 };
         set((s) => ({ field: { ...s.field, starPoints: addStarPointsTo(s.field.starPoints, stars) }, lastSeenAt: input.now }));
         return { ok: true, stars };
+      },
+      buyCostume: (id) => {
+        if (!isStarPointsEnabled()) return { ok: false };
+        const f = get().field;
+        const r = buyCostumeIn(f.costume, f.starPoints, id);
+        if (!r) return { ok: false };
+        set((s) => ({ field: { ...s.field, costume: r.costume, starPoints: r.stars } }));
+        return { ok: true };
+      },
+      equipCostume: (id) => {
+        const next = equipCostumeIn(get().field.costume, id);
+        if (!next) return { ok: false };
+        set((s) => ({ field: { ...s.field, costume: next } }));
+        return { ok: true };
       },
       setLowGrade: (on) => {
         if (typeof on !== 'boolean' || get().settings.lowGrade === on) return;

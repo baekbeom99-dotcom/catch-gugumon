@@ -11,6 +11,7 @@ import {
   type TrainingDan,
 } from '../domain/field/tuning';
 import { emptyTraining, type TrainingData } from '../domain/field/training';
+import { type CostumeData, emptyCostume, mergeCostume } from '../domain/field/costumes';
 import { CAPSULE_TYPES, type Capsules, isCapsuleCount } from '../domain/field/capsules';
 import { addWound, type Wound } from '../domain/field/wounds';
 import { type LowGradeProblem, sanitizeLowGradeWrong } from '../domain/field/lowGrade';
@@ -96,6 +97,8 @@ export interface FieldData {
   starPoints: number;
   /** 저학년 모드 기록: 최근에 틀린 덧뺄셈 (앞이 가장 최근, LOWGRADE_WRONG_KEEP개까지) — 회복 연습·동상에 쓴다 */
   lowGrade: { recentWrong: LowGradeProblem[] };
+  /** 주인공 꾸미기: 가진 색 세트(basic은 늘 있음)와 입은 세트 — 별점수로 산다 (costumes.ts) */
+  costume: CostumeData;
 }
 
 /** 저장 안 되는 알림: 레벨이 올랐을 때 등 화면에 띄운다 (필드 구구몬은 진화하지 않는다) */
@@ -161,6 +164,7 @@ export function initialField(): FieldData {
     training: emptyTraining(),
     starPoints: 0,
     lowGrade: { recentWrong: [] },
+    costume: emptyCostume(),
   };
 }
 
@@ -371,5 +375,7 @@ export function mergeField(initial: FieldData, persisted: unknown, townRowsAdded
     starPoints: isCount(p.starPoints) && Number.isInteger(p.starPoints) ? p.starPoints : 0,
     // 저학년 틀린 문제: 옛 저장·깨진 칸은 빈 목록, 깨진 문제(정수 아님·모르는 셈·답 틀림·음수)·중복은 버린다
     lowGrade: { recentWrong: sanitizeLowGradeWrong(asObj(p.lowGrade).recentWrong) },
+    // 꾸미기: 옛 저장·깨진 칸은 basic만, 모르는 세트는 버리고 입은 것이 없으면 basic
+    costume: mergeCostume(p.costume),
   };
 }

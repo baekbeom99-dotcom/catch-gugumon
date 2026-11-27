@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { hatch, chooseEgg, initialPet } from '../../src/domain/pet';
 import { initialField, mergeField, townStart, type SpeciesEntry, type SpeciesId } from '../../src/store/fieldData';
 import { useSessionStore } from '../../src/store/useSessionStore';
@@ -6,6 +6,8 @@ import { COPY_CHANCE } from '../../src/domain/field/tuning';
 import { useGameStore } from '../../src/store/useGameStore';
 import type { Wound } from '../../src/domain/field/wounds';
 import { currentSave } from '../../src/screens/admin/DataSecurityPanels';
+import { COSTUME_SETS, emptyCostume } from '../../src/domain/field/costumes';
+import { createInitialSave, mergeSave } from '../../src/store/saveData';
 
 const NOW = new Date('2026-11-03T09:00:00').getTime();
 
@@ -776,5 +778,82 @@ describe('세션: 기술 제안 대기열', () => {
     useSessionStore.getState().shiftSkillOffer();
     useSessionStore.getState().shiftSkillOffer();
     expect(useSessionStore.getState().skillOffers).toEqual([]);
+  });
+});
+
+describe('꾸미기 저장·스토어 (field.costume)', () => {
+  const g = globalThis as { __GUGU_E2E_STARS__?: unknown };
+  const st = () => useGameStore.getState();
+  const paid = COSTUME_SETS.find((s) => s.price > 0)!;
+  const setStars = (n: number) => useGameStore.setState({ field: { ...st().field, starPoints: n } });
+  beforeEach(() => {
+    g.__GUGU_E2E_STARS__ = true;
+    st().resetAll();
+  });
+  afterEach(() => {
+    delete g.__GUGU_E2E_STARS__;
+  });
+
+  it('새 저장은 basic만 가지고 basic을 입음', () => {
+    expect(initialField().costume).toEqual(emptyCostume());
+    expect(createInitialSave(NOW).field.costume).toEqual(emptyCostume());
+    expect(st().field.costume).toEqual(emptyCostume());
+  });
+  it('옛 저장(costume 칸 없음)은 기본값으로 채워진다 — 다른 칸은 그대로', () => {
+    const { costume: _c, ...old } = initialField() as unknown as Record<string, unknown>;
+    const merged = mergeField(initialField(), { ...old, starPoints: 30 });
+    expect(merged.costume).toEqual(emptyCostume());
+    expect(merged.starPoints).toBe(30);
+    const save = { ...createInitialSave(NOW), field: { ...old, starPoints: 8 } };
+    const m2 = mergeSave(createInitialSave(NOW), save);
+    expect(m2.field.costume).toEqual(emptyCostume());
+    expect(m2.field.starPoints).toBe(8);
+  });
+  it('모르는 id는 버리고, 입은 것이 사라지면 basic', () => {
+    const merged = mergeField(initialField(), { ...initialField(), costume: { owned: ['nope', paid.id], equipped: 'nope' } });
+    expect(merged.costume).toEqual({ owned: ['basic', paid.id], equipped: 'basic' });
+    expect(mergeField(initialField(), { ...initialField(), costume: 'garbage' }).costume).toEqual(emptyCostume());
+  });
+  it('사기: 별 49는 실패(그대로), 50은 성공(가격만큼만 줄어듦)', () => {
+    setStars(49);
+    const before = st().field;
+    expect(st().buyCostume(paid.id)).toEqual({ ok: false });
+    expect(st().field).toBe(before);
+    setStars(50 + 7);
+    expect(st().buyCostume(paid.id)).toEqual({ ok: true });
+    expect(st().field.starPoints).toBe(7);
+    expect(st().field.costume.owned).toEqual(['basic', paid.id]);
+    expect(st().field.costume.equipped).toBe('basic');
+  });
+  it('이미 가짐·모르는 id·basic은 실패, 별은 그대로', () => {
+    setStars(500);
+    st().buyCostume(paid.id);
+    expect(st().buyCostume(paid.id)).toEqual({ ok: false });
+    expect(st().buyCostume('nope')).toEqual({ ok: false });
+    expect(st().buyCostume('basic')).toEqual({ ok: false });
+    expect(st().field.starPoints).toBe(450);
+  });
+  it('별점수가 꺼져 있으면 사기 실패, 아무것도 안 바뀜', () => {
+    setStars(500);
+    g.__GUGU_E2E_STARS__ = false;
+    const before = st().field;
+    expect(st().buyCostume(paid.id)).toEqual({ ok: false });
+    expect(st().field).toBe(before);
+    expect(st().field.starPoints).toBe(500);
+  });
+  it('입기: 가진 것만, 저장에 남고 백업(currentSave)·불러오기(replaceSave)에 실린다', () => {
+    setStars(50);
+    expect(st().equipCostume(paid.id)).toEqual({ ok: false });
+    st().buyCostume(paid.id);
+    expect(st().equipCostume(paid.id)).toEqual({ ok: true });
+    expect(st().field.costume.equipped).toBe(paid.id);
+    expect(st().equipCostume('nope')).toEqual({ ok: false });
+    expect(st().field.costume.equipped).toBe(paid.id);
+    const backup = JSON.parse(JSON.stringify(currentSave()));
+    expect(backup.field.costume).toEqual({ owned: ['basic', paid.id], equipped: paid.id });
+    st().resetAll();
+    expect(st().field.costume).toEqual(emptyCostume());
+    st().replaceSave(backup);
+    expect(st().field.costume).toEqual({ owned: ['basic', paid.id], equipped: paid.id });
   });
 });

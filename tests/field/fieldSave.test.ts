@@ -95,6 +95,7 @@ describe('저장 데이터 field', () => {
       starPoints: 0,
       // 저학년 모드가 생기기 전 저장은 빈 목록
       lowGrade: { recentWrong: [] },
+      costume: { owned: ['basic'], equipped: 'basic' },
     });
   });
 
@@ -213,6 +214,7 @@ describe('저장 데이터 field', () => {
       starPoints: 0,
       // 저학년 모드가 생기기 전 저장은 빈 목록
       lowGrade: { recentWrong: [] },
+      costume: { owned: ['basic'], equipped: 'basic' },
     });
   });
 
@@ -273,6 +275,7 @@ describe('저장 데이터 field', () => {
       starPoints: 0,
       // 저학년 모드가 생기기 전 저장은 빈 목록
       lowGrade: { recentWrong: [] },
+      costume: { owned: ['basic'], equipped: 'basic' },
     });
     expect(useGameStore.getState().economy.stars).toBe(777);
   });

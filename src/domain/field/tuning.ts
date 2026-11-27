@@ -299,3 +299,6 @@ export const LOWGRADE_ANSWER_SEC: Record<FieldId, number> = {
 
 /** 마스터한 단의 문제를 나눗셈(56 ÷ 7 = □)으로 바꿔 내는 확률 */
 export const REVERSE_CHANCE = 0.25;
+
+/** 주인공 꾸미기 세트 하나의 값 (별점수). 세트 표는 costumes.ts */
+export const COSTUME_PRICE = 50;
