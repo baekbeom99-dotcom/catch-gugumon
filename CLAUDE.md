@@ -16,6 +16,8 @@ React 18 + TypeScript + Vite + Zustand, 해시 라우터(`#/` 타이틀, `#/fiel
 | `src/store/saveData.ts` | `SaveData` 형식, `createInitialSave`, `mergeSave`(예전 저장 채우기), `SAVE_KEY` |
 | `src/store/useSessionStore.ts` | 저장 안 되는 화면 상태(진화·레벨업 알림 대기 등) |
 | `src/domain/field/training.ts`·`doorEntry.ts`·`gymTalk.ts` | 트레이닝 규칙(단 열림·문제 계획·합격 판정·12·13단 레전드 보상), 마을 문 처리(상점·체육관·계단 문 앞 칸), 체육관 NPC 말 걸기·잠김 글. 수치는 `tuning.ts`의 `TRAINING_*` |
+| `src/domain/field/{clock,costumes,reverse}.ts` | 시계 읽기 트레이너(정각·5분·1분: 문제·보기·합격·열림, 수치 `CLOCK_TRAINER_*`), 꾸미기 세트 표(`COSTUME_SETS`·사기·입기, `COSTUME_PRICE`), 거꾸로 묻기(마스터한 단 문제를 나눗셈으로, `REVERSE_CHANCE`) |
+| `src/field/art/{heroTint,heroCostume,bakeCache}.ts` | 주인공 017 그림 색 바꾸기: `tintHeroPixel`(머리·윗옷·바지만, 순수)·세트별 굽기·캐시·`useHeroArt`. 그림 파일이 없으면 아무것도 안 함 |
 | `src/domain/field/{arithTrainer,starPoints,lowGrade,lowGradeRun}.ts` | 셈연습 트레이너(기본·고수·보수, 보상·레전드), 별점수(`starGain` 한 곳·동상 문제 계획, 수치 `STAR_*`·`STATUE_*`), 저학년 모드(필드별 덧뺄셈·틀린 문제·비밀번호 `checkLowGradePassword`, 수치 `LOWGRADE_*`)와 상점·전투 진행 |
 | `src/config/featureFlags.ts` | `QUIZ_ADVENTURE_ENABLED`(퀴즈 모험 켜기, 지금 false)·`isQuizEnabled()`(E2E `__GUGU_E2E_QUIZ__` 우선)·`STAR_POINTS_ENABLED`(별점수 켜기, 지금 true)·`isStarPointsEnabled()`(E2E `__GUGU_E2E_STARS__` 우선)·`isRouteEnabled` |
 | `src/field/training/` | 트레이닝·셈연습·동상 화면: `TrainingScreen`(구구단 트레이너 입구·학습/도전·결과 이동), `ArithTrainerScreen`(`#/field/training/arith/:level`), `StatueScreen`(`#/field/statue`), `StudyMode`·`ChallengeMode`(제네릭: 문제·진행기·제목을 props로), `TrainingResult`(캡슐·마스터·레전드), `QuizBoard`(문제 화면 틀), `boardQuestion`(`BoardQuestion` — 구구단·덧뺄셈·보수 공통 문제 모양), `flow`(진행 상태기계)·`runner`(`createRunner`), `trainingText`(글), `useTrainingRun`(`useRun` — 끝에서 정산 한 번)·`useRunClock`·`useTrainingFx`, `FieldRecordsScreen`(`#/field/records`), `routes`(계단 복귀) |
@@ -85,6 +87,9 @@ npm run build                # 배포용 빌드 (tsc -b && vite build)
 | 필드별 단·나오는 종 | `src/domain/field/fields.ts` | 설계서 4-6 |
 | 종 이름 | `src/domain/monsterNames.ts` (기술 이름은 아래 `skills.ts` 행) | — |
 | 체육관 NPC·트레이너 단 목록 | `src/field/world/maps/gym.ts`의 `GYM_NPCS`(자리·단·색)와 `tuning.ts`의 `TRAINING_DANS` | `tests/field/gymMap.test.ts`, `e2e/gym.spec.ts` |
+| 꾸미기 세트(색·가격·이름) | `src/domain/field/costumes.ts`의 `COSTUME_SETS`(id는 한 번 정하면 안 바꿈 — 저장에 남음), 값 `COSTUME_PRICE` | `tests/field/costumes.test.ts`(상표 글자·색 구별), `heroTint` 그림은 `#/dev/field`에서 확인 |
+| 시계 읽기(문제·제한 시간·NPC 자리) | `src/domain/field/clock.ts`·`tuning.ts`의 `CLOCK_TRAINER_*`, NPC는 `maps/gym.ts`의 `GYM_NPCS`(`kind: 'clock'`) | `tests/field/clock*.test.ts`, `gymMap.test.ts`, `e2e/clock.spec.ts` |
+| 거꾸로 묻기 확률 | `tuning.ts`의 `REVERSE_CHANCE` (규칙 `reverse.ts`) | `tests/field/reverse*.test.ts` |
 | 훈련 보상·마스터 제한 시간·계단 열림 조건 | `tuning.ts`의 `TRAINING_*`(`TRAINING_MASTER_MS`·`TRAINING_FIRST_MASTER_CAPSULES`·`STAIRS_OPEN_AFTER_DAN`…)·`ARITH_TRAINER_*` | `tests/field/tuning.test.ts`, `e2e/training.spec.ts`·`arith.spec.ts`, `MVP_DESIGN.md` 이력 |
 | 계단 아이템(간격·황금 확률·별 개수·별 비율) | `tuning.ts`의 `STAIRS_ITEM_*` (규칙 `src/domain/field/stairsItems.ts`) | `tests/field/stairsItems.test.ts`·`tuning.test.ts`, `e2e/stairs-items.spec.ts`, `MVP_DESIGN.md` 이력 |
 | 레전드 보상 별점수 | `tuning.ts`의 `STAR_LEGEND_REWARD` | `tests/field/legendStars.test.ts`·`tuning.test.ts` |
