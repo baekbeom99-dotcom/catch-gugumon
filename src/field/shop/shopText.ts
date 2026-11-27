@@ -6,7 +6,17 @@ export const shopText = {
   close: '닫기',
   quit: '그만하기',
   ok: '확인',
-  soon: '추후 업데이트로 열려요',
+  /** 꾸미기 */
+  costumeOff: '별점수가 꺼져 있어요',
+  costumeGroupBasic: '처음 옷',
+  costumeGroupFlag: '나라',
+  costumeGroupConcept: '캐릭터 느낌',
+  costumeStarsLabel: (n: string) => `모은 별 ${n}개`,
+  costumeBuy: (price: number) => `사기 ★${price}`,
+  costumeBuyLabel: '사기',
+  costumeWear: '입기',
+  costumeWorn: '입는 중',
+  costumeShort: '별이 모자라요',
   /** 캡슐 줄: 맞는 캡슐 이름 옆 */
   get: '얻기',
   /** 황금 캡슐(13단)은 도전 단이 열려야 */

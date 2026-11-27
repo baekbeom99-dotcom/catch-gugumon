@@ -1,21 +1,22 @@
-/** 태초마을 상점 팝업 — 필드 위에 겹쳐 뜬다. 탭: 캡슐·회복약·준비 중. 닫기 버튼과 Escape로 닫힌다 */
+/** 태초마을 상점 팝업 — 필드 위에 겹쳐 뜬다. 탭: 캡슐·회복약·꾸미기. 닫기 버튼과 Escape로 닫힌다 */
 import { useEffect, useState } from 'react';
 import type { CapsuleType } from '../../domain/field/capsules';
 import { setUpdateBusy } from '../../pwa/autoUpdate';
 import type { SpeciesId } from '../../store/fieldData';
 import { CapsuleTab } from './CapsuleTab';
 import { CapsulePractice } from './CapsulePractice';
+import { CostumeTab } from './CostumeTab';
 import { HealPractice } from './HealPractice';
 import { PotionTab } from './PotionTab';
 import { shopText } from './shopText';
 import './shop.css';
 
-export type ShopTabId = 'capsule' | 'potion' | 'soon';
+export type ShopTabId = 'capsule' | 'potion' | 'costume';
 
 export const SHOP_TABS: { id: ShopTabId; label: string; ready: boolean }[] = [
   { id: 'capsule', label: '캡슐', ready: true },
   { id: 'potion', label: '회복약', ready: true },
-  { id: 'soon', label: '준비 중', ready: false },
+  { id: 'costume', label: '꾸미기', ready: true },
 ];
 
 type View = { kind: 'tabs' } | { kind: 'capsule'; type: CapsuleType } | { kind: 'heal'; species: SpeciesId };
@@ -23,7 +24,6 @@ type View = { kind: 'tabs' } | { kind: 'capsule'; type: CapsuleType } | { kind: 
 export function ShopPopup({ onClose }: { onClose(): void }) {
   const [tab, setTab] = useState<ShopTabId>('capsule');
   const [view, setView] = useState<View>({ kind: 'tabs' });
-  const [soonShown, setSoonShown] = useState(false);
   const toTabs = () => setView({ kind: 'tabs' });
   const practicing = view.kind !== 'tabs';
 
@@ -65,23 +65,14 @@ export function ShopPopup({ onClose }: { onClose(): void }) {
                   type="button"
                   role="tab"
                   aria-selected={tab === t.id}
-                  className={`fshop__tab ${tab === t.id ? 'fshop__tab--on' : ''} ${t.ready ? '' : 'fshop__tab--soon'}`}
-                  onClick={() => {
-                    if (t.ready) {
-                      setTab(t.id);
-                      setSoonShown(false);
-                    } else setSoonShown(true);
-                  }}
+                  className={`fshop__tab ${tab === t.id ? 'fshop__tab--on' : ''}`}
+                  onClick={() => setTab(t.id)}
                 >
                   {t.label}
                 </button>
               ))}
             </div>
-            {soonShown && (
-              <p className="fshop-note" role="status">
-                {shopText.soon}
-              </p>
-            )}
+            {tab === 'costume' && <CostumeTab />}
             {tab === 'capsule' && <CapsuleTab onPractice={(type) => setView({ kind: 'capsule', type })} />}
             {tab === 'potion' && <PotionTab onPractice={(species) => setView({ kind: 'heal', species })} />}
           </>

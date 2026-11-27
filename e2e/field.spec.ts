@@ -1008,15 +1008,6 @@ test('회복약: 쓰러진 마을 구구몬은 회복하고 상점을 닫으면 
   await expect(canvas).toHaveAttribute('data-sleeping', '');
 });
 
-test('준비 중 탭은 안내만 나온다', async ({ page }) => {
-  await standAtShopDoor(page);
-  await openShop(page);
-  const shop = page.getByRole('dialog', { name: '상점' });
-  await shop.getByRole('tab', { name: '준비 중' }).click();
-  await expect(shop.getByText('추후 업데이트로 열려요')).toBeVisible();
-  await expect(shop.getByText('초원 캡슐')).toBeVisible(); // 탭은 그대로
-});
-
 test('초원 위 출구로 나가면 태초마을 아래 출구 위 칸, 마을 아래 출구로 나가면 초원 위 출구 아래 칸', async ({ page }) => {
   await standAt(page, 'meadow', 7, 1, 'up');
   await tap(page, 'ArrowUp');
