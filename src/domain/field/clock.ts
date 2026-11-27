@@ -72,7 +72,11 @@ export function clockChoices(rng: Rng, h: number, m: number, level: ClockLevel):
   const step = level === 'one' ? 1 : 5;
   // 바꿔 읽기: 분침이 가리키는 숫자를 시로(0이면 12), 시침이 가리키는 숫자 × 5를 분으로
   const swapped = clockValue(Math.floor((((m % 60) + 60) % 60) / 5) || 12, (h * 5) % 60);
-  const near = [swapped, clockValue(h + 1, m), clockValue(h - 1, m), clockValue(h, m + step), clockValue(h, m - step)];
+  // 정각 단계는 오답도 모두 정각이어야 한다(아직 배우지 않은 3:05 같은 시각이 섞이면 ":00"인 보기만 고르는 요령이 먹힌다)
+  const near =
+    level === 'hour'
+      ? [clockValue(h + 1, 0), clockValue(h - 1, 0), clockValue(h + 2, 0), clockValue(h - 2, 0)]
+      : [swapped, clockValue(h + 1, m), clockValue(h - 1, m), clockValue(h, m + step), clockValue(h, m - step)];
   const wrong: number[] = [];
   const add = (v: number) => {
     if (v !== answer && !wrong.includes(v)) wrong.push(v);

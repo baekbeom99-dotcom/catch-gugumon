@@ -170,3 +170,15 @@ describe('isClockOpen', () => {
     expect(isClockOpen(t2, 'nope' as never)).toBe(false);
   });
 });
+
+describe('정각 단계 오답 보기', () => {
+  it('오답도 모두 정각(분 0)이다 — 모든 시각·여러 시드', () => {
+    for (let seed = 1; seed <= 30; seed++) {
+      const rng = seededRng(seed);
+      for (let h = 1; h <= 12; h++) {
+        const choices = clockChoices(rng, h, 0, 'hour');
+        for (const c of choices) expect(c % 60).toBe(0);
+      }
+    }
+  });
+});
