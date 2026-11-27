@@ -52,5 +52,12 @@ test('별점수 켜짐: HUD에 별 개수가 보이고, 저장 값이 바뀌면 
   });
   await page.reload();
   await expect(page.getByTestId('hud-stars')).toContainText('1,234');
+  // 큰 숫자(1,234)도 HUD 상자 오른쪽 끝 안에 있고, 메뉴 버튼과 겹치지 않는다
+  const starsBox = (await page.getByTestId('hud-stars').boundingBox())!;
+  const hudBox = (await page.getByRole('group', { name: '필드 정보' }).boundingBox())!;
+  const menuBox = (await page.getByRole('button', { name: '메뉴', exact: true }).boundingBox())!;
+  expect(starsBox.x + starsBox.width).toBeLessThanOrEqual(hudBox.x + hudBox.width + 0.5);
+  const overlap = starsBox.x < menuBox.x + menuBox.width && starsBox.x + starsBox.width > menuBox.x && starsBox.y < menuBox.y + menuBox.height && starsBox.y + starsBox.height > menuBox.y;
+  expect(overlap).toBe(false);
   expect(errors).toEqual([]);
 });

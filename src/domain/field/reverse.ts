@@ -26,6 +26,11 @@ export function reverseQuestion(rng: Rng, fact: Fact, choiceCount = 3): Question
   };
 }
 
+/** 학습 기록에 남길 유형: 거꾸로(÷) 물은 화면이면 'product', 아니면 원래 유형 */
+export function recordedType(display: { kind: string; op?: string }, itemType: QuestionType): QuestionType {
+  return display.kind === 'equation' && display.op === '÷' ? 'product' : itemType;
+}
+
 /**
  * 전투 문제 한 개: 평소처럼 만든 뒤 마스터한 단이면 한 번 거꾸로 바꿔 본다.
  * 디버그로 고정한 문제(forced)는 바꾸지 않는다.

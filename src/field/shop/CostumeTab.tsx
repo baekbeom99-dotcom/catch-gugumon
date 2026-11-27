@@ -3,7 +3,7 @@ import { isStarPointsEnabled } from '../../config/featureFlags';
 import { canBuyCostume, COSTUME_SETS, type CostumeSet, type HsvTarget } from '../../domain/field/costumes';
 import { formatStars } from '../../domain/field/starPoints';
 import { useGameStore } from '../../store/useGameStore';
-import { useHeroArtFor } from '../art/heroCostume';
+import { useHeroFront } from '../art/heroCostume';
 import { HERO_ART } from '../art/localSprites';
 import { shopText } from './shopText';
 
@@ -27,7 +27,7 @@ export function swatchColor(t: HsvTarget): string {
 }
 
 function CostumeCard({ set, owned, worn, stars }: { set: CostumeSet; owned: boolean; worn: boolean; stars: number }) {
-  const art = useHeroArtFor(set.id);
+  const front = useHeroFront(set.id);
   const costume = useGameStore((s) => s.field.costume);
   const buy = useGameStore((s) => s.buyCostume);
   const equip = useGameStore((s) => s.equipCostume);
@@ -67,7 +67,7 @@ function CostumeCard({ set, owned, worn, stars }: { set: CostumeSet; owned: bool
   return (
     <li className={`costume-card ${worn ? 'costume-card--worn' : ''}`} data-testid={`costume-${set.id}`}>
       <span className="costume-card__view" aria-hidden="true">
-        {HERO_ART && art ? <img className="costume-card__img" src={art.front} alt="" draggable={false} /> : <span className="costume-card__ph" />}
+        {HERO_ART && front ? <img className="costume-card__img" src={front} alt="" draggable={false} /> : <span className="costume-card__ph" />}
       </span>
       {!basic && (
         <span className="costume-card__colors" aria-hidden="true">

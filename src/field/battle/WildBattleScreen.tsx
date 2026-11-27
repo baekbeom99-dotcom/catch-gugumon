@@ -15,6 +15,7 @@ import { capsuleFor } from '../../domain/field/capsules';
 import { speciesDef } from '../../domain/field/creatures';
 import { ELEMENT_FX, SPECIAL_FX, elementOf, subElementOf } from '../../domain/field/elements';
 import { createAnswerTimer, elapsedMs, pauseTimer, resumeTimer, startTimer } from '../../domain/field/answerTimer';
+import { recordedType } from '../../domain/field/reverse';
 import { MAX_LEVEL, displayName, expToNext } from '../../domain/field/growth';
 import { battleLayout } from './battleLayout';
 import type { Encounter } from '../../domain/field/encounter';
@@ -198,6 +199,8 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
   const { item, fact, question, key, arith, next } = useQuestionFeed(encounter, rng);
   const itemRef = useRef(item);
   itemRef.current = item;
+  const questionRef = useRef(question);
+  questionRef.current = question;
   /** 저학년(덧뺄셈) 문제면 그 문제, 아니면 null — 기록·상처는 이 값으로 갈린다 */
   const arithRef = useRef(arith);
   arithRef.current = arith;
@@ -390,9 +393,10 @@ function WildBattle({ encounter }: { encounter: Encounter }) {
         return;
       }
       const it = itemRef.current;
+      // 거꾸로(÷) 물은 문제는 원래 유형이 무엇이든 곱셈 사실을 거꾸로 푼 것이라 'product'로 기록한다
       recordAnswer({
         factId: it.factId,
-        type: it.type,
+        type: recordedType(questionRef.current.display, it.type),
         correct,
         ms,
         inputMode: 'choice',

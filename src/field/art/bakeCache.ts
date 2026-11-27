@@ -11,6 +11,13 @@ export interface BakeCache<T> {
 
 export const BAKE_RETRY_MS = 5000;
 
+/** 굽기를 건너뛰었다(아무도 안 기다림): 실패가 아니므로 재시도 대기를 걸지 않는다 */
+export class BakeSkipped extends Error {
+  constructor() {
+    super('굽기를 건너뜀');
+  }
+}
+
 export function createBakeCache<T>(bake: (key: string) => Promise<T>, fallback: T, now: () => number = Date.now, retryMs = BAKE_RETRY_MS): BakeCache<T> {
   const done = new Map<string, T>();
   const failedAt = new Map<string, number>();
@@ -33,8 +40,8 @@ export function createBakeCache<T>(bake: (key: string) => Promise<T>, fallback: 
               done.set(key, v);
               return v;
             },
-            () => {
-              failedAt.set(key, now());
+            (e: unknown) => {
+              if (!(e instanceof BakeSkipped)) failedAt.set(key, now());
               return fallback;
             },
           )

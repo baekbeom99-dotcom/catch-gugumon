@@ -58,9 +58,10 @@ export function tintHeroPixel(px: Rgba, set: CostumeSet): Rgba {
   return [r, g, b, a];
 }
 
-/** 이미지 화소 배열(RGBA)을 제자리에서 바꾼다 */
-export function tintHeroImageData(data: Uint8ClampedArray, set: CostumeSet): void {
-  if (set.group === 'basic') return;
+const LITTLE_ENDIAN = new Uint8Array(new Uint32Array([1]).buffer)[0] === 1;
+
+/** 느린 길(화소마다 tintHeroPixel): 정렬이 안 맞거나 big-endian일 때만 */
+function tintSlow(data: Uint8ClampedArray, set: CostumeSet): void {
   for (let i = 0; i + 3 < data.length; i += 4) {
     if (data[i + 3] === 0) continue;
     const [r, g, b, a] = tintHeroPixel([data[i], data[i + 1], data[i + 2], data[i + 3]], set);
@@ -70,3 +71,41 @@ export function tintHeroImageData(data: Uint8ClampedArray, set: CostumeSet): voi
     data[i + 3] = a;
   }
 }
+
+/**
+ * 이미지 화소 배열(RGBA)을 제자리에서 바꾼다.
+ * 빠른 길: 화소를 32비트 하나로 읽고, 서로 다른 색마다 한 번만 tintHeroPixel로 계산해 (색 → 결과) 표에 기억한다.
+ * 그림에는 같은 색이 아주 많아서(017 시트 한 장에 몇만 가지) 화소마다 배열을 만들지 않고도 결과가 tintHeroPixel과 똑같다.
+ */
+export function tintHeroImageData(data: Uint8ClampedArray, set: CostumeSet): void {
+  if (set.group === 'basic') return;
+  if (!LITTLE_ENDIAN || data.byteOffset % 4 !== 0 || data.length % 4 !== 0) {
+    tintSlow(data, set);
+    return;
+  }
+  const px = new Uint32Array(data.buffer, data.byteOffset, data.length / 4);
+  const memo = new Map<number, number>();
+  for (let i = 0; i < px.length; i++) {
+    const v = px[i];
+    const a = v >>> 24;
+    if (a === 0) continue;
+    // 채도가 0.25보다 낮은 화소(윤곽선·회색 신발·크림 얼굴)는 어느 범위에도 안 든다 (세 범위의 채도 하한 중 가장 낮은 값 HERO_PANTS.satMin = 0.25)
+    const r0 = v & 0xff;
+    const g0 = (v >>> 8) & 0xff;
+    const b0 = (v >>> 16) & 0xff;
+    const mx = r0 > g0 ? (r0 > b0 ? r0 : b0) : g0 > b0 ? g0 : b0;
+    const mn = r0 < g0 ? (r0 < b0 ? r0 : b0) : g0 < b0 ? g0 : b0;
+    if ((mx - mn) * 4 < mx) continue;
+    const key = v & 0xffffff; // 결과 색은 알파와 무관하다
+    let out = memo.get(key);
+    if (out === undefined) {
+      const [r, g, b] = tintHeroPixel([v & 0xff, (v >>> 8) & 0xff, (v >>> 16) & 0xff, a], set);
+      out = (r | (g << 8) | (b << 16)) >>> 0;
+      memo.set(key, out);
+    }
+    px[i] = ((a << 24) | out) >>> 0;
+  }
+}
+
+/** 화소 하나를 tintHeroPixel로만 바꾸는 느린 기준 구현 (테스트가 빠른 길과 견준다) */
+export const tintHeroImageDataSlow = tintSlow;

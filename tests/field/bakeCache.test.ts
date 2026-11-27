@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { createBakeCache } from '../../src/field/art/bakeCache';
+import { BakeSkipped, createBakeCache } from '../../src/field/art/bakeCache';
 
 describe('createBakeCache', () => {
   it('성공은 한 번만 굽고 기억한다', async () => {
@@ -38,5 +38,18 @@ describe('createBakeCache', () => {
     expect(await c.get('a')).toBe('baked');
     expect(n).toBe(2);
     expect(c.peek('a')).toBe('baked');
+  });
+  it('건너뛴 굽기(BakeSkipped)는 실패로 세지 않아 바로 다시 굽을 수 있다', async () => {
+    let n = 0;
+    const c = createBakeCache(
+      async () => {
+        if (++n === 1) throw new BakeSkipped();
+        return 'baked';
+      },
+      'orig',
+      () => 0,
+    );
+    expect(await c.get('a')).toBe('orig');
+    expect(await c.get('a')).toBe('baked');
   });
 });

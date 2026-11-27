@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { FACTS, factId } from '../../src/domain/facts';
-import { maybeReverse, reverseQuestion } from '../../src/domain/field/reverse';
+import { maybeReverse, recordedType, reverseQuestion } from '../../src/domain/field/reverse';
 import { generateQuestion } from '../../src/domain/questionGen';
 import { seededRng } from '../../src/domain/random';
 
@@ -53,5 +53,16 @@ describe('거꾸로 묻기', () => {
   it('곱하는 수가 0인 사실을 reverseQuestion에 주면 오류', () => {
     const f0 = FACTS.find((f) => f.b === 0)!;
     expect(() => reverseQuestion(seededRng(1), f0)).toThrow();
+  });
+});
+
+describe('recordedType: 학습 기록 유형', () => {
+  it('거꾸로(÷) 화면은 원래 유형이 무엇이든 product, 아니면 원래 유형', () => {
+    const fact = FACTS.find((f) => f.a === 7 && f.b === 8)!;
+    const rev = reverseQuestion(seededRng(1), fact);
+    expect(recordedType(rev.display, 'sequence')).toBe('product');
+    expect(recordedType(rev.display, 'commutative')).toBe('product');
+    const plain = generateQuestion(seededRng(1), fact, 'sequence');
+    expect(recordedType(plain.display, 'sequence')).toBe('sequence');
   });
 });
