@@ -11,6 +11,7 @@ import {
   type TrainingDan,
 } from '../domain/field/tuning';
 import { emptyTraining, type TrainingData } from '../domain/field/training';
+import { CLOCK_LEVELS } from '../domain/field/clock';
 import { type CostumeData, emptyCostume, mergeCostume } from '../domain/field/costumes';
 import { CAPSULE_TYPES, type Capsules, isCapsuleCount } from '../domain/field/capsules';
 import { addWound, type Wound } from '../domain/field/wounds';
@@ -272,7 +273,7 @@ const asObj = (v: unknown): Record<string, unknown> =>
   v && typeof v === 'object' && !Array.isArray(v) ? (v as Record<string, unknown>) : {};
 const has = (o: Record<string, unknown>, k: string | number) => Object.prototype.hasOwnProperty.call(o, String(k));
 
-/** 훈련 기록 읽기: 아는 단(TRAINING_DANS)·아는 셈연습 단계의 맞는 값만 남기고, 나머지(없어진 11단 등)는 버린다 */
+/** 훈련 기록 읽기: 아는 단(TRAINING_DANS)·아는 셈연습·시계 단계의 맞는 값만 남기고, 나머지(없어진 11단 등)는 버린다 */
 export function mergeTraining(raw: unknown): TrainingData {
   const t = emptyTraining();
   const r = asObj(raw);
@@ -296,6 +297,15 @@ export function mergeTraining(raw: unknown): TrainingData {
   for (const l of ARITH_TRAINER_LEVELS) {
     const m = has(arith, l) ? asObj(arith[l]) : {};
     if (isCount(m.bestMs) && isNum(m.at)) t.arith[l] = { bestMs: m.bestMs, at: m.at };
+  }
+  // 시계 1분 레전드: 아는 레전드 종만
+  const clockLegend = has(legend, 'clockOne') ? migrateSpeciesId(legend.clockOne) : undefined;
+  if (isSpecies(clockLegend) && (LEGEND_SPECIES as readonly SpeciesId[]).includes(clockLegend)) t.legendGranted.clockOne = clockLegend;
+  // 시계 읽기 마스터 기록: 정각·5분·1분만, 최고 기록은 0 이상의 수 (옛 저장은 {})
+  const clock = asObj(r.clock);
+  for (const l of CLOCK_LEVELS) {
+    const m = has(clock, l) ? asObj(clock[l]) : {};
+    if (isCount(m.bestMs) && isNum(m.at)) t.clock[l] = { bestMs: m.bestMs, at: m.at };
   }
   return t;
 }

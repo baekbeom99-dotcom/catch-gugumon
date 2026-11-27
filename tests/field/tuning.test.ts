@@ -109,6 +109,8 @@ describe('필드 모험 운영 수치', () => {
       ARITH_TRAINER_QUESTIONS: 9,
       ARITH_TRAINER_MASTER_MS: { basic: 27_000, hard: 45_000, comp: 27_000 },
       ARITH_CAPSULE_CHOICES: ['meadow', 'waterside', 'desert'],
+      CLOCK_TRAINER_QUESTIONS: 9,
+      CLOCK_TRAINER_MASTER_MS: { hour: 30_000, five: 45_000, one: 60_000 },
       STAIRS_OPEN_AFTER_DAN: null,
       TOWN_ROWS_ADDED: 9,
       STAR_DISCOVER: 5,

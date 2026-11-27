@@ -90,7 +90,7 @@ describe('저장 데이터 field', () => {
       ...v135,
       species: { c031: { ...entry, stage: 1, hp: 100, wounds: [], skills: ['c031-1', 'c031-2'] } },
       capsules: { meadow: 3, waterside: 3, desert: 3, legend: 0 },
-      training: { studied: {}, mastered: {}, legendGranted: {}, arith: {} },
+      training: { studied: {}, mastered: {}, legendGranted: {}, arith: {}, clock: {} },
       // 별점수가 생기기 전 저장은 0
       starPoints: 0,
       // 저학년 모드가 생기기 전 저장은 빈 목록
@@ -209,7 +209,7 @@ describe('저장 데이터 field', () => {
       ...field,
       species: { c031: { ...entry, stage: 1, hp: 100, wounds: [], skills: ['c031-1', 'c031-2'] } },
       capsules: { meadow: 3, waterside: 3, desert: 3, legend: 0 },
-      training: { studied: {}, mastered: {}, legendGranted: {}, arith: {} },
+      training: { studied: {}, mastered: {}, legendGranted: {}, arith: {}, clock: {} },
       // 별점수가 생기기 전 저장은 0
       starPoints: 0,
       // 저학년 모드가 생기기 전 저장은 빈 목록
@@ -270,7 +270,7 @@ describe('저장 데이터 field', () => {
       ...field,
       species: { c031: { ...entry, stage: 1, skills: ['c031-1', 'c031-2'] } },
       capsules: { meadow: 3, waterside: 3, desert: 3, legend: 0 },
-      training: { studied: {}, mastered: {}, legendGranted: {}, arith: {} },
+      training: { studied: {}, mastered: {}, legendGranted: {}, arith: {}, clock: {} },
       // 별점수가 생기기 전 저장은 0
       starPoints: 0,
       // 저학년 모드가 생기기 전 저장은 빈 목록

@@ -61,6 +61,7 @@ describe('트레이닝 저장 데이터', () => {
       mastered: { 2: { bestMs: 20000, at: NOW } },
       legendGranted: { 12: LEGEND_SPECIES[0] },
       arith: {},
+      clock: {},
     });
     expect(mergeField(initialField(), { ...initialField(), training: 'broken' }).training).toEqual(emptyTraining());
   });

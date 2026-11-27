@@ -2,6 +2,7 @@
  * 트레이닝센터 규칙 — 단 열림·학습/도전 문제·합격 판정·레전드 보상. React·저장소 없이 순수 계산만.
  */
 import type { ArithLevel } from '../arith';
+import type { ClockLevel } from './clock';
 import { pickOne, seededRng, shuffle, type Rng } from '../random';
 import { LEGEND_SPECIES, type SpeciesId } from './speciesIds';
 import { STAIRS_OPEN_AFTER_DAN, TRAINING_DANS, TRAINING_MASTER_MS, type TrainingDan } from './tuning';
@@ -23,13 +24,15 @@ export type TrainingData = {
   legendGranted: Partial<Record<LegendRewardKey, SpeciesId>>;
   /** 셈연습 트레이너: 마스터한 단계와 최고 기록 */
   arith: Partial<Record<ArithLevel, { bestMs: number; at: number }>>;
+  /** 시계 읽기 트레이너: 마스터한 단계(정각·5분·1분)와 최고 기록 */
+  clock: Partial<Record<ClockLevel, { bestMs: number; at: number }>>;
 };
 
-/** 레전드 구구몬을 한 번씩 주는 곳: 12단·13단 첫 마스터, 셈연습 고수 첫 마스터 */
-export type LegendRewardKey = 12 | 13 | 'arithHard';
+/** 레전드 구구몬을 한 번씩 주는 곳: 12단·13단 첫 마스터, 셈연습 고수 첫 마스터, 시계 1분 첫 마스터 */
+export type LegendRewardKey = 12 | 13 | 'arithHard' | 'clockOne';
 
 export function emptyTraining(): TrainingData {
-  return { studied: {}, mastered: {}, legendGranted: {}, arith: {} };
+  return { studied: {}, mastered: {}, legendGranted: {}, arith: {}, clock: {} };
 }
 
 function asTrainingDan(dan: number): TrainingDan | null {

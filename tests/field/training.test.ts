@@ -55,7 +55,7 @@ describe('단 열림', () => {
     expect(isFirstMaster(t, 3)).toBe(true);
   });
   it('빈 훈련 기록에는 셈연습 칸도 비어 있다', () => {
-    expect(emptyTraining()).toEqual({ studied: {}, mastered: {}, legendGranted: {}, arith: {} });
+    expect(emptyTraining()).toEqual({ studied: {}, mastered: {}, legendGranted: {}, arith: {}, clock: {} });
   });
   it('도전은 학습한 단만', () => {
     const t = emptyTraining();

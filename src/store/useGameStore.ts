@@ -70,6 +70,7 @@ import { buyCostume as buyCostumeIn, equipCostume as equipCostumeIn } from '../d
 import { isLowGradeProblem, type LowGradeProblem, pushLowGradeWrong, removeLowGradeWrong, sameLowGrade } from '../domain/field/lowGrade';
 import { isChallengeOpen, isFirstMaster, isTrainingOpen, judgeChallenge, pickLegendReward } from '../domain/field/training';
 import { judgeArithTrainer } from '../domain/field/arithTrainer';
+import { CLOCK_LEVELS, type ClockLevel, isClockOpen, judgeClockTrainer } from '../domain/field/clock';
 import { addCapsules, type CapsuleType, takeCapsule } from '../domain/field/capsules';
 import { addWound, applyDamage, isFainted, type Wound } from '../domain/field/wounds';
 import { pickReplacement } from '../domain/field/companion';
@@ -202,6 +203,21 @@ export interface ArithOutcome {
   /** 받은 별점수 (합격 + 레전드를 받았으면 STAR_LEGEND_REWARD, 별점수가 꺼져 있으면 0) */
   stars: number;
 }
+
+export interface ClockTrainingInput {
+  level: ClockLevel;
+  mistakes: number;
+  timeMs: number;
+  now: number;
+  /** 캡슐 종류·레전드 고르기 난수. 없으면 Math.random */
+  rng?: Rng;
+}
+
+/**
+ * 시계 읽기 도전을 마친 뒤 생긴 일 (셈연습과 같은 모양). 실패면 capsules 0·capsuleType null(저장 그대로).
+ * ok가 false면 모르는 단계이거나 아직 열리지 않은 단계라 거부한 것 (저장 그대로). legend는 1분 첫 마스터 때만
+ */
+export type ClockOutcome = ArithOutcome;
 
 /** 레전드 한 마리를 도감에 넣는다: 새 종이면 LEGEND_LEVEL로, 이미 있으면 또 잡은 것처럼 잡은 수 +1·중복 경험치 */
 function grantLegendSpecies(
@@ -386,6 +402,11 @@ interface GameActions {
    * 고수 첫 마스터면 레전드. 실패는 아무것도 없음. 모르는 단계면 ok:false
    */
   finishArithTraining: (input: ArithTrainingInput) => ArithOutcome;
+  /**
+   * 시계 읽기 도전을 마쳤을 때. 합격 → 마스터·최고 기록과 무작위 필드 캡슐(처음 마스터면 20개, 아니면 5개),
+   * 1분 첫 마스터면 레전드. 실패는 아무것도 없음. 모르는 단계·아직 안 열린 단계면 ok:false (아무것도 안 바꿈)
+   */
+  finishClockTraining: (input: ClockTrainingInput) => ClockOutcome;
   /** 트레이닝센터 답 하나: 그 곱셈 문제 기록(learning.facts)만 바꾼다. 별·펫은 그대로, 11단은 기록이 없어 아무것도 안 한다 */
   /** isRetry: 이 문제에서 이미 틀린 뒤의 답이면 true (맞혀도 상자가 오르지 않는다) */
   recordTrainingAnswer: (dan: number, multiplier: number, correct: boolean, speedMs: number, now: number, isRetry?: boolean) => void;
@@ -881,6 +902,60 @@ export const useGameStore = create<GameStore>()(
           }
           const bestMs = training.arith[level]?.bestMs ?? null;
           // 별점수: 합격마다 (꺼져 있으면 0)
+          const stars = starGain(STAR_TRAINING) + (legend ? starGain(STAR_LEGEND_REWARD) : 0);
+          result = { ok: true, capsuleType, capsules: gained, mastered: true, firstMaster, newBest, bestMs, legend, stars };
+          const capsules = addCapsules(f.capsules, capsuleType, gained);
+          return { field: { ...f, training, species, seen, capsules, starPoints: addStarPointsTo(f.starPoints, stars) } };
+        });
+        return result;
+      },
+      finishClockTraining: (input) => {
+        const { level, now } = input;
+        const fail: ClockOutcome = {
+          ok: true,
+          capsuleType: null,
+          capsules: 0,
+          mastered: false,
+          firstMaster: false,
+          newBest: false,
+          bestMs: null,
+          legend: null,
+          stars: 0,
+        };
+        const t0 = get().field.training;
+        // 모르는 단계·아직 열리지 않은 단계는 거부 (화면을 건너뛴 부름도 막는다, set을 부르지 않는다)
+        if (!(CLOCK_LEVELS as readonly unknown[]).includes(level) || !isClockOpen(t0, level)) return { ...fail, ok: false };
+        const mistakes = Number.isFinite(input.mistakes) ? input.mistakes : 1;
+        const timeMs = Number.isFinite(input.timeMs) && input.timeMs >= 0 ? input.timeMs : Infinity;
+        // 실패: 캡슐도 마스터도 별도 없다 (저장 그대로 — set을 부르지 않는다)
+        if (judgeClockTrainer({ mistakes, timeMs }, level) !== 'pass') return { ...fail, bestMs: t0.clock[level]?.bestMs ?? null };
+        const rng = input.rng ?? Math.random;
+        let result!: ClockOutcome;
+        set((s) => {
+          const f = s.field;
+          let training = f.training;
+          let species = f.species;
+          let seen = f.seen;
+          // 캡슐 종류를 먼저 고르고(같은 rng면 같은 종류), 그다음 레전드
+          const capsuleType: CapsuleType = pickOne(rng, ARITH_CAPSULE_CHOICES);
+          const prev = training.clock[level];
+          const firstMaster = prev === undefined;
+          const gained = firstMaster ? TRAINING_FIRST_MASTER_CAPSULES : TRAINING_CAPSULES;
+          // 최고 기록은 더 빠를 때만 바뀐다
+          const newBest = !prev || timeMs < prev.bestMs;
+          if (newBest) training = { ...training, clock: { ...training.clock, [level]: { bestMs: timeMs, at: now } } };
+          let legend: ClockOutcome['legend'] = null;
+          if (level === 'one') {
+            // 1분 첫 마스터: 레전드 한 마리 (평생 한 번 — legendGranted.clockOne)
+            const owned = SPECIES_IDS.filter((id) => species[id]);
+            legend = pickLegendReward(rng, owned, 'clockOne', training.legendGranted);
+            if (legend) {
+              training = { ...training, legendGranted: { ...training.legendGranted, clockOne: legend.species } };
+              ({ species, seen } = grantLegendSpecies(species, seen, legend.species, now));
+            }
+          }
+          const bestMs = training.clock[level]?.bestMs ?? null;
+          // 별점수: 합격마다 (꺼져 있으면 0), 레전드를 받았으면 더
           const stars = starGain(STAR_TRAINING) + (legend ? starGain(STAR_LEGEND_REWARD) : 0);
           result = { ok: true, capsuleType, capsules: gained, mastered: true, firstMaster, newBest, bestMs, legend, stars };
           const capsules = addCapsules(f.capsules, capsuleType, gained);

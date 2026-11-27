@@ -6,6 +6,7 @@
 import type { SpecialKind } from './skills';
 import type { CapsuleType } from './capsules';
 import type { ArithLevel } from '../arith';
+import type { ClockLevel } from './clock';
 import type { FieldId } from './fields';
 import { PRACTICE_MASTER_SEC_PER_Q } from '../arithPractice';
 
@@ -240,6 +241,16 @@ export const ARITH_TRAINER_MASTER_MS: Record<ArithLevel, number> = {
 };
 /** 셈연습 보상 캡슐은 이 중에서 무작위 (황금은 없음) */
 export const ARITH_CAPSULE_CHOICES = ['meadow', 'waterside', 'desert'] as const satisfies readonly CapsuleType[];
+
+// ── 시계 읽기 트레이너 (마스터 도전만, 보상 캡슐은 ARITH_CAPSULE_CHOICES에서 무작위) ──
+/** 시계 읽기 도전 문제 수 */
+export const CLOCK_TRAINER_QUESTIONS = 9;
+/** 시계 읽기 마스터: 하나도 안 틀리고 이 시간(밀리초) 안에 — 정각 30초·5분 45초·1분 60초 */
+export const CLOCK_TRAINER_MASTER_MS: Record<ClockLevel, number> = {
+  hour: 30_000,
+  five: 45_000,
+  one: 60_000,
+};
 /**
  * 마을 지도 맨 위에 새로 넣은 줄 수 (트레이닝센터 거리: 새 줄 10 − 옛 맨 윗벽 1). 예전 저장의 마을 자리를 이만큼 아래로 옮긴다.
  */
