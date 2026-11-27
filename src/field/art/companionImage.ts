@@ -70,6 +70,16 @@ function sheetImg(url: string): HTMLImageElement {
   return img;
 }
 
+/** 이 주소의 이미지를 sheetFrame이 읽는 캐시에 올리고 다 읽을 때까지 기다린다 (꾸미기 굽기가 그림을 바꾸기 전에 쓴다). 읽기 실패면 reject */
+export function preloadSheetImage(url: string): Promise<void> {
+  const img = sheetImg(url);
+  if (img.complete && img.naturalWidth > 0) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    img.addEventListener('load', () => resolve(), { once: true });
+    img.addEventListener('error', () => reject(new Error('그림을 읽지 못했어요')), { once: true });
+  });
+}
+
 /** 시트 묶음에서 지금 장면. 아직 못 읽은 이미지면 undefined */
 export function sheetFrame(sheets: StageSheets, box: { w: number; h: number }, anim: 'idle' | 'walk', dir: SheetDir, elapsedMs: number, body?: number): SheetFrame | undefined {
   const a = sheets[anim];

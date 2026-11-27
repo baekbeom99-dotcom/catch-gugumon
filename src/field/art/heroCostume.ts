@@ -7,12 +7,10 @@ import { useEffect, useState } from 'react';
 import { getCostume, type CostumeId } from '../../domain/field/costumes';
 import { useGameStore } from '../../store/useGameStore';
 import type { ImageArtEntry, SheetAnim, StageSheets } from './creatureArt';
+import { createBakeCache, type BakeCache } from './bakeCache';
+import { preloadSheetImage } from './companionImage';
 import { tintHeroImageData } from './heroTint';
 import { HERO_ART } from './localSprites';
-
-/** 세트 id → 구운 그림. 굽는 중이면 Promise */
-const cache = new Map<CostumeId, ImageArtEntry>();
-const pending = new Map<CostumeId, Promise<ImageArtEntry | undefined>>();
 
 function loadImage(url: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -40,51 +38,43 @@ async function bakeUrl(url: string, id: CostumeId): Promise<string> {
   return URL.createObjectURL(blob);
 }
 
-async function bakeAll(id: CostumeId): Promise<ImageArtEntry | undefined> {
-  const base = HERO_ART;
-  if (!base) return undefined;
-  try {
-    const bakeAnim = async (a: SheetAnim): Promise<SheetAnim> => ({ ...a, url: await bakeUrl(a.url, id) });
-    let sheets: StageSheets | undefined;
-    if (base.sheets) {
-      const s = base.sheets;
-      const [idle, walk, attack] = await Promise.all([bakeAnim(s.idle), bakeAnim(s.walk), s.attack ? bakeAnim(s.attack) : Promise.resolve(undefined)]);
-      sheets = { ...s, idle, walk };
-      if (attack) sheets.attack = attack;
-    }
-    const [front, back] = await Promise.all([bakeUrl(base.front, id), base.back ? bakeUrl(base.back, id) : Promise.resolve(undefined)]);
-    const out: ImageArtEntry = { ...base, front };
-    if (back) out.back = back;
-    if (sheets) out.sheets = sheets;
-    cache.set(id, out);
-    return out;
-  } catch {
-    // 굽기 실패: 원래 그림을 쓴다
-    cache.set(id, base);
-    return base;
+/** 구운 그림 전부(시트 3장·앞·뒤)를 sheetFrame이 읽는 이미지 캐시까지 다 읽은 뒤에야 돌려준다 → 그림 바꿈이 한 번에 일어난다 */
+async function bakeAll(id: CostumeId): Promise<ImageArtEntry> {
+  const base = HERO_ART!;
+  const bakeAnim = async (a: SheetAnim): Promise<SheetAnim> => ({ ...a, url: await bakeUrl(a.url, id) });
+  let sheets: StageSheets | undefined;
+  if (base.sheets) {
+    const s = base.sheets;
+    const [idle, walk, attack] = await Promise.all([bakeAnim(s.idle), bakeAnim(s.walk), s.attack ? bakeAnim(s.attack) : Promise.resolve(undefined)]);
+    sheets = { ...s, idle, walk };
+    if (attack) sheets.attack = attack;
   }
+  const [front, back] = await Promise.all([bakeUrl(base.front, id), base.back ? bakeUrl(base.back, id) : Promise.resolve(undefined)]);
+  const out: ImageArtEntry = { ...base, front };
+  if (back) out.back = back;
+  if (sheets) out.sheets = sheets;
+  const urls = [front, back, sheets?.idle.url, sheets?.walk.url, sheets?.attack?.url].filter((u): u is string => !!u);
+  await Promise.all(urls.map((u) => preloadSheetImage(u)));
+  return out;
 }
+
+/** 세트 id → 구운 그림 (실패하면 원래 그림, 5초 뒤 다시 시도) */
+const bakes: BakeCache<ImageArtEntry> | undefined = HERO_ART ? createBakeCache<ImageArtEntry>(bakeAll, HERO_ART) : undefined;
 
 /** 이미 구운 그림(동기). basic이거나 그림 파일이 없으면 HERO_ART 그대로, 아직 안 구웠으면 undefined */
 export function heroArtCached(id: CostumeId): ImageArtEntry | undefined {
-  if (!HERO_ART) return undefined;
-  if (getCostume(id).group === 'basic') return HERO_ART;
-  return cache.get(getCostume(id).id);
+  if (!HERO_ART || !bakes) return undefined;
+  const set = getCostume(id);
+  if (set.group === 'basic') return HERO_ART;
+  return bakes.peek(set.id);
 }
 
 /** 세트 그림 굽기 (세트마다 한 번) */
 export function heroArtFor(id: CostumeId): Promise<ImageArtEntry | undefined> {
-  if (!HERO_ART) return Promise.resolve(undefined);
+  if (!HERO_ART || !bakes) return Promise.resolve(undefined);
   const set = getCostume(id);
   if (set.group === 'basic') return Promise.resolve(HERO_ART);
-  const hit = cache.get(set.id);
-  if (hit) return Promise.resolve(hit);
-  let p = pending.get(set.id);
-  if (!p) {
-    p = bakeAll(set.id).finally(() => pending.delete(set.id));
-    pending.set(set.id, p);
-  }
-  return p;
+  return bakes.get(set.id);
 }
 
 /** 이 세트의 그림을 쓰는 훅. 굽는 동안은 이전 그림(없으면 처음 그림) */

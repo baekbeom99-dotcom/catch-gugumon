@@ -124,4 +124,21 @@ describe('꾸미기 저장 읽기 (mergeCostume)', () => {
     expect(mergeCostume({ owned: ['basic'], equipped: paid.id }).equipped).toBe('basic');
     expect(mergeCostume({ owned: [paid.id], equipped: 'nope' })).toEqual({ owned: ['basic', paid.id], equipped: 'basic' });
   });
+  it('머리색과 윗옷색은 눈에 띄게 다르다 (원래 그림 화소에 곱한 결과 기준: 색상 25도 이상, 또는 밝기 0.3·채도 0.4 이상 차이)', () => {
+    // 원래 그림의 머리(채도 0.58·밝기 0.35)와 윗옷(채도 0.84·밝기 0.76)에 세트 값을 곱한 모습
+    const look = (c: { hue: number; sat?: number; val?: number }, s0: number, v0: number) => ({
+      hue: c.hue,
+      sat: Math.min(1, s0 * (c.sat ?? 1)),
+      val: Math.min(1, v0 * (c.val ?? 1)),
+    });
+    for (const s of COSTUME_SETS) {
+      if (s.group === 'basic') continue;
+      const h = look(s.hair, 0.58, 0.35);
+      const t = look(s.shirt, 0.84, 0.76);
+      const d = Math.abs(h.hue - t.hue) % 360;
+      const hueDiff = Math.min(d, 360 - d);
+      const ok = hueDiff >= 25 || Math.abs(h.val - t.val) >= 0.3 || Math.abs(h.sat - t.sat) >= 0.4;
+      expect(ok, `${s.id} 머리·윗옷이 비슷함 (색상차 ${hueDiff.toFixed(0)}, 밝기 ${h.val.toFixed(2)}/${t.val.toFixed(2)})`).toBe(true);
+    }
+  });
 });

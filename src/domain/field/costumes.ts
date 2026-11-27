@@ -35,7 +35,6 @@ const HAIR_BLACK: HsvTarget = { hue: 0, sat: 0.15, val: 0.5 };
 const HAIR_WHITE: HsvTarget = { hue: 0, sat: 0.06, val: 2.7 };
 const HAIR_RED: HsvTarget = { hue: 355, sat: 1.4, val: 2.2 };
 const HAIR_BLUE: HsvTarget = { hue: 225, sat: 1.4, val: 2.2 };
-const HAIR_YELLOW: HsvTarget = { hue: 52, sat: 1.3, val: 2.6 };
 const HAIR_GREEN: HsvTarget = { hue: 130, sat: 1.2, val: 1.9 };
 const HAIR_BROWN: HsvTarget = { hue: 25, sat: 0.9, val: 1.0 };
 
@@ -73,11 +72,11 @@ export const COSTUME_SETS: readonly CostumeSet[] = [
   flag('es', '스페인', HAIR_RED, YELLOW, RED),
   flag('ca', '캐나다', HAIR_RED, WHITE, RED),
   // 캐릭터 느낌 색 (이름은 색과 모습만 말한다)
-  concept('yellow-bolt', '노랑 번개 친구', HAIR_YELLOW, { hue: 50, sat: 1.2, val: 1.2 }, { hue: 5, sat: 1.2 }),
+  concept('yellow-bolt', '노랑 번개 친구', { hue: 20, sat: 1.2, val: 1.3 }, { hue: 50, sat: 1.2, val: 1.2 }, { hue: 5, sat: 1.2 }),
   concept('sea-square', '바다 노랑 네모', { hue: 56, sat: 1.3, val: 2.6 }, WHITE, BROWN),
   concept('red-cap', '빨강 모자 형제', HAIR_BROWN, RED, BLUE),
   concept('green-cap', '초록 모자 형제', HAIR_BROWN, { hue: 125, sat: 1.1 }, BLUE),
-  concept('green-ninja', '초록 닌자', { hue: 120, sat: 1.2, val: 1.4 }, { hue: 110, sat: 1.1 }, { hue: 40, sat: 0.9, val: 0.7 }),
+  concept('green-ninja', '초록 닌자', { hue: 130, sat: 1.2, val: 0.7 }, { hue: 110, sat: 1.1 }, { hue: 40, sat: 0.9, val: 0.7 }),
   concept('purple-wizard', '보라 마법사', HAIR_WHITE, { hue: 275, sat: 1.2 }, { hue: 265, sat: 1, val: 0.7 }),
   concept('sky-friend', '하늘 파랑 친구', { hue: 205, sat: 1.3, val: 2.4 }, WHITE, { hue: 0, sat: 1.2 }),
   concept('block-explorer', '네모 블록 탐험가', HAIR_BROWN, { hue: 185, sat: 1.1 }, { hue: 240, sat: 1, val: 0.8 }),
