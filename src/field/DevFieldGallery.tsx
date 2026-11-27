@@ -13,6 +13,8 @@ import { artBox, artSheets, creatureArt } from './art/creatureArt';
 import { SheetSprite, creatureSprite, speciesColor } from './art/creatureSprite';
 import { BATTLE_ROW, DIR_ROW, cellBox, type SheetDir } from './art/spriteSheet';
 import { HERO_ART } from './art/localSprites';
+import { useHeroArtFor } from './art/heroCostume';
+import { COSTUME_SETS } from '../domain/field/costumes';
 import { HERO_DIRS, HERO_SPRITES } from './art/hero';
 import { PixelSprite } from './art/PixelSprite';
 import { CapsuleBall } from './art/CapsuleBall';
@@ -76,11 +78,20 @@ function SheetPreview({ id }: { id: (typeof SPECIES)[number]['id'] }) {
 
 /** 주인공: 치비(017) 시트가 있으면 네 방향 가만히·걷기, 없으면 픽셀 주인공(hero.ts) 네 방향 */
 function HeroPreview() {
-  const sh = HERO_ART?.sheets;
+  const [costume, setCostume] = useState('basic');
+  const art = useHeroArtFor(costume);
+  const sh = art?.sheets;
   if (sh) {
-    const box = cellBox(HERO_ART?.cell);
+    const box = cellBox(art?.cell);
     return (
       <div style={row} data-testid="dev-hero">
+        <div style={{ width: '100%', display: 'flex', flexWrap: 'wrap', gap: 4 }} data-testid="dev-costumes">
+          {COSTUME_SETS.map((c) => (
+            <button key={c.id} onClick={() => setCostume(c.id)} style={{ fontWeight: costume === c.id ? 700 : 400 }}>
+              {c.name}
+            </button>
+          ))}
+        </div>
         {(['down', 'up', 'right', 'left'] as const).map((d) => (
           <figure key={'i' + d} style={{ margin: 0 }}>
             <SheetSprite sheets={sh} anim={sh.idle} row={DIR_ROW[d]} px={72} box={box} />

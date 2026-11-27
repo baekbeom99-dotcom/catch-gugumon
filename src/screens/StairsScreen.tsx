@@ -13,6 +13,7 @@ import { returnPathAfterStairs } from '../field/training/routes';
 import { PixelSprite } from '../field/art/PixelSprite';
 import { HERO_SPRITES } from '../field/art/hero';
 import { HERO_ART } from '../field/art/localSprites';
+import { useHeroArt } from '../field/art/heroCostume';
 import { playSfx } from '../audio/sfx';
 import { ChoiceGrid } from '../components/AnswerInput';
 import { Confetti } from '../components/Confetti';
@@ -106,6 +107,7 @@ function StairItem({ item }: { item: StairsItem }) {
 
 export function StairsScreen() {
   const navigate = useNavigate();
+  const heroArt = useHeroArt();
   const record = useGameStore((s) => s.stairs);
   const stars = useGameStore((s) => s.economy.stars);
 
@@ -314,7 +316,7 @@ export function StairsScreen() {
             style={{ left: camX, top: -camY }}
           >
             {HERO_ART ? (
-              <img src={HERO_ART.front} alt="" height={HERO_PX} draggable={false} className="stairs__hero-img" />
+              <img src={(heroArt ?? HERO_ART).front} alt="" height={HERO_PX} draggable={false} className="stairs__hero-img" />
             ) : (
               <PixelSprite art={HERO_SPRITES.down[0]} size={HERO_PX} />
             )}

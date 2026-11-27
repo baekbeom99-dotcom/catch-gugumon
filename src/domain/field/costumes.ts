@@ -23,13 +23,21 @@ export interface CostumeSet {
 }
 
 // 자주 쓰는 색 (곱하는 값이라 원래 그림의 밝고 어두움을 따라간다)
-const BLACK: HsvTarget = { hue: 0, sat: 0.15, val: 0.35 };
 const WHITE: HsvTarget = { hue: 0, sat: 0.08, val: 1.4 };
 const RED: HsvTarget = { hue: 355, sat: 1.3 };
 const BLUE: HsvTarget = { hue: 225, sat: 1.2 };
 const YELLOW: HsvTarget = { hue: 52, sat: 1.2, val: 1.2 };
 const GREEN: HsvTarget = { hue: 130, sat: 1.1 };
 const BROWN: HsvTarget = { hue: 25, sat: 0.9, val: 0.6 };
+
+// 머리색: 원래 머리가 짙은 갈색(밝기 약 0.35)이라, 윗옷·바지용 색 그대로 곱하면 어둡고 탁하다 → 밝기를 2~3배로 올린 머리용 색
+const HAIR_BLACK: HsvTarget = { hue: 0, sat: 0.15, val: 0.5 };
+const HAIR_WHITE: HsvTarget = { hue: 0, sat: 0.06, val: 2.7 };
+const HAIR_RED: HsvTarget = { hue: 355, sat: 1.4, val: 2.2 };
+const HAIR_BLUE: HsvTarget = { hue: 225, sat: 1.4, val: 2.2 };
+const HAIR_YELLOW: HsvTarget = { hue: 52, sat: 1.3, val: 2.6 };
+const HAIR_GREEN: HsvTarget = { hue: 130, sat: 1.2, val: 1.9 };
+const HAIR_BROWN: HsvTarget = { hue: 25, sat: 0.9, val: 1.0 };
 
 const flag = (id: string, name: string, hair: HsvTarget, shirt: HsvTarget, pants: HsvTarget): CostumeSet => ({
   id: `flag-${id}`,
@@ -55,24 +63,24 @@ const concept = (id: string, name: string, hair: HsvTarget, shirt: HsvTarget, pa
 export const COSTUME_SETS: readonly CostumeSet[] = [
   { id: 'basic', name: '처음 옷', group: 'basic', price: 0, hair: { hue: 0 }, shirt: { hue: 0 }, pants: { hue: 0 } },
   // 나라 국기 색
-  flag('kr', '한국', BLACK, RED, BLUE),
-  flag('jp', '일본', BLACK, WHITE, RED),
-  flag('us', '미국', RED, WHITE, BLUE),
-  flag('br', '브라질', BLUE, YELLOW, GREEN),
-  flag('fr', '프랑스', BLUE, WHITE, RED),
-  flag('it', '이탈리아', GREEN, WHITE, RED),
-  flag('de', '독일', BLACK, RED, { hue: 48, sat: 1.2, val: 1.2 }),
-  flag('es', '스페인', RED, YELLOW, RED),
-  flag('ca', '캐나다', RED, WHITE, RED),
+  flag('kr', '한국', HAIR_BLACK, RED, BLUE),
+  flag('jp', '일본', HAIR_BLACK, WHITE, RED),
+  flag('us', '미국', HAIR_RED, WHITE, BLUE),
+  flag('br', '브라질', HAIR_BLUE, YELLOW, GREEN),
+  flag('fr', '프랑스', HAIR_BLUE, WHITE, RED),
+  flag('it', '이탈리아', HAIR_GREEN, WHITE, RED),
+  flag('de', '독일', HAIR_BLACK, RED, { hue: 48, sat: 1.2, val: 1.2 }),
+  flag('es', '스페인', HAIR_RED, YELLOW, RED),
+  flag('ca', '캐나다', HAIR_RED, WHITE, RED),
   // 캐릭터 느낌 색 (이름은 색과 모습만 말한다)
-  concept('yellow-bolt', '노랑 번개 친구', YELLOW, { hue: 50, sat: 1.2, val: 1.2 }, { hue: 5, sat: 1.2 }),
-  concept('sea-square', '바다 노랑 네모', { hue: 56, sat: 1.2, val: 1.25 }, WHITE, BROWN),
-  concept('red-cap', '빨강 모자 형제', BROWN, RED, BLUE),
-  concept('green-cap', '초록 모자 형제', BROWN, { hue: 125, sat: 1.1 }, BLUE),
-  concept('green-ninja', '초록 닌자', { hue: 120, sat: 1, val: 0.7 }, { hue: 110, sat: 1.1 }, { hue: 40, sat: 0.9, val: 0.7 }),
-  concept('purple-wizard', '보라 마법사', { hue: 0, sat: 0.1, val: 1.3 }, { hue: 275, sat: 1.2 }, { hue: 265, sat: 1, val: 0.7 }),
-  concept('sky-friend', '하늘 파랑 친구', { hue: 205, sat: 1.2 }, WHITE, { hue: 0, sat: 1.2 }),
-  concept('block-explorer', '네모 블록 탐험가', BROWN, { hue: 185, sat: 1.1 }, { hue: 240, sat: 1, val: 0.8 }),
+  concept('yellow-bolt', '노랑 번개 친구', HAIR_YELLOW, { hue: 50, sat: 1.2, val: 1.2 }, { hue: 5, sat: 1.2 }),
+  concept('sea-square', '바다 노랑 네모', { hue: 56, sat: 1.3, val: 2.6 }, WHITE, BROWN),
+  concept('red-cap', '빨강 모자 형제', HAIR_BROWN, RED, BLUE),
+  concept('green-cap', '초록 모자 형제', HAIR_BROWN, { hue: 125, sat: 1.1 }, BLUE),
+  concept('green-ninja', '초록 닌자', { hue: 120, sat: 1.2, val: 1.4 }, { hue: 110, sat: 1.1 }, { hue: 40, sat: 0.9, val: 0.7 }),
+  concept('purple-wizard', '보라 마법사', HAIR_WHITE, { hue: 275, sat: 1.2 }, { hue: 265, sat: 1, val: 0.7 }),
+  concept('sky-friend', '하늘 파랑 친구', { hue: 205, sat: 1.3, val: 2.4 }, WHITE, { hue: 0, sat: 1.2 }),
+  concept('block-explorer', '네모 블록 탐험가', HAIR_BROWN, { hue: 185, sat: 1.1 }, { hue: 240, sat: 1, val: 0.8 }),
 ];
 
 const BASIC = COSTUME_SETS[0];
