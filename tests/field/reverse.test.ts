@@ -41,6 +41,10 @@ describe('거꾸로 묻기', () => {
     const q = orig();
     expect(maybeReverse(() => 0, q, fact7, new Set([7]), 0)).toBe(q);
   });
+  it('마스터한 단 중에 이 사실의 단이 없으면 그대로', () => {
+    const q = orig();
+    expect(maybeReverse(() => 0, q, fact7, new Set([5]), 1)).toBe(q);
+  });
   it('곱하는 수가 0이면 그대로', () => {
     const f0 = FACTS.find((f) => f.b === 0)!;
     const q = generateQuestion(seededRng(1), f0, 'product', 3);

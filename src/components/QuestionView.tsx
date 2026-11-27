@@ -37,7 +37,7 @@ export function QuestionView({ display, fill, reveal }: Props) {
       return (
         <div className="question">
           <Cell value={display.a} fill={fill} reveal={reveal} />
-          <span className="op">×</span>
+          <span className="op">{display.op ?? '×'}</span>
           <Cell value={display.b} fill={fill} reveal={reveal} />
           <span className="op">=</span>
           <Cell value={display.result} fill={fill} reveal={reveal} />

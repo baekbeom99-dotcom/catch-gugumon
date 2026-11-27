@@ -14,11 +14,12 @@
  *   window.__GUGU_E2E_COMBAT__ = { crit: true, dodge: false, effect: false }   전투 굴림 고정 (크리티컬·회피·특수효과 성공). 빠진 칸은 실제 확률
  *   window.__GUGU_E2E_QUIZ__ = true      퀴즈 모험(펫·탐험·상점 탭, 타이틀 버튼)을 켠다. 없으면 배포 설정(꺼짐). src/config/featureFlags.ts 에서 읽는다
  *   window.__GUGU_E2E_STARS__ = true     별점수를 켠다(발견·포획·훈련·동상 적립). 없으면 배포 설정(꺼짐). src/config/featureFlags.ts 에서 읽는다
+ *   window.__GUGU_E2E_REVERSE__ = true   마스터한 단의 거꾸로(나눗셈) 묻기 확률 100%. false면 0% (E2E 기본). 없으면 REVERSE_CHANCE
  *
  * 새 스위치를 만들면 여기에 더하고 CLAUDE.md 'E2E 스위치' 줄도 고친다.
  */
 
-import { TIER_CHANCE } from '../domain/field/tuning';
+import { REVERSE_CHANCE, TIER_CHANCE } from '../domain/field/tuning';
 import type { WildTier } from '../domain/field/strength';
 import type { ThrowOutcome } from '../domain/field/wildBattle';
 
@@ -65,6 +66,7 @@ interface DebugGlobals {
   __GUGU_E2E_COPY__?: unknown;
   __GUGU_E2E_THROW__?: unknown;
   __GUGU_E2E_COMBAT__?: unknown;
+  __GUGU_E2E_REVERSE__?: unknown;
 }
 
 const g = () => globalThis as DebugGlobals;
@@ -101,6 +103,12 @@ const THROWS: readonly string[] = ['caught', 'healed', 'escaped', 'angry'];
 /** 모르는 결과 이름은 무시한다 */
 function readThrow(v: unknown): ThrowOutcome | null {
   return typeof v === 'string' && THROWS.includes(v) ? (v as ThrowOutcome) : null;
+}
+
+/** 거꾸로(나눗셈) 묻기 확률: __GUGU_E2E_REVERSE__ true면 1, false면 0, 없으면 평소 값 */
+export function reverseChance(): number {
+  const v = readSwitch(g().__GUGU_E2E_REVERSE__);
+  return v === null ? REVERSE_CHANCE : v ? 1 : 0;
 }
 
 /** 모르는 단계 이름은 무시한다 */

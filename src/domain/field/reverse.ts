@@ -1,6 +1,6 @@
 /** 거꾸로 묻기 — 마스터한 단의 곱셈 사실을 나눗셈(56 ÷ 7 = □)으로 바꿔 낸다 */
 import type { Fact } from '../facts';
-import { type Question, nearbyDistractors } from '../questionGen';
+import { type Question, type QuestionType, generateQuestion, nearbyDistractors } from '../questionGen';
 import { type Rng, shuffle } from '../random';
 import { REVERSE_CHANCE } from './tuning';
 
@@ -24,6 +24,23 @@ export function reverseQuestion(rng: Rng, fact: Fact, choiceCount = 3): Question
     answer,
     choices: shuffle(rng, [answer, ...distractors.slice(0, choiceCount - 1)]),
   };
+}
+
+/**
+ * 전투 문제 한 개: 평소처럼 만든 뒤 마스터한 단이면 한 번 거꾸로 바꿔 본다.
+ * 디버그로 고정한 문제(forced)는 바꾸지 않는다.
+ */
+export function battleQuestion(
+  rng: Rng,
+  fact: Fact,
+  type: QuestionType,
+  choiceCount: number,
+  mastered: ReadonlySet<number>,
+  chance: number,
+  forced = false,
+): Question {
+  const q = generateQuestion(rng, fact, type, choiceCount);
+  return forced ? q : maybeReverse(rng, q, fact, mastered, chance);
 }
 
 /** 마스터한 단이고 확률에 맞으면 나눗셈으로 바꾼다. 아니면 같은 객체를 돌려준다. */

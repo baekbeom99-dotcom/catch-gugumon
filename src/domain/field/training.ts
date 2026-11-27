@@ -36,6 +36,11 @@ function asTrainingDan(dan: number): TrainingDan | null {
   return (TRAINING_DANS as readonly number[]).includes(dan) ? (dan as TrainingDan) : null;
 }
 
+/** 마스터한 단들 (거꾸로 묻기를 섞을 단) */
+export function masteredDanSet(t: Pick<TrainingData, 'mastered'>): Set<number> {
+  return new Set(Object.keys(t.mastered).map(Number).filter((d) => t.mastered[d as TrainingDan] !== undefined));
+}
+
 /** 단 자체가 열렸는가: 2단은 항상, 나머지는 바로 앞 단을 마스터한 뒤 */
 export function isTrainingOpen(t: TrainingData, dan: number): boolean {
   const d = asTrainingDan(dan);

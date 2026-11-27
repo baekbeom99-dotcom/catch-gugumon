@@ -6,6 +6,10 @@ import type { ArithQuestion } from '../../domain/arith';
 import type { LowGradeProblem } from '../../domain/field/lowGrade';
 import type { ArithTrainerQuestion } from '../../domain/field/arithTrainer';
 import type { TrainingQuestion } from '../../domain/field/training';
+import { getFact, type FactId } from '../../domain/facts';
+import type { Rng } from '../../domain/random';
+import { REVERSE_CHANCE } from '../../domain/field/tuning';
+import { reverseQuestion } from '../../domain/field/reverse';
 
 export type BoardQuestion = {
   key: string;
@@ -21,6 +25,22 @@ export function fromTraining(q: TrainingQuestion): BoardQuestion {
   return { key: `m${q.dan}x${q.multiplier}`, label: `${q.dan} × ${q.multiplier}`, answer: q.answer, choices: q.choices, dan: q.dan, multiplier: q.multiplier };
 }
 
+/**
+ * 학습 문제를 거꾸로(나눗셈)로: `P ÷ 나누는 수 = ?`. 답은 몫. 기록은 원래 단·곱하는 수로 남긴다(dan·multiplier 그대로).
+ * rng는 어느 쪽 인수를 나눌지 고르는 데 쓴다.
+ */
+export function fromTrainingReversed(q: TrainingQuestion, rng: Rng): BoardQuestion {
+  const r = reverseQuestion(rng, getFact(`${q.dan}x${q.multiplier}` as FactId));
+  const d = r.display;
+  const label = d.kind === 'equation' ? `${d.a} ÷ ${d.b}` : `${q.answer} ÷ ${q.dan}`;
+  return { key: `m${q.dan}x${q.multiplier}r`, label, answer: r.answer, choices: r.choices, dan: q.dan, multiplier: q.multiplier };
+}
+
+/** 마스터한 단이면 학습 문제 각각을 확률 chance로 거꾸로 바꾼다 */
+export function studyBoard(qs: TrainingQuestion[], mastered: ReadonlySet<number>, rng: Rng, chance: number = REVERSE_CHANCE): BoardQuestion[] {
+  return qs.map((q) => (mastered.has(q.dan) && rng() < chance ? fromTrainingReversed(q, rng) : fromTraining(q)));
+}
+
 /** 보수처럼 빈칸이 앞이나 뒤에 있는 문제는 식 전체를, 그 밖에는 `a op b` 만 (뒤에 "= ?"는 카드가 붙인다) */
 export function arithLabel(q: Pick<ArithQuestion, 'display'>): string {
   const d = q.display;
@@ -31,6 +51,8 @@ export function arithLabel(q: Pick<ArithQuestion, 'display'>): string {
 
 /** 화면 읽기 프로그램용 읽는 글: 구구단 "7 곱하기 8은?", 덧셈 "7 더하기 8은?", 뺄셈 "53 빼기 8은?", 보수 "7 더하기 몇은 10?" */
 export function spokenLabel(q: Pick<BoardQuestion, 'label' | 'dan' | 'multiplier'>): string {
+  const div = /^(\d+) ÷ (\d+)$/.exec(q.label);
+  if (div) return `${div[1]} 나누기 ${div[2]}은?`;
   if (q.dan !== undefined && q.multiplier !== undefined) return `${q.dan} 곱하기 ${q.multiplier}은?`;
   const m = /^(.+?) ([+−-]) (.+?)(?: = (\d+))?$/.exec(q.label);
   if (!m) return q.label;

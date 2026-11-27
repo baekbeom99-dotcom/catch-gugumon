@@ -9,7 +9,10 @@ export const test = base.extend({
         __GUGU_E2E_NO_WILD__: boolean;
         __GUGU_E2E_COPY__: boolean;
         __GUGU_E2E_COMBAT__: { crit?: boolean; dodge?: boolean; effect?: boolean };
+        __GUGU_E2E_REVERSE__: boolean;
       };
+      // 거꾸로(나눗셈) 묻기는 끈다 (보는 테스트는 따로 true로 켠다)
+      w.__GUGU_E2E_REVERSE__ = false;
       w.__GUGU_E2E_CALM__ = true;
       w.__GUGU_E2E_NO_WILD__ = true;
       // 복사를 보는 테스트는 따로 true로 켠다 (나중 init 스크립트가 덮어씀)

@@ -8,11 +8,13 @@ import { FIELD_CHOICES, planFieldQuestions, planLegendQuestions, restrictToField
 import { type FactId, getFact } from '../../domain/facts';
 import { lowGradeQuestion, planLowGradeField, type LowGradeProblem } from '../../domain/field/lowGrade';
 import { insertLowGradeRetry } from '../../domain/field/lowGradeRun';
-import { generateQuestion, type QuestionType } from '../../domain/questionGen';
+import type { QuestionType } from '../../domain/questionGen';
+import { battleQuestion } from '../../domain/field/reverse';
+import { masteredDanSet } from '../../domain/field/training';
 import type { Rng } from '../../domain/random';
 import { insertRetry, type LearnerSnapshot, type PlannedItem } from '../../domain/scheduler';
 import { useGameStore } from '../../store/useGameStore';
-import { debugFlags } from '../debugFlags';
+import { debugFlags, reverseChance } from '../debugFlags';
 import { LOWGRADE_BATCH } from '../../domain/field/tuning';
 
 function snapshot(): LearnerSnapshot {
@@ -65,7 +67,10 @@ export function useQuestionFeed(encounter: Encounter, rng: Rng) {
     ? `${feed.index}:L:${arith.a}${arith.op}${arith.b}`
     : `${feed.index}:${item.factId}:${item.type}:${item.isRetry}`;
   const question = useMemo(
-    () => (arith ? lowGradeQuestion(rng, arith) : generateQuestion(rng, fact, item.type, FIELD_CHOICES)),
+    () =>
+      arith
+        ? lowGradeQuestion(rng, arith)
+        : battleQuestion(rng, fact, item.type, FIELD_CHOICES, masteredDanSet(useGameStore.getState().field.training), reverseChance(), !!debugFlags().question),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [key],
   );

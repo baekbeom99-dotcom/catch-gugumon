@@ -4,12 +4,13 @@
  */
 import { useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
-import { isChallengeOpen, isTrainingOpen, planChallenge, planStudy } from '../../domain/field/training';
+import { isChallengeOpen, isTrainingOpen, masteredDanSet, planChallenge, planStudy } from '../../domain/field/training';
 import { TRAINING_DANS, TRAINING_MASTER_MS, type TrainingDan } from '../../domain/field/tuning';
 import { useGameStore } from '../../store/useGameStore';
 import { pickCompanion } from '../companion';
 import { ChallengeMode } from './ChallengeMode';
-import { fromTraining, type BoardQuestion } from './boardQuestion';
+import { reverseChance } from '../debugFlags';
+import { fromTraining, studyBoard, type BoardQuestion } from './boardQuestion';
 import { danRunnerFactory, type TrainingDone } from './runner';
 import { StudyMode } from './StudyMode';
 import { TrainingResult } from './TrainingResult';
@@ -42,7 +43,10 @@ function TrainingCenter({ dan }: { dan: TrainingDan }) {
   const toTown = () => navigate('/field', { replace: true });
   const start = (kind: 'study' | 'challenge') => {
     setRun((n) => n + 1);
-    const questions = (kind === 'study' ? planStudy(dan) : planChallenge(Math.random, dan)).map(fromTraining);
+    const questions =
+      kind === 'study'
+        ? studyBoard(planStudy(dan), masteredDanSet(training), Math.random, reverseChance())
+        : planChallenge(Math.random, dan).map(fromTraining);
     setView({ kind, run: run + 1, questions });
   };
   const toEntry = () => setView({ kind: 'entry' });
