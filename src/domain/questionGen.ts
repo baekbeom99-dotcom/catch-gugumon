@@ -15,7 +15,7 @@ export const QUESTION_TYPES: readonly QuestionType[] = [
 
 /** 화면 표시 구조. null 칸이 빈칸(□)이다. */
 export type QuestionDisplay =
-  | { kind: 'equation'; a: number | null; b: number | null; result: number | null }
+  | { kind: 'equation'; op?: '×' | '÷'; a: number | null; b: number | null; result: number | null }
   | {
       kind: 'commutative';
       given: { a: number; b: number; result: number };
@@ -166,7 +166,7 @@ export function sameOnesDistractors(rng: Rng, product: number): number[] {
 }
 
 /** 앞/뒤 수 찾기용: 정답 ±1, ±2 범위 */
-function nearbyDistractors(rng: Rng, answer: number, min: number, max: number, isWrong: (d: number) => boolean): number[] {
+export function nearbyDistractors(rng: Rng, answer: number, min: number, max: number, isWrong: (d: number) => boolean): number[] {
   const primary = shuffle(rng, [answer - 1, answer + 1, answer - 2, answer + 2]);
   const fallback = [answer + 3, answer - 3, answer + 4, answer - 4];
   return finalize(answer, primary, fallback, (d) => d >= min && d <= max && isWrong(d));

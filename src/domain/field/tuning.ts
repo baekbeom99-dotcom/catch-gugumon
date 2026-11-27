@@ -296,3 +296,6 @@ export const LOWGRADE_ANSWER_SEC: Record<FieldId, number> = {
   waterside: PRACTICE_MASTER_SEC_PER_Q.hard,
   desert: PRACTICE_MASTER_SEC_PER_Q.hard,
 };
+
+/** 마스터한 단의 문제를 나눗셈(56 ÷ 7 = □)으로 바꿔 내는 확률 */
+export const REVERSE_CHANCE = 0.25;

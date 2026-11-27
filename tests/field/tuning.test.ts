@@ -131,6 +131,7 @@ describe('필드 모험 운영 수치', () => {
       LOWGRADE_BATCH: 5,
       LOWGRADE_TIME_FACTOR: 2,
       LOWGRADE_ANSWER_SEC: { meadow: 3, waterside: 5, desert: 5 },
+      REVERSE_CHANCE: 0.25,
     });
   });
 });
