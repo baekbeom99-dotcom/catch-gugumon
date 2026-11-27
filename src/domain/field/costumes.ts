@@ -51,6 +51,7 @@ const concept = (id: string, name: string, hair: HsvTarget, shirt: HsvTarget, pa
 });
 
 /** 꾸미기 세트 표. 첫 줄은 basic(그림 그대로, 공짜 — 색 값은 쓰지 않는다). 순서 = 상점에 보이는 순서 */
+/** 세트 id는 한 번 정하면 바꾸거나 지우지 않는다 — 저장에 id로 남고, 병합(mergeCostume)은 표에 없는 id를 버리므로 별을 내고 산 세트가 사라진다 */
 export const COSTUME_SETS: readonly CostumeSet[] = [
   { id: 'basic', name: '처음 옷', group: 'basic', price: 0, hair: { hue: 0 }, shirt: { hue: 0 }, pants: { hue: 0 } },
   // 나라 국기 색

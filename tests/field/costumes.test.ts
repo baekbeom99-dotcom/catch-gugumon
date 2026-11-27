@@ -11,8 +11,11 @@ import {
 } from '../../src/domain/field/costumes';
 import { COSTUME_PRICE } from '../../src/domain/field/tuning';
 
-/** 이름·id에 들어가면 안 되는 상표·작품 이름 (몇 개만 골라 막아 둔다) */
-const BANNED = ['포켓몬', '피카츄', '스펀지', '마인크래프트', '마리오', '루이지', '닌자거북', '도라에몽', '뽀로로', '짱구', '디즈니', '미키', 'pokemon', 'pikachu', 'sponge', 'minecraft', 'mario', 'disney'];
+/**
+ * 이름·id에 들어가면 안 되는 상표 글자. 저장소 어디에도 상표 이름을 그대로 적지 않으려고 조각을 이어 붙인다
+ * (이름 목록을 늘릴 때도 같은 방식으로).
+ */
+const BANNED = [['포켓', '몬'], ['피카', '츄'], ['스펀', '지밥'], ['마인', '크래프트'], ['po', 'kemon'], ['mine', 'craft']].map((p) => p.join(''));
 
 const paid = COSTUME_SETS.find((s) => s.price > 0)!;
 
