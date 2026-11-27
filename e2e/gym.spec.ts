@@ -68,7 +68,7 @@ async function solveDan(page: Page, dan: number) {
   }
 }
 
-test('마을 체육관 문 앞에서 위로 걸으면 체육관 입구에 들어서고, 트레이너 13명은 아직 아무도 마스터 전이다', async ({ page }) => {
+test('마을 체육관 문 앞에서 위로 걸으면 체육관 입구에 들어서고, 트레이너 16명은 아직 아무도 마스터 전이다', async ({ page }) => {
   const errors = collectErrors(page);
   await seed(page, { map: 'town', pos: { x: 9, y: 5, facing: 'up' } });
   await page.goto('/#/field');
@@ -79,7 +79,7 @@ test('마을 체육관 문 앞에서 위로 걸으면 체육관 입구에 들어
   await page.keyboard.up('ArrowUp');
   await expect(canvas(page)).toHaveAttribute('data-pos', '7,18');
   const npcs = ((await canvas(page).getAttribute('data-npcs')) ?? '').split(',');
-  expect(npcs).toEqual(['dan2:0', 'dan3:0', 'dan4:0', 'dan5:0', 'dan6:0', 'dan7:0', 'dan8:0', 'dan9:0', 'dan12:0', 'dan13:0', 'arithBasic:0', 'arithHard:0', 'arithComp:0']);
+  expect(npcs).toEqual(['dan2:0', 'dan3:0', 'dan4:0', 'dan5:0', 'dan6:0', 'dan7:0', 'dan8:0', 'dan9:0', 'dan12:0', 'dan13:0', 'arithBasic:0', 'arithHard:0', 'arithComp:0', 'clockHour:0', 'clockFive:0', 'clockOne:0']);
   expect(errors).toEqual([]);
 });
 
@@ -87,7 +87,7 @@ test('마스터한 트레이너는 data-npcs가 1이다 (단 둘, 셈연습 기�
   await seed(page, { pos: { x: 7, y: 17, facing: 'up' }, masteredDans: [2, 3], arithMastered: ['basic'] });
   await page.goto('/#/field');
   await expect(canvas(page)).toHaveAttribute('data-map', 'gym');
-  await expect(canvas(page)).toHaveAttribute('data-npcs', /^dan2:1,dan3:1,dan4:0,.*,arithBasic:1,arithHard:0,arithComp:0$/);
+  await expect(canvas(page)).toHaveAttribute('data-npcs', /^dan2:1,dan3:1,dan4:0,.*,arithBasic:1,arithHard:0,arithComp:0,clockHour:0,clockFive:0,clockOne:0$/);
 });
 
 test('체육관 출구(7,19)로 나가면 마을 체육관 문 앞(9,5)에 선다', async ({ page }) => {

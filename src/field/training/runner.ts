@@ -6,9 +6,10 @@
  */
 import type { BoardQuestion } from './boardQuestion';
 import { judgeArithTrainer } from '../../domain/field/arithTrainer';
-import { TRAINING_RESULT_DELAY_MS, ARITH_TRAINER_QUESTIONS, type TrainingDan } from '../../domain/field/tuning';
+import { judgeClockTrainer, type ClockLevel } from '../../domain/field/clock';
+import { TRAINING_RESULT_DELAY_MS, ARITH_TRAINER_QUESTIONS, CLOCK_TRAINER_QUESTIONS, type TrainingDan } from '../../domain/field/tuning';
 import type { ArithLevel } from '../../domain/arith';
-import { useGameStore, type ArithOutcome, type TrainingOutcome } from '../../store/useGameStore';
+import { useGameStore, type ArithOutcome, type ClockOutcome, type TrainingOutcome } from '../../store/useGameStore';
 import {
   DAN_FLOW,
   createFlowReducer,
@@ -145,7 +146,32 @@ export function createArithRunner<K = unknown>(
   );
 }
 
-export type StatueOutcome = { ok: boolean; stars: number; /** 틀린 횟수 */ mistakes: number };
+export type ClockDone = RunDone<ClockOutcome>;
+
+/** 시계 읽기 트레이너(마스터 도전만): 9문제, 그 단계 제한 시간, 끝에서 finishClockTraining 한 번. 답 기록은 없다 */
+export function createClockRunner<K = unknown>(
+  level: ClockLevel,
+  onFlow: (f: FlowState) => void,
+  onDone: (d: ClockDone) => void,
+  delayMs: number = TRAINING_RESULT_DELAY_MS,
+): Runner<K> {
+  return createRunner<K, ClockOutcome>(
+    {
+      mode: 'challenge',
+      flow: { count: CLOCK_TRAINER_QUESTIONS, judge: (a) => judgeClockTrainer(a, level) },
+      delayMs,
+      settle: (f) => useGameStore.getState().finishClockTraining({ level, mistakes: f.mistakes, timeMs: f.elapsedMs, now: Date.now() }),
+    },
+    onFlow,
+    onDone,
+  );
+}
+
+export function clockRunnerFactory(level: ClockLevel): RunnerFactory<BoardQuestion, ClockOutcome> {
+  return (onFlow, onDone) => createClockRunner<BoardQuestion>(level, onFlow, onDone);
+}
+
+export type StatueOutcome ={ ok: boolean; stars: number; /** 틀린 횟수 */ mistakes: number };
 export type StatueDone = RunDone<StatueOutcome>;
 
 /** 동상: count문제를 차례로(틀리면 그 문제를 다시, 틀린 횟수는 센다), 끝에서 finishStatue 한 번. 별은 하나도 안 틀렸을 때만 */

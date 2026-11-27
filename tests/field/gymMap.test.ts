@@ -29,18 +29,22 @@ function reach(map: FieldMap, from: Pos): Set<string> {
 }
 
 describe('체육관 NPC 표', () => {
-  it('정확히 13명: 단 10명(TRAINING_DANS 순서) + 셈연습 3명(기본·고수·보수)', () => {
-    expect(GYM_NPCS).toHaveLength(13);
+  it('정확히 16명: 단 10명(TRAINING_DANS 순서) + 셈연습 3명(기본·고수·보수) + 시계 3명(정각·5분·1분)', () => {
+    expect(GYM_NPCS).toHaveLength(16);
     const dan = GYM_NPCS.filter((n) => n.kind === 'dan');
     expect(dan.map((n) => (n.kind === 'dan' ? n.dan : 0))).toEqual([...TRAINING_DANS]);
     const arith = GYM_NPCS.filter((n) => n.kind === 'arith');
     expect(arith.map((n) => (n.kind === 'arith' ? n.level : ''))).toEqual(['basic', 'hard', 'comp']);
+    const clock = GYM_NPCS.filter((n) => n.kind === 'clock');
+    expect(clock.map((n) => (n.kind === 'clock' ? n.level : ''))).toEqual(['hour', 'five', 'one']);
+    expect(clock.map((n) => n.id)).toEqual(['clock-hour', 'clock-five', 'clock-one']);
+    for (let i = 1; i < clock.length; i++) expect(clock[i].pos.y).toBeLessThan(clock[i - 1].pos.y); // 정각이 입구에 제일 가깝다
   });
 
   it('id·위치·색이 서로 다르다, 색 계수는 0~2', () => {
-    expect(new Set(GYM_NPCS.map((n) => n.id)).size).toBe(13);
-    expect(new Set(GYM_NPCS.map((n) => key(n.pos))).size).toBe(13);
-    expect(new Set(GYM_NPCS.map((n) => `${n.tint.r},${n.tint.g},${n.tint.b}`)).size).toBe(13);
+    expect(new Set(GYM_NPCS.map((n) => n.id)).size).toBe(16);
+    expect(new Set(GYM_NPCS.map((n) => key(n.pos))).size).toBe(16);
+    expect(new Set(GYM_NPCS.map((n) => `${n.tint.r},${n.tint.g},${n.tint.b}`)).size).toBe(16);
     for (const n of GYM_NPCS) for (const v of [n.tint.r, n.tint.g, n.tint.b]) expect(v >= 0 && v <= 2).toBe(true);
   });
 
@@ -63,8 +67,8 @@ describe('체육관 NPC 표', () => {
 
   it('머리색은 사람마다 다르고 노랑(마스터 전용)이 아니다, 옷색도 다 다르다', () => {
     const look = (n: (typeof GYM_NPCS)[number]) => `${n.hair.hue},${n.hair.sat ?? 1},${n.hair.val ?? 1}`;
-    expect(new Set(GYM_NPCS.map(look)).size).toBe(13);
-    expect(new Set(GYM_NPCS.map((n) => n.hair.hue)).size).toBe(13);
+    expect(new Set(GYM_NPCS.map(look)).size).toBe(16);
+    expect(new Set(GYM_NPCS.map((n) => n.hair.hue)).size).toBe(16);
     for (const n of GYM_NPCS) expect(isYellowHue(n.hair.hue), `${n.id} 머리 ${n.hair.hue}도`).toBe(false);
   });
 
@@ -85,7 +89,7 @@ describe('체육관 지도', () => {
   it('불러오면 NPC·동상이 지도에 들어 있고, 출구는 맨 아래 가운데 하나', async () => {
     const m = await loadField('gym');
     expect(m.id).toBe('gym');
-    expect(m.npcs).toHaveLength(13);
+    expect(m.npcs).toHaveLength(16);
     expect(m.statues).toHaveLength(2);
     expect(m.zones).toEqual({});
     expect(m.doors).toEqual([]);

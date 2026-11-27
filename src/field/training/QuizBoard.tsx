@@ -7,6 +7,7 @@ import { creatureSprite, speciesColor } from '../art/creatureSprite';
 import type { SpeciesId } from '../../domain/field/creatures';
 import { useGameStore } from '../../store/useGameStore';
 import { spokenLabel, type BoardQuestion } from './boardQuestion';
+import { ClockFace } from './ClockFace';
 import { trainingText } from './trainingText';
 import type { TrainingFx } from './useTrainingFx';
 
@@ -55,6 +56,8 @@ export function QuizBoard({ title, species, question, total, solved, fx, badge, 
   }, [fx.stageRef]);
   const ally = Math.max(64, Math.round(Math.min(size.w * 0.44, size.h * 0.95)));
   const target = Math.max(56, Math.round(Math.min(size.w * 0.3, size.h * 0.62)));
+  // 시계 문제: 카드 안 시계 크기 (무대 높이에 따라 바꾸면 무대가 다시 줄어 흔들리므로 고정)
+  const clockSize = 150;
 
   return (
     <div className="training training--play" data-testid={testId}>
@@ -66,20 +69,26 @@ export function QuizBoard({ title, species, question, total, solved, fx, badge, 
         {badge}
       </header>
 
-      <div
-        className={`training__question ${question.label.length > 8 ? 'training__question--long' : ''}`}
-        data-key={question.key}
-        data-multiplier={question.multiplier}
-        aria-label={spokenLabel(question)}
-      >
-        <span>{question.label}</span>
-        {!question.label.includes('?') && (
-          <>
-            <span className="training__op">=</span>
-            <span className="training__blank">?</span>
-          </>
-        )}
-      </div>
+      {question.clock ? (
+        <div className="training__question training__question--clock" data-key={question.key} aria-label={spokenLabel(question)}>
+          <ClockFace h={question.clock.h} m={question.clock.m} size={clockSize} />
+        </div>
+      ) : (
+        <div
+          className={`training__question ${question.label.length > 8 ? 'training__question--long' : ''}`}
+          data-key={question.key}
+          data-multiplier={question.multiplier}
+          aria-label={spokenLabel(question)}
+        >
+          <span>{question.label}</span>
+          {!question.label.includes('?') && (
+            <>
+              <span className="training__op">=</span>
+              <span className="training__blank">?</span>
+            </>
+          )}
+        </div>
+      )}
       <div className="training__pips" aria-hidden>
         {Array.from({ length: total }, (_, i) => (
           <span key={i} className={`training__pip ${i < solved ? 'training__pip--done' : i === solved ? 'training__pip--now' : ''}`} />
@@ -110,18 +119,19 @@ export function QuizBoard({ title, species, question, total, solved, fx, badge, 
         {question.choices.map((num) => {
           const wrongPicked = wrongPicks.includes(num);
           const glow = glowAnswer && num === question.answer;
+          const shown = question.choiceText ? question.choiceText(num) : num;
           return (
             <button
               key={num}
               type="button"
               data-testid="training-choice"
               data-answer={num === question.answer ? 'true' : undefined}
-              className={`training-choice ${wrongPicked ? 'training-choice--wrong' : ''} ${glow ? 'training-choice--glow' : ''}`}
-              aria-label={`답 ${num}`}
+              className={`training-choice ${question.choiceText ? 'training-choice--text' : ''} ${wrongPicked ? 'training-choice--wrong' : ''} ${glow ? 'training-choice--glow' : ''}`}
+              aria-label={`답 ${shown}`}
               disabled={disabled || wrongPicked}
               onClick={() => onPick(num)}
             >
-              {wrongPicked ? <span className="training-choice__x">✕</span> : num}
+              {wrongPicked ? <span className="training-choice__x">✕</span> : shown}
             </button>
           );
         })}

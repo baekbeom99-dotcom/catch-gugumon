@@ -1,5 +1,6 @@
 /** 트레이닝센터 화면 글 — 어린이가 읽기 쉬운 말. 순수 함수 */
 import { ARITH_LEVEL_LABELS, type ArithLevel } from '../../domain/arith';
+import { CLOCK_LEVEL_LABELS, type ClockLevel } from '../../domain/field/clock';
 import type { ArithOutcome, TrainingOutcome } from '../../store/useGameStore';
 import type { FlowMode, FlowResult } from './flow';
 
@@ -53,7 +54,18 @@ export const trainingText = {
 
   /** 셈연습 결과 글 (마스터 도전만 있다) */
   arithResult(level: ArithLevel, result: FlowResult, outcome: ArithOutcome, timeMs?: number): ResultText {
-    const name = trainingText.arithName(level);
+    return trainingText.challengeResult(trainingText.arithName(level), result, outcome, timeMs);
+  },
+
+  /** 시계 읽기 트레이너 (입구 간판·위쪽 글) */
+  clockName: (level: ClockLevel) => `${CLOCK_LEVEL_LABELS[level]} 시계 트레이너`,
+  clockHint: (level: ClockLevel, count: number) => `${CLOCK_LEVEL_LABELS[level]} 시계 ${count}개를 모두 맞혀요`,
+  clockResult(level: ClockLevel, result: FlowResult, outcome: ArithOutcome, timeMs?: number): ResultText {
+    return trainingText.challengeResult(trainingText.clockName(level), result, outcome, timeMs);
+  },
+
+  /** 마스터 도전만 있는 트레이너(셈연습·시계)의 결과 글 */
+  challengeResult(name: string, result: FlowResult, outcome: ArithOutcome, timeMs?: number): ResultText {
     const lines: string[] = [];
     let title: string;
     let newBestIndex: number | null = null;

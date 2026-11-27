@@ -1,4 +1,5 @@
 import type { ArithLevel } from '../../../domain/arith';
+import type { ClockLevel } from '../../../domain/field/clock';
 import type { Pos } from '../../../domain/field/movement';
 import type { TrainingDan } from '../../../domain/field/tuning';
 import type { HairLook } from '../../art/npcTint';
@@ -57,11 +58,13 @@ type GymNpcBase = {
 };
 export type GymNpc =
   | (GymNpcBase & { kind: 'dan'; dan: TrainingDan })
-  | (GymNpcBase & { kind: 'arith'; level: ArithLevel });
+  | (GymNpcBase & { kind: 'arith'; level: ArithLevel })
+  | (GymNpcBase & { kind: 'clock'; level: ClockLevel });
 
 /**
- * 트레이너 13명. 단 트레이너 열 명은 2·3·4·5·6·7·8·9·12·13단 순서로 왼쪽에서 입구에 가까운 쪽부터
- * 위로 올라가며(낮은 단일수록 입구 가깝다) 가로줄 x=4·x=2를 번갈아 선다. 셈연습 트레이너 셋(기본·고수·보수)은 오른쪽에 세로로 선다.
+ * 트레이너 16명. 단 트레이너 열 명은 2·3·4·5·6·7·8·9·12·13단 순서로 왼쪽에서 입구에 가까운 쪽부터
+ * 위로 올라가며(낮은 단일수록 입구 가깝다) 가로줄 x=4·x=2를 번갈아 선다. 셈연습 트레이너 셋(기본·고수·보수)은 오른쪽에 세로로 서고,
+ * 시계 읽기 트레이너 셋(정각·5분·1분)은 그 사이사이 오른쪽 안쪽에 선다.
  * 머리색·바라보는 쪽도 사람마다 다르게 한다.
  */
 export const GYM_NPCS: GymNpc[] = [
@@ -78,6 +81,10 @@ export const GYM_NPCS: GymNpc[] = [
   { id: 'arith-basic', kind: 'arith', level: 'basic', pos: { x: 11, y: 14 }, tint: { r: 1.0, g: 1.0, b: 1.0 }, hair: { hue: 220, sat: 0.1, val: 1.3 }, facing: 'left' },
   { id: 'arith-hard', kind: 'arith', level: 'hard', pos: { x: 12, y: 10 }, tint: { r: 0.6, g: 0.7, b: 0.8 }, hair: { hue: 100, sat: 0.85 }, facing: 'down' },
   { id: 'arith-comp', kind: 'arith', level: 'comp', pos: { x: 11, y: 6 }, tint: { r: 1.8, g: 1.7, b: 0.6 }, hair: { hue: 350, val: 0.6 }, facing: 'left' },
+  // 시계 읽기 트레이너 셋 (정각 → 5분 → 1분): 셈연습 열 오른쪽 옆 줄에 위로 늘어선다
+  { id: 'clock-hour', kind: 'clock', level: 'hour', pos: { x: 12, y: 12 }, tint: { r: 0.8, g: 1.5, b: 1.2 }, hair: { hue: 150, sat: 0.7 }, facing: 'left' },
+  { id: 'clock-five', kind: 'clock', level: 'five', pos: { x: 11, y: 8 }, tint: { r: 1.5, g: 0.9, b: 1.1 }, hair: { hue: 15, sat: 0.9, val: 0.7 }, facing: 'down' },
+  { id: 'clock-one', kind: 'clock', level: 'one', pos: { x: 12, y: 4 }, tint: { r: 0.9, g: 0.9, b: 1.5 }, hair: { hue: 255 }, facing: 'left' },
 ];
 
 /** 아래쪽 장식 동상 둘 (막힘, 말을 걸 수 없다 — 별점수가 꺼져 있는 동안) */

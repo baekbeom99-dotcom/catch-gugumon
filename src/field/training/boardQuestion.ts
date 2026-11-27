@@ -10,6 +10,10 @@ import { getFact, type FactId } from '../../domain/facts';
 import type { Rng } from '../../domain/random';
 import { REVERSE_CHANCE } from '../../domain/field/tuning';
 import { reverseQuestion } from '../../domain/field/reverse';
+import { formatClockChoice, type ClockQuestion } from '../../domain/field/clock';
+
+/** 시계 문제를 읽어 주는 글 (시각을 알려 주면 안 된다) */
+export const CLOCK_SPOKEN = '몇 시 몇 분일까요?';
 
 export type BoardQuestion = {
   key: string;
@@ -19,6 +23,10 @@ export type BoardQuestion = {
   /** 구구단 문제일 때만 */
   dan?: number;
   multiplier?: number;
+  /** 시계 문제일 때만: 시계 그림이 가리키는 시각 (label은 비어 있다) */
+  clock?: { h: number; m: number };
+  /** 보기 버튼에 쓸 글 (없으면 숫자 그대로). 시계는 3:30꼴 */
+  choiceText?: (n: number) => string;
 };
 
 export function fromTraining(q: TrainingQuestion): BoardQuestion {
@@ -50,7 +58,8 @@ export function arithLabel(q: Pick<ArithQuestion, 'display'>): string {
 }
 
 /** 화면 읽기 프로그램용 읽는 글: 구구단 "7 곱하기 8은?", 덧셈 "7 더하기 8은?", 뺄셈 "53 빼기 8은?", 보수 "7 더하기 몇은 10?" */
-export function spokenLabel(q: Pick<BoardQuestion, 'label' | 'dan' | 'multiplier'>): string {
+export function spokenLabel(q: Pick<BoardQuestion, 'label' | 'dan' | 'multiplier' | 'clock'>): string {
+  if (q.clock) return CLOCK_SPOKEN; // 시계 문제: 정답을 읽어 주지 않는다
   const div = /^(\d+) ÷ (\d+)$/.exec(q.label);
   if (div) return `${div[1]} 나누기 ${div[2]}은?`;
   if (q.dan !== undefined && q.multiplier !== undefined) return `${q.dan} 곱하기 ${q.multiplier}은?`;
@@ -70,6 +79,11 @@ export function fromArith(q: ArithQuestion & { choices: number[] }): BoardQuesti
 /** planArithTrainer가 준 문제(보기 3개)를 화면 문제로 */
 export function fromArithTrainer(t: ArithTrainerQuestion): BoardQuestion {
   return fromArith({ ...t.q, choices: t.choices });
+}
+
+/** 시계 읽기 문제: 시계 그림이 문제, 보기는 3:30꼴 글 */
+export function fromClock(q: ClockQuestion): BoardQuestion {
+  return { key: `c${q.h}:${q.m}`, label: '', answer: q.answer, choices: q.choices, clock: { h: q.h, m: q.m }, choiceText: formatClockChoice };
 }
 
 /** 저학년 덧뺄셈 한 문제 + 보기 3개 */

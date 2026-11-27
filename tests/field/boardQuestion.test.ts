@@ -3,7 +3,8 @@ import { generateArith } from '../../src/domain/arith';
 import { planArithTrainer } from '../../src/domain/field/arithTrainer';
 import { planChallenge } from '../../src/domain/field/training';
 import { seededRng } from '../../src/domain/random';
-import { arithLabel, fromArith, fromArithTrainer, fromLowGrade, fromTraining } from '../../src/field/training/boardQuestion';
+import { planClockTrainer } from '../../src/domain/field/clock';
+import { arithLabel, fromArith, fromArithTrainer, fromClock, fromLowGrade, fromTraining, spokenLabel } from '../../src/field/training/boardQuestion';
 
 describe('BoardQuestion 글자 모양', () => {
   it('구구단은 "7 × 8"이고 단·곱하는 수·보기를 그대로 가진다', () => {
@@ -57,5 +58,28 @@ describe('spokenLabel (읽는 글)', () => {
     expect(spokenLabel({ label: '7 + 8' })).toBe('7 더하기 8은?');
     expect(spokenLabel({ label: '53 − 8' })).toBe('53 빼기 8은?');
     expect(spokenLabel({ label: '7 + ? = 10' })).toBe('7 더하기 몇은 10?');
+  });
+});
+
+describe('시계 문제 (fromClock)', () => {
+  it('정답·보기·시각을 그대로 싣고, 보기 글은 3:30꼴, 읽는 글은 시각을 알려 주지 않는다', () => {
+    for (const lv of ['hour', 'five', 'one'] as const) {
+      for (const q of planClockTrainer(seededRng(9), lv)) {
+        const b = fromClock(q);
+        expect(b.key).toBe(`c${q.h}:${q.m}`);
+        expect(b.label).toBe('');
+        expect(b).toMatchObject({ answer: q.answer, choices: q.choices, clock: { h: q.h, m: q.m } });
+        expect(b.choiceText!(q.answer)).toBe(`${q.h}:${String(q.m).padStart(2, '0')}`);
+        expect(spokenLabel(b)).toBe('몇 시 몇 분일까요?');
+        expect(spokenLabel(b)).not.toMatch(/\d/);
+      }
+    }
+  });
+
+  it('다른 문제는 clock·choiceText가 없다', () => {
+    const q = planChallenge(seededRng(1), 7)[0];
+    const b = fromTraining(q);
+    expect(b.clock).toBeUndefined();
+    expect(b.choiceText).toBeUndefined();
   });
 });

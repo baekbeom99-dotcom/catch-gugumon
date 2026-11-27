@@ -195,6 +195,45 @@
   gap: 8px;
 }
 
+/* 시계 문제: 카드 가운데에 시계 그림 */
+.training__question--clock {
+  padding: 6px;
+}
+
+.clock-face {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+.training-choice--text {
+  font-size: 28px;
+  letter-spacing: 0.02em;
+}
+
+.clock-records {
+  margin: 12px 16px 24px;
+  padding: 12px 14px;
+  border: var(--border);
+  border-radius: 14px;
+  background: var(--paper);
+  box-shadow: var(--shadow-sm);
+}
+
+.clock-records h2 {
+  margin: 0 0 6px;
+  font-family: var(--font-display);
+  font-size: 20px;
+}
+
+.clock-records ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
 .training__op {
   color: var(--ink-soft);
 }
