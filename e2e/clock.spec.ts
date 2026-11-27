@@ -68,7 +68,7 @@ test('정각 트레이너에게 말을 걸어 9문제를 모두 맞히면 합격
     await expect(page).toHaveURL(/#\/field\/training\/clock\/hour$/);
   });
   await expect(page.getByTestId('clock-entry')).toBeVisible();
-  await expect(page.getByRole('heading', { name: '정각 시계 트레이너' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '정각 시계' })).toBeVisible();
   await page.getByTestId('clock-challenge-btn').click();
   await expect(page.getByTestId('clock-challenge')).toBeVisible();
   await expect(page.locator('.training__pip')).toHaveCount(9);
@@ -78,7 +78,7 @@ test('정각 트레이너에게 말을 걸어 9문제를 모두 맞히면 합격
 
   const result = page.getByTestId('training-result');
   await expect(result).toHaveAttribute('data-result', 'pass');
-  await expect(result).toContainText('정각 시계 트레이너 마스터!');
+  await expect(result).toContainText('정각 시계 마스터!');
   await expect(page.getByTestId('training-capsules')).toBeVisible();
   expect(Number(await page.getByTestId('training-capsules').getAttribute('data-capsules'))).toBeGreaterThan(0);
   expect((await saved(page)).training.clock.hour).toBeTruthy();
@@ -110,7 +110,7 @@ test('정각을 마스터했으면 5분 트레이너가 열린다, 1분은 아�
   await bump(page, 'ArrowUp', async () => {
     await expect(page).toHaveURL(/#\/field\/training\/clock\/five$/);
   });
-  await expect(page.getByRole('heading', { name: '5분 시계 트레이너' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: '5분 시계' })).toBeVisible();
   await page.getByTestId('clock-challenge-btn').click();
   await solve(page, 9);
   await expect(page.getByTestId('training-result')).toHaveAttribute('data-result', 'pass');
@@ -151,4 +151,30 @@ test('학습 기록 화면에 시계 읽기 최고 기록 줄이 있다', async 
   await expect(rec).toContainText('정각: ⭐ 20.0초');
   await expect(rec).toContainText('5분: 아직 도전 전');
   await expect(rec).toContainText('1분: 아직 도전 전');
+});
+
+test.describe('좁은 화면(360px) 1분 단계', () => {
+  test.use({ viewport: { width: 360, height: 740 } });
+  test('보기 글(예: 12:52)이 줄바꿈 없이 한 줄에 들어간다', async ({ page }) => {
+    await seed(page, { pos: { x: 12, y: 5, facing: 'up' }, clockMastered: ['hour', 'five'] });
+    await page.goto('/#/field/training/clock/one');
+    await page.getByTestId('clock-challenge-btn').click();
+    for (let i = 0; i < 9; i++) {
+      const fits = await page.locator('[data-testid=training-choice]').evaluateAll((els) =>
+        els.map((e) => {
+          const b = e as HTMLElement;
+          return { overflow: b.scrollWidth > b.clientWidth, h: b.getBoundingClientRect().height };
+        }),
+      );
+      for (const f of fits) {
+        expect(f.overflow).toBe(false);
+        expect(f.h).toBeLessThanOrEqual(80); // 한 줄 높이 (min-height 68)
+      }
+      if (i < 8) {
+        const key = await page.locator('.training__question').getAttribute('data-key');
+        await solve(page, 1);
+        await expect(page.locator('.training__question')).not.toHaveAttribute('data-key', key ?? '');
+      }
+    }
+  });
 });

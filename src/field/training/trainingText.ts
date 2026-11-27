@@ -58,7 +58,7 @@ export const trainingText = {
   },
 
   /** 시계 읽기 트레이너 (입구 간판·위쪽 글) */
-  clockName: (level: ClockLevel) => `${CLOCK_LEVEL_LABELS[level]} 시계 트레이너`,
+  clockName: (level: ClockLevel) => `${CLOCK_LEVEL_LABELS[level]} 시계`,
   clockHint: (level: ClockLevel, count: number) => `${CLOCK_LEVEL_LABELS[level]} 시계 ${count}개를 모두 맞혀요`,
   clockResult(level: ClockLevel, result: FlowResult, outcome: ArithOutcome, timeMs?: number): ResultText {
     return trainingText.challengeResult(trainingText.clockName(level), result, outcome, timeMs);

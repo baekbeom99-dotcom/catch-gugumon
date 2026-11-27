@@ -171,7 +171,7 @@ export function clockRunnerFactory(level: ClockLevel): RunnerFactory<BoardQuesti
   return (onFlow, onDone) => createClockRunner<BoardQuestion>(level, onFlow, onDone);
 }
 
-export type StatueOutcome ={ ok: boolean; stars: number; /** 틀린 횟수 */ mistakes: number };
+export type StatueOutcome = { ok: boolean; stars: number; /** 틀린 횟수 */ mistakes: number };
 export type StatueDone = RunDone<StatueOutcome>;
 
 /** 동상: count문제를 차례로(틀리면 그 문제를 다시, 틀린 횟수는 센다), 끝에서 finishStatue 한 번. 별은 하나도 안 틀렸을 때만 */

@@ -207,8 +207,10 @@
 }
 
 .training-choice--text {
-  font-size: 28px;
-  letter-spacing: 0.02em;
+  font-size: 24px;
+  letter-spacing: 0;
+  padding: 6px 2px;
+  white-space: nowrap;
 }
 
 .clock-records {

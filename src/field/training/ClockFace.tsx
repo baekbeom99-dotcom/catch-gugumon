@@ -21,7 +21,7 @@ const NUMBERS = Array.from({ length: 12 }, (_, i) => i + 1);
 export function ClockFace({ h, m, size = 160 }: { h: number; m: number; size?: number }) {
   const { hour, minute } = clockHandAngles(h, m);
   const hourEnd = polar(hour, 22);
-  const minuteEnd = polar(minute, 35);
+  const minuteEnd = polar(minute, 40);
   return (
     <svg
       className="clock-face"
@@ -49,7 +49,7 @@ export function ClockFace({ h, m, size = 160 }: { h: number; m: number; size?: n
         );
       })}
       <line x1="50" y1="50" x2={hourEnd.x} y2={hourEnd.y} style={{ stroke: 'var(--ink)' }} strokeWidth="4.2" strokeLinecap="round" />
-      <line x1="50" y1="50" x2={minuteEnd.x} y2={minuteEnd.y} style={{ stroke: 'var(--ink-soft, var(--ink))' }} strokeWidth="2.6" strokeLinecap="round" />
+      <line x1="50" y1="50" x2={minuteEnd.x} y2={minuteEnd.y} style={{ stroke: 'var(--orange, #e8590c)' }} strokeWidth="2.2" strokeLinecap="round" />
       <circle cx="50" cy="50" r="2.6" style={{ fill: 'var(--ink)' }} />
     </svg>
   );
