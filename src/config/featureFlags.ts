@@ -14,10 +14,10 @@ export function isQuizEnabled(): boolean {
 }
 
 /**
- * 별점수(코스튬을 살 화폐) 켜기. 코스튬이 나오기 전까지 꺼 둔다 — 꺼져 있으면 별점수가 쌓이지 않고 화면에도 없다.
- * 저장 칸(field.starPoints)은 늘 있다 (켠 뒤 저장 형식을 바꾸지 않게).
+ * 별점수(코스튬을 살 화폐) 켜기. 켜져 있다 — 발견·포획·훈련·동상·계단에서 쌓이고 필드 화면에 개수가 보인다.
+ * 끄면 별점수가 쌓이지 않고 화면에도 없다. 저장 칸(field.starPoints)은 늘 있다.
  */
-export const STAR_POINTS_ENABLED = false;
+export const STAR_POINTS_ENABLED = true;
 
 /** 별점수가 켜져 있는가. E2E에서는 window.__GUGU_E2E_STARS__ (true·false)가 있으면 그것을 따른다. 부를 때마다 읽는다 */
 export function isStarPointsEnabled(): boolean {

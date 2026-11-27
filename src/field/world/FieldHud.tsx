@@ -1,5 +1,7 @@
 import { CAPSULE_NAMES, CAPSULE_TYPES } from '../../domain/field/capsules';
 import { SPECIES } from '../../domain/field/creatures';
+import { isStarPointsEnabled } from '../../config/featureFlags';
+import { formatStars } from '../../domain/field/starPoints';
 import { COMPANION_MAX_HP } from '../../domain/field/tuning';
 import { useGameStore } from '../../store/useGameStore';
 import { CapsuleBall } from '../art/CapsuleBall';
@@ -11,6 +13,8 @@ export function FieldHud() {
   const capsules = useGameStore((s) => s.field.capsules);
   const caught = useGameStore((s) => Object.keys(s.field.species).length);
   const hp = useGameStore((s) => s.field.species[pickCompanion(s)]?.hp ?? COMPANION_MAX_HP);
+  const stars = useGameStore((s) => s.field.starPoints);
+  const showStars = isStarPointsEnabled();
   return (
     <div className="fieldhud" role="group" aria-label="필드 정보">
       <div className="fieldhud__row">
@@ -26,6 +30,11 @@ export function FieldHud() {
           도감 {caught}/{SPECIES.length}
         </span>
         <HpBar hp={hp} label={`동행 체력 ${hp}`} />
+        {showStars && (
+          <span className="fieldhud__stars" data-testid="hud-stars" aria-label={`별점수 ${formatStars(stars)}개`}>
+            ⭐ {formatStars(stars)}
+          </span>
+        )}
       </div>
     </div>
   );

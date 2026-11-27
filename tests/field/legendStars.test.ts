@@ -16,7 +16,7 @@ const master12 = () => st().finishTraining({ dan: 12, mode: 'challenge', mistake
 
 beforeEach(() => st().resetAll());
 afterEach(() => {
-  delete g.__GUGU_E2E_STARS__;
+  g.__GUGU_E2E_STARS__ = false;
 });
 
 describe('레전드 보상 별 20개', () => {

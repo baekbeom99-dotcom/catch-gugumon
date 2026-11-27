@@ -20,6 +20,11 @@ import { currentSave } from '../../src/screens/admin/DataSecurityPanels';
 
 const NOW = new Date('2026-11-18T09:00:00').getTime();
 
+// 별점수는 배포에서 켜져 있다 — 이 파일은 별이 안 쌓이는 기준이라 끈다
+beforeEach(() => {
+  (globalThis as { __GUGU_E2E_STARS__?: unknown }).__GUGU_E2E_STARS__ = false;
+});
+
 /** 트레이닝센터가 생기기 전의 필드 저장 (training 칸 없음) */
 function oldField(position: { map: string; x: number; y: number; facing: string }) {
   const { training: _t, ...rest } = initialField() as unknown as Record<string, unknown>;

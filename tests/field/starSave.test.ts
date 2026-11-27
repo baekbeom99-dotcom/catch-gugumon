@@ -24,11 +24,11 @@ function battle(over: Record<string, unknown> = {}) {
 
 describe('별점수 플래그', () => {
   afterEach(() => {
-    delete g.__GUGU_E2E_STARS__;
+    g.__GUGU_E2E_STARS__ = false;
   });
-  it('배포 설정은 꺼져 있다', () => {
-    expect(STAR_POINTS_ENABLED).toBe(false);
-    expect(isStarPointsEnabled()).toBe(false);
+  it('배포 설정은 켜져 있다', () => {
+    expect(STAR_POINTS_ENABLED).toBe(true);
+    expect(isStarPointsEnabled()).toBe(true);
   });
   it('__GUGU_E2E_STARS__가 불리언이면 그 값, 아니면 무시', () => {
     g.__GUGU_E2E_STARS__ = true;
@@ -36,7 +36,7 @@ describe('별점수 플래그', () => {
     g.__GUGU_E2E_STARS__ = false;
     expect(isStarPointsEnabled()).toBe(false);
     g.__GUGU_E2E_STARS__ = 'yes';
-    expect(isStarPointsEnabled()).toBe(false);
+    expect(isStarPointsEnabled()).toBe(STAR_POINTS_ENABLED);
   });
 });
 
@@ -65,7 +65,7 @@ describe('별점수 저장 형식', () => {
 
 describe('별점수 — 꺼져 있을 때는 아무것도 안 바뀐다', () => {
   beforeEach(() => {
-    delete g.__GUGU_E2E_STARS__;
+    g.__GUGU_E2E_STARS__ = false;
     st().resetAll();
   });
 
@@ -106,7 +106,7 @@ describe('별점수 — 켜져 있을 때', () => {
     st().resetAll();
   });
   afterEach(() => {
-    delete g.__GUGU_E2E_STARS__;
+    g.__GUGU_E2E_STARS__ = false;
   });
 
   it('addStarPoints는 0 이상 정수만 더한다', () => {
@@ -170,5 +170,15 @@ describe('별점수 — 켜져 있을 때', () => {
     expect(st().finishStatue({ timeMs: 1000, allCorrect: false, now: NOW })).toEqual({ ok: true, stars: 0 });
     expect(st()).toBe(before);
     expect(st().finishStatue({ timeMs: NaN, allCorrect: true, now: NOW }).stars).toBe(5);
+  });
+});
+
+describe('formatStars', () => {
+  it('천 단위로 끊고 이상한 값은 0', async () => {
+    const { formatStars } = await import('../../src/domain/field/starPoints');
+    expect(formatStars(0)).toBe('0');
+    expect(formatStars(1234)).toBe('1,234');
+    expect(formatStars(-5)).toBe('0');
+    expect(formatStars(NaN)).toBe('0');
   });
 });

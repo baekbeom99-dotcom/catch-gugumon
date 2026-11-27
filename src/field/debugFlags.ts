@@ -12,8 +12,8 @@
  *   window.__GUGU_E2E_COPY__ = true      잡거나 돌려보내면 기술 복사 100% (후보 중 첫 기술). false면 0% (E2E 기본). 없으면 2%
  *   window.__GUGU_E2E_THROW__ = 'healed'  캡슐 던지기 결과 고정 (caught·healed·escaped·angry)
  *   window.__GUGU_E2E_COMBAT__ = { crit: true, dodge: false, effect: false }   전투 굴림 고정 (크리티컬·회피·특수효과 성공). 빠진 칸은 실제 확률
- *   window.__GUGU_E2E_QUIZ__ = true      퀴즈 모험(펫·탐험·상점 탭, 타이틀 버튼)을 켠다. 없으면 배포 설정(꺼짐). src/config/featureFlags.ts 에서 읽는다
- *   window.__GUGU_E2E_STARS__ = true     별점수를 켠다(발견·포획·훈련·동상 적립). 없으면 배포 설정(꺼짐). src/config/featureFlags.ts 에서 읽는다
+ *   window.__GUGU_E2E_QUIZ__ = true      퀴즈 모험(펫·탐험·상점 탭, 타이틀 버튼)을 켠다. 없으면 배포 설정(켜짐; e2e/fixtures.ts가 기본 false로 끈다). src/config/featureFlags.ts 에서 읽는다
+ *   window.__GUGU_E2E_STARS__ = true     별점수를 켠다(발견·포획·훈련·동상 적립). 없으면 배포 설정(켜짐; e2e/fixtures.ts가 기본 false로 끈다). src/config/featureFlags.ts 에서 읽는다
  *   window.__GUGU_E2E_REVERSE__ = true   마스터한 단의 거꾸로(나눗셈) 묻기 확률 100%. false면 0% (E2E 기본). 없으면 REVERSE_CHANCE
  *
  * 새 스위치를 만들면 여기에 더하고 CLAUDE.md 'E2E 스위치' 줄도 고친다.

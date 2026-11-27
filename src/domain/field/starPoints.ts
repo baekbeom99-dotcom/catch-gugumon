@@ -35,6 +35,12 @@ export function statueStars(timeMs: number): number {
 }
 
 /** 별점수 더하기: 지금 값은 0 이상 정수로 고쳐 읽고, 0보다 큰 정수만 더한다 */
+/** 필드 화면에 보일 별 개수 글: 큰 수도 줄바꿈 없이 천 단위로 끊는다 (예: 1234 → 1,234) */
+export function formatStars(n: number): string {
+  const v = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+  return v.toLocaleString('en-US');
+}
+
 export function addStarPoints(current: number, n: number): number {
   const base = Number.isInteger(current) && current >= 0 ? current : 0;
   return Number.isInteger(n) && n > 0 ? base + n : base;

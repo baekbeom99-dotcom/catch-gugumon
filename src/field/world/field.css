@@ -108,6 +108,7 @@
   align-items: center;
   gap: 1px;
 }
+.fieldhud__stars,
 .fieldhud__dex {
   white-space: nowrap;
 }
